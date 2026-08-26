@@ -115,6 +115,9 @@
     "number": {
       "alarm_volume": {
         "name": "Alarm Volume"
+      },
+      "volume": {
+        "name": "Speaker Volume"
       }
     },
     "button": {

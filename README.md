@@ -27,7 +27,7 @@ A modern, fast, and reliable Home Assistant custom integration offering **Hybrid
 ## ✨ Features
 
 - **🌐 Full Google Home Ecosystem Support (Local & Cloud HomeGraph)**:
-  - **Google Home & Nest Speakers**: Timers, Alarms, Next Alarm/Timer timestamps, Volume, Do Not Disturb, Night Mode, Reboot, Wi-Fi & Bluetooth MAC diagnostics.
+  - **Google Home & Nest Speakers**: Live Media & Speech Volume Slider (0-100% with live sync), Alarm Volume Slider, Timers, Alarms, Next Alarm/Timer timestamps, Do Not Disturb, Night Mode, Reboot, Wi-Fi & Bluetooth MAC diagnostics.
   - **Lights & Dimmers**: On/Off, Brightness, Color control for all Google Home synced lights (`light`).
   - **Switches & Smart Plugs**: Control power and inspect real-time state (`switch`).
   - **Robot Vacuum Cleaners**: Start, stop, dock, and status tracking for connected vacuums (`vacuum`).

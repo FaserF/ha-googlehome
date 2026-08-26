@@ -71,11 +71,12 @@ class GoogleHomeBaseEntity(CoordinatorEntity[GoogleHomeDataUpdateCoordinator]):
         if device and (device.mac_address or device.get_bluetooth_mac()):
             from homeassistant.helpers.device_registry import (
                 CONNECTION_NETWORK_MAC,
+                format_mac,
             )
 
             mac = device.mac_address or device.get_bluetooth_mac()
             if mac:
-                connections.add((CONNECTION_NETWORK_MAC, mac))
+                connections.add((CONNECTION_NETWORK_MAC, format_mac(mac)))
 
         return DeviceInfo(
             identifiers={(DOMAIN, self.device_id)},

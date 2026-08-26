@@ -17,6 +17,7 @@ from .const import (
     API_ENDPOINT_ALARM_VOLUME,
     API_ENDPOINT_ALARMS,
     API_ENDPOINT_BLUETOOTH_STATUS,
+    API_ENDPOINT_CURRENT_VOLUME,
     API_ENDPOINT_DEVICE_INFO,
     API_ENDPOINT_DO_NOT_DISTURB,
     API_ENDPOINT_NIGHT_MODE_SETTINGS,
@@ -310,6 +311,16 @@ class GlocaltokensApiClient:
             if volume_data and JSON_ALARM_VOLUME in volume_data:
                 device.set_alarm_volume(volume_data[JSON_ALARM_VOLUME] * 100)
 
+            # Poll Device Media / Speech Volume
+            try:
+                curr_vol_data = await self.get_current_device_volume(device)
+                if curr_vol_data and "volume" in curr_vol_data:
+                    device.set_device_volume(curr_vol_data["volume"] * 100)
+                elif curr_vol_data and "level" in curr_vol_data:
+                    device.set_device_volume(curr_vol_data["level"] * 100)
+            except Exception:
+                pass
+
             # Poll Do Not Disturb
             dnd_data = await self.get_do_not_disturb(device)
             if dnd_data and JSON_NOTIFICATIONS_ENABLED in dnd_data:
@@ -446,6 +457,29 @@ class GlocaltokensApiClient:
         float_volume = round(volume / 100, 2)
         await self.set_alarm_volume(device, float_volume)
         device.set_alarm_volume(volume)
+
+    async def get_current_device_volume(
+        self, device: GoogleHomeDevice
+    ) -> JsonDict | None:
+        """Get current live speaker / media volume."""
+        return await self._request("GET", device, API_ENDPOINT_CURRENT_VOLUME)
+
+    async def set_device_volume(
+        self, device: GoogleHomeDevice, volume: float
+    ) -> JsonDict | None:
+        """Set normal speaker volume on device (0.0 - 1.0)."""
+        return await self._request(
+            "POST",
+            device,
+            API_ENDPOINT_CURRENT_VOLUME,
+            json_data={"level": volume},
+        )
+
+    async def update_device_volume(self, device: GoogleHomeDevice, volume: int) -> None:
+        """Update normal speaker volume percentage (0-100) and sync local state."""
+        float_volume = round(volume / 100, 2)
+        await self.set_device_volume(device, float_volume)
+        device.set_device_volume(volume)
 
     async def get_do_not_disturb(self, device: GoogleHomeDevice) -> JsonDict | None:
         """Get Do Not Disturb state."""

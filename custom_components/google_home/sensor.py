@@ -21,7 +21,6 @@ from .const import (
     DOMAIN,
     GOOGLE_HOME_ALARM_DEFAULT_VALUE,
     ICON_ALARMS,
-    ICON_BLUETOOTH,
     ICON_TIMERS,
     ICON_TOKEN,
     ICON_WIFI,
@@ -92,11 +91,6 @@ async def async_setup_entry(
                     device_name=device.name,
                 ),
                 GoogleHomeWifiSensor(
-                    coordinator=coordinator,
-                    device_id=device.device_id,
-                    device_name=device.name,
-                ),
-                GoogleHomeBluetoothSensor(
                     coordinator=coordinator,
                     device_id=device.device_id,
                     device_name=device.name,
@@ -409,22 +403,3 @@ class GoogleHomeWifiSensor(GoogleHomeBaseEntity, SensorEntity):
             "signal_level": rssi,
             "ip_address": device.ip_address if device else None,
         }
-
-
-class GoogleHomeBluetoothSensor(GoogleHomeBaseEntity, SensorEntity):
-    """Google Home Bluetooth MAC sensor."""
-
-    _attr_icon = ICON_BLUETOOTH
-    _attr_entity_category = EntityCategory.DIAGNOSTIC
-    _attr_entity_registry_enabled_default = False
-
-    @property
-    def label(self) -> str:
-        """Label to use for name and unique id."""
-        return "bluetooth"
-
-    @property
-    def native_value(self) -> str | None:
-        """Return Bluetooth MAC address."""
-        device = self.get_device()
-        return device.get_bluetooth_mac() if device else None

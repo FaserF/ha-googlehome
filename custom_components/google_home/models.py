@@ -47,6 +47,7 @@ class GoogleHomeDevice:
         self.available = True
         self._do_not_disturb = False
         self._alarm_volume = GOOGLE_HOME_ALARM_DEFAULT_VALUE
+        self._device_volume: float = 0.5
         self._night_mode = False
         self._wifi_rssi: int | None = None
         self._wifi_ssid: str | None = None
@@ -135,6 +136,14 @@ class GoogleHomeDevice:
     def get_alarm_volume(self) -> float:
         """Return Alarm Volume status."""
         return self._alarm_volume
+
+    def set_device_volume(self, volume: int | float) -> None:
+        """Set normal device media/speech volume level."""
+        self._device_volume = float(volume)
+
+    def get_device_volume(self) -> float:
+        """Return normal device media/speech volume level."""
+        return self._device_volume
 
     def set_night_mode(self, status: bool) -> None:
         """Set Night Mode status."""

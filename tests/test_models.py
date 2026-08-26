@@ -43,6 +43,12 @@ def test_google_home_device_creation():
     dev.set_bluetooth_mac("AA:BB:CC:DD:EE:FF")
     assert dev.get_bluetooth_mac() == "AA:BB:CC:DD:EE:FF"
 
+    dev.set_alarm_volume(75)
+    assert dev.get_alarm_volume() == 75.0
+
+    dev.set_device_volume(60)
+    assert dev.get_device_volume() == 60.0
+
     dev.set_system_info(firmware="1.56.281627", mac="00:1A:2B:3C:4D:5E")
     assert dev.firmware_version == "1.56.281627"
     assert dev.mac_address == "00:1A:2B:3C:4D:5E"

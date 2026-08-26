@@ -115,6 +115,9 @@
     "number": {
       "alarm_volume": {
         "name": "Weckerlautstärke"
+      },
+      "volume": {
+        "name": "Lautsprecher-Lautstärke"
       }
     },
     "button": {

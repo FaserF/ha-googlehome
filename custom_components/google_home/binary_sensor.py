@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
@@ -83,13 +84,37 @@ class GoogleHomeCloudBinarySensor(
         device = self.get_device()
         if not device:
             return False
-        # Contact sensor, motion, occupancy or doorbell press
+        # Contact sensor, motion, occupancy, doorbell press, or Nest Aware AI detections
         return bool(
             device.state.get("openPercent", 0) > 0
             or device.state.get("occupancy", "UNOCCUPIED") == "OCCUPIED"
             or device.state.get("motionDetected", False)
             or device.state.get("doorbellPressed", False)
+            or device.state.get("personDetected", False)
+            or device.state.get("packageDelivered", False)
+            or device.state.get("packageRetrieved", False)
+            or device.state.get("animalDetected", False)
+            or device.state.get("vehicleDetected", False)
+            or device.state.get("soundDetected", False)
         )
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return Nest Aware AI & event attributes."""
+        device = self.get_device()
+        if not device:
+            return {}
+        return {
+            "person_detected": bool(device.state.get("personDetected", False)),
+            "package_delivered": bool(device.state.get("packageDelivered", False)),
+            "package_retrieved": bool(device.state.get("packageRetrieved", False)),
+            "animal_detected": bool(device.state.get("animalDetected", False)),
+            "vehicle_detected": bool(device.state.get("vehicleDetected", False)),
+            "sound_detected": bool(device.state.get("soundDetected", False)),
+            "familiar_faces": device.state.get("familiarFaces", []),
+            "event_timestamp": device.state.get("eventTimestamp"),
+            "event_zone": device.state.get("activityZone"),
+        }
 
     @property
     def device_class(self) -> BinarySensorDeviceClass | None:
@@ -101,6 +126,10 @@ class GoogleHomeCloudBinarySensor(
             return BinarySensorDeviceClass.DOOR
         if "action.devices.traits.OccupancySensing" in device.traits:
             return BinarySensorDeviceClass.OCCUPANCY
+        if device.state.get("personDetected"):
+            return BinarySensorDeviceClass.PRESENCE
+        if device.state.get("soundDetected"):
+            return BinarySensorDeviceClass.SOUND
         return BinarySensorDeviceClass.MOTION
 
     @property
@@ -115,9 +144,12 @@ class GoogleHomeCloudBinarySensor(
         device = self.get_device()
         connections = set()
         if device and device.mac_address:
-            from homeassistant.helpers.device_registry import CONNECTION_NETWORK_MAC
+            from homeassistant.helpers.device_registry import (
+                CONNECTION_NETWORK_MAC,
+                format_mac,
+            )
 
-            connections.add((CONNECTION_NETWORK_MAC, device.mac_address))
+            connections.add((CONNECTION_NETWORK_MAC, format_mac(device.mac_address)))
 
         return DeviceInfo(
             identifiers={(DOMAIN, self.device_id)},
