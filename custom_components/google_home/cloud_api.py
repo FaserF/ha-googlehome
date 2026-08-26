@@ -65,21 +65,43 @@ class GoogleHomeCloudClient:
         devices: list[CloudHomeDevice] = []
         raw_devices = getattr(homegraph.home, "devices", [])
 
+        # Build map of project_id / code -> human-friendly name (e.g. Xiaomi Home, Hue, Tuya, Smart Life)
+        project_name_map: dict[str, str] = {}
+        for pt in getattr(homegraph, "project_types", []):
+            code = getattr(pt, "code", "")
+            pname = getattr(pt, "name", "")
+            if code and pname:
+                project_name_map[code] = pname
+
         for item in raw_devices:
-            dev_id = getattr(
-                getattr(item, "device_info", None), "device_id", ""
-            ) or getattr(item, "device_name", "")
+            dev_info = getattr(item, "device_info", None)
+            dev_id = getattr(dev_info, "device_id", "") or getattr(
+                item, "device_name", ""
+            )
             name = getattr(item, "device_name", "Unknown Google Device")
             device_type = (
-                getattr(getattr(item, "device_info", None), "device_type", "")
+                getattr(dev_info, "device_type", "")
+                or getattr(item, "device_type", "")
                 or "action.devices.types.GENERIC"
             )
             hardware_model = getattr(getattr(item, "hardware", None), "model", "")
 
             # Agent / Manufacturer info
-            agent_info = getattr(getattr(item, "device_info", None), "agent_info", None)
-            agent_id = getattr(agent_info, "agent_id", "") if agent_info else ""
-            agent_name = getattr(agent_info, "agent_name", "") if agent_info else ""
+            agent_info = getattr(dev_info, "agent_info", None)
+            agent_id = ""
+            agent_name = ""
+            if agent_info:
+                agent_id = (
+                    getattr(agent_info, "api_project_id", "")
+                    or getattr(agent_info, "agent_id", "")
+                    or getattr(agent_info, "unique_id", "")
+                )
+                agent_name = project_name_map.get(agent_id, "") or getattr(
+                    agent_info, "agent_name", ""
+                )
+
+            if not agent_name and agent_id:
+                agent_name = project_name_map.get(agent_id, agent_id)
 
             # Check if this device originates from Home Assistant (e.g. Nabu Casa Sync)
             is_ha = any(

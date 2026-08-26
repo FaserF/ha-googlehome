@@ -78,10 +78,13 @@ class GoogleHomeBaseEntity(CoordinatorEntity[GoogleHomeDataUpdateCoordinator]):
             if mac:
                 connections.add((CONNECTION_NETWORK_MAC, format_mac(mac)))
 
+        manufacturer = device.manufacturer if device else MANUFACTURER
+        model = device.model_name if device else "Google Home / Nest"
+
         return DeviceInfo(
             identifiers={(DOMAIN, self.device_id)},
             name=self.device_name,
-            manufacturer=MANUFACTURER,
+            manufacturer=manufacturer,
             model=model,
             sw_version=firmware,
             connections=connections,

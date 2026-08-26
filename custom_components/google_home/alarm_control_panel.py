@@ -134,12 +134,8 @@ class GoogleHomeCloudAlarmControlPanel(
         return DeviceInfo(
             identifiers={(DOMAIN, self.device_id)},
             name=self.name,
-            manufacturer=device.agent_name
-            if device and device.agent_name
-            else MANUFACTURER,
-            model=device.hardware_model
-            if device and device.hardware_model
-            else "Google Nest Secure",
+            manufacturer=device.manufacturer if device else MANUFACTURER,
+            model=device.model_name if device else "Google Cloud Device",
             sw_version=device.firmware_version if device else None,
             hw_version=device.hardware_version if device else None,
             connections=connections,

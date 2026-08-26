@@ -59,6 +59,46 @@ class GoogleHomeDevice:
         self._timers: list[GoogleHomeTimer] = []
         self._alarms: list[GoogleHomeAlarm] = []
 
+    @property
+    def manufacturer(self) -> str:
+        """Return the device manufacturer (e.g. LG, Lenovo, JBL, Google)."""
+        hw = (self.hardware or "").lower()
+        nm = self.name.lower()
+        if "lg" in hw or "wk7" in hw or "thinq" in hw or "lg " in nm:
+            return "LG Electronics"
+        if "lenovo" in hw or "cd-" in hw or "lenovo" in nm:
+            return "Lenovo"
+        if "jbl" in hw or "link" in hw or "jbl" in nm:
+            return "JBL"
+        if "sony" in hw or "lf-" in hw or "sony" in nm:
+            return "Sony"
+        if "bose" in hw or "bose" in nm:
+            return "Bose"
+        if "harman" in hw or "kardon" in hw:
+            return "Harman Kardon"
+        if "marshall" in hw or "marshall" in nm:
+            return "Marshall"
+        if "panasonic" in hw or "panasonic" in nm:
+            return "Panasonic"
+        if "insignia" in hw:
+            return "Insignia"
+        if "polk" in hw:
+            return "Polk Audio"
+        if "sonos" in hw or "sonos" in nm:
+            return "Sonos"
+        if "instar" in hw or "in-" in hw or "instar" in nm or "in-8015" in nm:
+            return "INSTAR"
+        if "xiaomi" in hw or "xiaomi" in nm or "mi " in nm or "roborock" in hw:
+            return "Xiaomi"
+        return "Google"
+
+    @property
+    def model_name(self) -> str:
+        """Return the model name of the Google Home device."""
+        if self.hardware and self.hardware.strip():
+            return self.hardware.strip()
+        return "Google Cast Device"
+
     def set_system_info(
         self,
         firmware: str | None = None,

@@ -14,7 +14,13 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .cloud_coordinator import GoogleHomeCloudDataUpdateCoordinator
 from .cloud_models import CloudHomeDevice
-from .const import DATA_COORDINATOR, DOMAIN, ICON_DO_NOT_DISTURB, ICON_NIGHT_MODE
+from .const import (
+    DATA_COORDINATOR,
+    DOMAIN,
+    ICON_DO_NOT_DISTURB,
+    ICON_NIGHT_MODE,
+    MANUFACTURER,
+)
 from .coordinator import GoogleHomeDataUpdateCoordinator
 from .entity import GoogleHomeBaseEntity
 from .models import GoogleHomeDevice
@@ -160,12 +166,8 @@ class GoogleHomeCloudSwitch(
         return DeviceInfo(
             identifiers={(DOMAIN, self.device_id)},
             name=self.name,
-            manufacturer=device.agent_name
-            if device and device.agent_name
-            else "Google",
-            model=device.hardware_model
-            if device and device.hardware_model
-            else "Google Cloud Device",
+            manufacturer=device.manufacturer if device else MANUFACTURER,
+            model=device.model_name if device else "Google Cloud Device",
             sw_version=device.firmware_version if device else None,
             hw_version=device.hardware_version if device else None,
             connections=connections,

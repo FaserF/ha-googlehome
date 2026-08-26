@@ -28,6 +28,30 @@ class CloudHomeDevice:
     online: bool = True
 
     @property
+    def manufacturer(self) -> str:
+        """Return the device manufacturer / service provider."""
+        if self.agent_name and self.agent_name.strip():
+            return self.agent_name.strip()
+        if self.agent_id and self.agent_id.strip():
+            cleaned = self.agent_id.replace("_", " ").replace("-", " ").title()
+            return cleaned
+        return "Google"
+
+    @property
+    def model_name(self) -> str:
+        """Return the hardware model or user-friendly device type name."""
+        if self.hardware_model and self.hardware_model.strip():
+            return self.hardware_model.strip()
+        if self.hardware_version and self.hardware_version.strip():
+            return self.hardware_version.strip()
+        if self.device_type:
+            # action.devices.types.LIGHT -> Light, action.devices.types.FAN -> Fan
+            parts = self.device_type.split(".")
+            raw_type = parts[-1].replace("_", " ").title()
+            return f"{self.manufacturer} {raw_type}".strip()
+        return "Google Cloud Device"
+
+    @property
     def is_light(self) -> bool:
         """Return True if device acts as a light."""
         return (

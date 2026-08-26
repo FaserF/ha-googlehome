@@ -103,9 +103,7 @@ class GoogleHomeCloudScene(
         return DeviceInfo(
             identifiers={(DOMAIN, self.device_id)},
             name=self.name,
-            manufacturer=device.agent_name
-            if device and device.agent_name
-            else MANUFACTURER,
+            manufacturer=device.manufacturer if device else MANUFACTURER,
             model="Google Home Automation / Routine",
         )
 

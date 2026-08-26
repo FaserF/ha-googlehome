@@ -171,7 +171,9 @@ class GoogleHomeDeviceVolumeNumber(GoogleHomeBaseEntity, NumberEntity):
         slug = dname.replace(" ", "_")
         for state in self.hass.states.async_all("media_player"):
             fname = state.attributes.get("friendly_name", "").strip().lower()
-            if (fname == dname or slug in state.entity_id) and "volume_level" in state.attributes:
+            if (
+                fname == dname or slug in state.entity_id
+            ) and "volume_level" in state.attributes:
                 vlevel = state.attributes.get("volume_level")
                 if vlevel is not None:
                     return round(float(vlevel) * 100)
