@@ -20,7 +20,14 @@ from homeassistant.util.percentage import (
 
 from .cloud_coordinator import GoogleHomeCloudDataUpdateCoordinator
 from .cloud_models import CloudHomeDevice
-from .const import DATA_CLOUD_COORDINATOR, DOMAIN, MANUFACTURER
+from .const import (
+    CONF_THIRD_PARTY_ENTITY_MODE,
+    DATA_CLOUD_COORDINATOR,
+    DEFAULT_THIRD_PARTY_ENTITY_MODE,
+    DOMAIN,
+    MANUFACTURER,
+    THIRD_PARTY_MODE_READONLY,
+)
 
 _LOGGER: logging.Logger = logging.getLogger(__package__)
 
@@ -42,12 +49,24 @@ async def async_setup_entry(
         entry.entry_id
     ][DATA_CLOUD_COORDINATOR]
 
+    third_party_mode = entry.options.get(
+        CONF_THIRD_PARTY_ENTITY_MODE,
+        entry.data.get(CONF_THIRD_PARTY_ENTITY_MODE, DEFAULT_THIRD_PARTY_ENTITY_MODE),
+    )
+
     registered_ids: set[str] = set()
 
     def _create_entities() -> list[GoogleHomeCloudFan]:
         new_ents = []
         for dev in coordinator.data or []:
-            if dev.is_fan and dev.device_id not in registered_ids:
+            if (
+                dev.is_fan
+                and dev.device_id not in registered_ids
+                and (
+                    not dev.is_third_party
+                    or third_party_mode != THIRD_PARTY_MODE_READONLY
+                )
+            ):
                 registered_ids.add(dev.device_id)
                 new_ents.append(
                     GoogleHomeCloudFan(coordinator=coordinator, device_id=dev.device_id)

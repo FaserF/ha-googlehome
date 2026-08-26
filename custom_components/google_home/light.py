@@ -17,7 +17,14 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .cloud_coordinator import GoogleHomeCloudDataUpdateCoordinator
 from .cloud_models import CloudHomeDevice
-from .const import DATA_CLOUD_COORDINATOR, DOMAIN, MANUFACTURER
+from .const import (
+    CONF_THIRD_PARTY_ENTITY_MODE,
+    DATA_CLOUD_COORDINATOR,
+    DEFAULT_THIRD_PARTY_ENTITY_MODE,
+    DOMAIN,
+    MANUFACTURER,
+    THIRD_PARTY_MODE_READONLY,
+)
 
 _LOGGER: logging.Logger = logging.getLogger(__package__)
 
@@ -39,12 +46,24 @@ async def async_setup_entry(
         entry.entry_id
     ][DATA_CLOUD_COORDINATOR]
 
+    third_party_mode = entry.options.get(
+        CONF_THIRD_PARTY_ENTITY_MODE,
+        entry.data.get(CONF_THIRD_PARTY_ENTITY_MODE, DEFAULT_THIRD_PARTY_ENTITY_MODE),
+    )
+
     registered_ids: set[str] = set()
 
     def _create_entities() -> list[GoogleHomeCloudLight]:
         new_ents = []
         for dev in coordinator.data or []:
-            if dev.is_light and dev.device_id not in registered_ids:
+            if (
+                dev.is_light
+                and dev.device_id not in registered_ids
+                and (
+                    not dev.is_third_party
+                    or third_party_mode != THIRD_PARTY_MODE_READONLY
+                )
+            ):
                 registered_ids.add(dev.device_id)
                 new_ents.append(
                     GoogleHomeCloudLight(
@@ -92,7 +111,15 @@ class GoogleHomeCloudLight(
     def name(self) -> str:
         """Return name."""
         device = self.get_device()
-        return device.name if device else "Google Light"
+        if not device:
+            return "Google Light"
+        # For Smart Clocks (Lenovo Smart Clock / Uhren), append 'Nachtlicht' for clarity
+        if any(
+            k in (device.hardware_model or "").lower() or k in device.name.lower()
+            for k in ("clock", "uhr", "cd-")
+        ):
+            return f"{device.name} Nachtlicht"
+        return device.name
 
     @property
     def is_on(self) -> bool:
@@ -134,18 +161,34 @@ class GoogleHomeCloudLight(
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn on light."""
-        await self.coordinator.client.async_execute_command(
-            device_id=self.device_id,
-            command="action.devices.commands.OnOff",
-            params={"on": True},
-        )
+        device = self.get_device()
+        if device and "action.devices.traits.NightLight" in (device.traits or []):
+            await self.coordinator.client.async_execute_command(
+                device_id=self.device_id,
+                command="action.devices.commands.SetNightLight",
+                params={"on": True},
+            )
+        else:
+            await self.coordinator.client.async_execute_command(
+                device_id=self.device_id,
+                command="action.devices.commands.OnOff",
+                params={"on": True},
+            )
         await self.coordinator.async_request_refresh()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn off light."""
-        await self.coordinator.client.async_execute_command(
-            device_id=self.device_id,
-            command="action.devices.commands.OnOff",
-            params={"on": False},
-        )
+        device = self.get_device()
+        if device and "action.devices.traits.NightLight" in (device.traits or []):
+            await self.coordinator.client.async_execute_command(
+                device_id=self.device_id,
+                command="action.devices.commands.SetNightLight",
+                params={"on": False},
+            )
+        else:
+            await self.coordinator.client.async_execute_command(
+                device_id=self.device_id,
+                command="action.devices.commands.OnOff",
+                params={"on": False},
+            )
         await self.coordinator.async_request_refresh()

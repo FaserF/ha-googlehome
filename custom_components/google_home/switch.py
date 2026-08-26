@@ -15,11 +15,14 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .cloud_coordinator import GoogleHomeCloudDataUpdateCoordinator
 from .cloud_models import CloudHomeDevice
 from .const import (
+    CONF_THIRD_PARTY_ENTITY_MODE,
     DATA_COORDINATOR,
+    DEFAULT_THIRD_PARTY_ENTITY_MODE,
     DOMAIN,
     ICON_DO_NOT_DISTURB,
     ICON_NIGHT_MODE,
     MANUFACTURER,
+    THIRD_PARTY_MODE_READONLY,
 )
 from .coordinator import GoogleHomeDataUpdateCoordinator
 from .entity import GoogleHomeBaseEntity
@@ -80,10 +83,24 @@ async def async_setup_entry(
     if cloud_coordinator is not None:
         registered_cloud_ids: set[str] = set()
 
+        third_party_mode = entry.options.get(
+            CONF_THIRD_PARTY_ENTITY_MODE,
+            entry.data.get(
+                CONF_THIRD_PARTY_ENTITY_MODE, DEFAULT_THIRD_PARTY_ENTITY_MODE
+            ),
+        )
+
         def _create_cloud_entities() -> list[GoogleHomeCloudSwitch]:
             new_ents = []
             for cdev in cloud_coordinator.data or []:
-                if cdev.is_switch and cdev.device_id not in registered_cloud_ids:
+                if (
+                    cdev.is_switch
+                    and cdev.device_id not in registered_cloud_ids
+                    and (
+                        not cdev.is_third_party
+                        or third_party_mode != THIRD_PARTY_MODE_READONLY
+                    )
+                ):
                     registered_cloud_ids.add(cdev.device_id)
                     new_ents.append(
                         GoogleHomeCloudSwitch(

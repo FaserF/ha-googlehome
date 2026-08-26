@@ -40,26 +40,32 @@ from .const import (
     CONF_ADDON_HOST,
     CONF_ADDON_PORT,
     CONF_AUTH_METHOD,
+    CONF_CLOUD_UPDATE_INTERVAL,
     CONF_IGNORE_HA_SYNCED_DEVICES,
+    CONF_LOCAL_UPDATE_INTERVAL,
     CONF_MASTER_TOKEN,
     CONF_OPERATION_MODE,
     CONF_PASSWORD,
     CONF_SELECTED_HOMES,
+    CONF_THIRD_PARTY_ENTITY_MODE,
     CONF_UPDATE_INTERVAL,
     CONF_USERNAME,
-    DEFAULT_ADDON_HOST,
-    DEFAULT_ADDON_PORT,
-    DEFAULT_IGNORE_HA_SYNCED_DEVICES,
-    DEFAULT_UPDATE_INTERVAL,
     DATA_CLIENT,
     DATA_CLOUD_CLIENT,
     DATA_CLOUD_COORDINATOR,
-    DATA_COORDINATOR,
+    DEFAULT_ADDON_HOST,
+    DEFAULT_ADDON_PORT,
+    DEFAULT_CLOUD_UPDATE_INTERVAL,
+    DEFAULT_IGNORE_HA_SYNCED_DEVICES,
+    DEFAULT_THIRD_PARTY_ENTITY_MODE,
+    DEFAULT_UPDATE_INTERVAL,
     DOMAIN,
     MAX_PASSWORD_LENGTH,
     MODE_CLOUD,
     MODE_HYBRID,
     MODE_LOCAL,
+    THIRD_PARTY_MODE_CONTROL,
+    THIRD_PARTY_MODE_READONLY,
 )
 from .exceptions import (
     AdvancedProtectionActive,
@@ -279,6 +285,9 @@ class GoogleHomeFlowHandler(AddonFlowMixin, ConfigFlow, domain=DOMAIN):
         """Step to select operation mode (Local & Cloud, Local only, Cloud only), home selection, and HA entity filtering."""
         if user_input is not None:
             mode = user_input.get(CONF_OPERATION_MODE, MODE_HYBRID)
+            third_party_mode = user_input.get(
+                CONF_THIRD_PARTY_ENTITY_MODE, DEFAULT_THIRD_PARTY_ENTITY_MODE
+            )
             ignore_ha = user_input.get(
                 CONF_IGNORE_HA_SYNCED_DEVICES, DEFAULT_IGNORE_HA_SYNCED_DEVICES
             )
@@ -302,6 +311,7 @@ class GoogleHomeFlowHandler(AddonFlowMixin, ConfigFlow, domain=DOMAIN):
                     CONF_USERNAME: self._username,
                     CONF_MASTER_TOKEN: self._master_token,
                     CONF_OPERATION_MODE: mode,
+                    CONF_THIRD_PARTY_ENTITY_MODE: third_party_mode,
                     CONF_IGNORE_HA_SYNCED_DEVICES: ignore_ha,
                     CONF_SELECTED_HOMES: selected_homes,
                     CONF_ADDON_HOST: self._addon_host,
@@ -330,6 +340,18 @@ class GoogleHomeFlowHandler(AddonFlowMixin, ConfigFlow, domain=DOMAIN):
                 SelectSelectorConfig(
                     options=[MODE_HYBRID, MODE_LOCAL, MODE_CLOUD],
                     translation_key="operation_mode",
+                    mode=SelectSelectorMode.DROPDOWN,
+                )
+            ),
+            vol.Required(
+                CONF_THIRD_PARTY_ENTITY_MODE, default=DEFAULT_THIRD_PARTY_ENTITY_MODE
+            ): SelectSelector(
+                SelectSelectorConfig(
+                    options=[
+                        THIRD_PARTY_MODE_READONLY,
+                        THIRD_PARTY_MODE_CONTROL,
+                    ],
+                    translation_key="third_party_entity_mode",
                     mode=SelectSelectorMode.DROPDOWN,
                 )
             ),
@@ -462,9 +484,6 @@ class GoogleHomeOptionsFlowHandler(OptionsFlow):
             CONF_MASTER_TOKEN,
             self.config_entry.data.get(CONF_MASTER_TOKEN, ""),
         )
-        current_interval = self.config_entry.options.get(
-            CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL
-        )
         current_mode = self.config_entry.options.get(
             CONF_OPERATION_MODE,
             self.config_entry.data.get(CONF_OPERATION_MODE, MODE_HYBRID),
@@ -483,9 +502,7 @@ class GoogleHomeOptionsFlowHandler(OptionsFlow):
 
         # Query available homes for multi-selection
         homes_dict: dict[str, str] = {}
-        entry_data = self.hass.data.get(DOMAIN, {}).get(
-            self.config_entry.entry_id, {}
-        )
+        entry_data = self.hass.data.get(DOMAIN, {}).get(self.config_entry.entry_id, {})
         cloud_coord = entry_data.get(DATA_CLOUD_COORDINATOR)
         cloud_client = entry_data.get(DATA_CLOUD_CLIENT)
         local_client = entry_data.get(DATA_CLIENT)
@@ -535,6 +552,13 @@ class GoogleHomeOptionsFlowHandler(OptionsFlow):
                 if ch not in existing_values:
                     homes_options.append(SelectOptionDict(value=ch, label=ch))
 
+        current_third_party_mode = self.config_entry.options.get(
+            CONF_THIRD_PARTY_ENTITY_MODE,
+            self.config_entry.data.get(
+                CONF_THIRD_PARTY_ENTITY_MODE, DEFAULT_THIRD_PARTY_ENTITY_MODE
+            ),
+        )
+
         schema_dict: dict[Any, Any] = {
             vol.Required(CONF_OPERATION_MODE, default=current_mode): SelectSelector(
                 SelectSelectorConfig(
@@ -543,13 +567,23 @@ class GoogleHomeOptionsFlowHandler(OptionsFlow):
                     mode=SelectSelectorMode.DROPDOWN,
                 )
             ),
+            vol.Required(
+                CONF_THIRD_PARTY_ENTITY_MODE, default=current_third_party_mode
+            ): SelectSelector(
+                SelectSelectorConfig(
+                    options=[
+                        THIRD_PARTY_MODE_READONLY,
+                        THIRD_PARTY_MODE_CONTROL,
+                    ],
+                    translation_key="third_party_entity_mode",
+                    mode=SelectSelectorMode.DROPDOWN,
+                )
+            ),
         }
 
         if homes_options:
             all_hids = [opt["value"] for opt in homes_options]
-            default_selection = (
-                current_homes if current_homes is not None else all_hids
-            )
+            default_selection = current_homes if current_homes is not None else all_hids
             schema_dict[
                 vol.Optional(CONF_SELECTED_HOMES, default=default_selection)
             ] = SelectSelector(
@@ -560,18 +594,50 @@ class GoogleHomeOptionsFlowHandler(OptionsFlow):
                 )
             )
 
+        current_legacy_interval = self.config_entry.options.get(
+            CONF_UPDATE_INTERVAL,
+            self.config_entry.data.get(CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL),
+        )
+        current_local_interval = self.config_entry.options.get(
+            CONF_LOCAL_UPDATE_INTERVAL,
+            self.config_entry.data.get(
+                CONF_LOCAL_UPDATE_INTERVAL,
+                max(60, current_legacy_interval),
+            ),
+        )
+        current_cloud_interval = self.config_entry.options.get(
+            CONF_CLOUD_UPDATE_INTERVAL,
+            self.config_entry.data.get(
+                CONF_CLOUD_UPDATE_INTERVAL,
+                DEFAULT_CLOUD_UPDATE_INTERVAL,
+            ),
+        )
+
         schema_dict.update(
             {
                 vol.Required(
                     CONF_IGNORE_HA_SYNCED_DEVICES, default=current_ignore_ha
                 ): BooleanSelector(),
                 vol.Required(
-                    CONF_UPDATE_INTERVAL, default=current_interval
+                    CONF_LOCAL_UPDATE_INTERVAL,
+                    default=max(60, int(current_local_interval)),
                 ): NumberSelector(
                     NumberSelectorConfig(
-                        min=10,
-                        max=600,
-                        step=1,
+                        min=60,
+                        max=3600,
+                        step=5,
+                        mode=NumberSelectorMode.BOX,
+                        unit_of_measurement="seconds",
+                    )
+                ),
+                vol.Required(
+                    CONF_CLOUD_UPDATE_INTERVAL,
+                    default=max(60, int(current_cloud_interval)),
+                ): NumberSelector(
+                    NumberSelectorConfig(
+                        min=60,
+                        max=3600,
+                        step=10,
                         mode=NumberSelectorMode.BOX,
                         unit_of_measurement="seconds",
                     )

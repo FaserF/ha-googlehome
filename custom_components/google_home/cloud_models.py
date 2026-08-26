@@ -89,6 +89,27 @@ class CloudHomeDevice:
         return "Google"
 
     @property
+    def is_third_party(self) -> bool:
+        """Return True if device is from a third-party partner ecosystem (e.g. Xiaomi, Tuya, Hue).
+
+        Google-native devices and Google Assistant Built-In devices (Lenovo Smart Clock,
+        JBL Link, LG ThinQ Google Assistant speakers) that run Google Cast / Assistant
+        firmware are considered first-party Google Home ecosystem devices.
+        """
+        if self.is_automation_routine:
+            return False
+        if self.manufacturer in ("Google", "Google Nest"):
+            return False
+        # Assistant Built-in Smart Clocks and Speakers run Google Cast / Assistant
+        if (
+            "action.devices.types.SPEAKER" in self.device_type
+            and "action.devices.traits.Assistant" in self.traits
+        ):
+            return False
+        # If manufacturer is any partner brand (Xiaomi, Tuya, Hue, etc.), it's third party
+        return True
+
+    @property
     def model_name(self) -> str:
         """Return the hardware model or user-friendly device type name."""
         if self.hardware_model and self.hardware_model.strip():
@@ -105,10 +126,23 @@ class CloudHomeDevice:
     @property
     def is_light(self) -> bool:
         """Return True if device acts as a light."""
-        if (
-            self.is_automation_routine
-            or "action.devices.types.SPEAKER" in self.device_type
-        ):
+        if self.is_automation_routine:
+            return False
+        # If device specifically has NightLight trait (e.g. Lenovo Smart Clock), it IS a light entity
+        if "action.devices.traits.NightLight" in self.traits:
+            return True
+        if "action.devices.types.SPEAKER" in self.device_type:
+            # Check if device is a Smart Clock with OnOff + Brightness (nightlight)
+            if (
+                "action.devices.traits.OnOff" in self.traits
+                and "action.devices.traits.Brightness" in self.traits
+                and any(
+                    k in (self.hardware_model or "").lower()
+                    or k in (self.name or "").lower()
+                    for k in ("clock", "uhr", "lenovo", "cd-")
+                )
+            ):
+                return True
             return False
         return (
             "action.devices.types.LIGHT" in self.device_type

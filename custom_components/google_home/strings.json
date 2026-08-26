@@ -10,8 +10,9 @@
       },
       "token": {
         "title": "Token Authentication",
-        "description": "### 🔑 30-Second Token Guide (Recommended):\n1. Open [accounts.google.com/EmbeddedSetup](https://accounts.google.com/EmbeddedSetup) in your browser and log in with your Google account.\n2. **Important**: The final page will remain on a loading/blank screen (this is normal and indicates the token was created!).\n3. Press **F12** (Developer Tools) -> **Application** (or Storage) -> **Cookies** (https://accounts.google.com).\n4. Copy the value of the **oauth_token** cookie (starts with oauth2_4/...).\n5. Enter your Google Email and paste the token below.\n\n*(If you already have a Master Token \u0007as_et/..., you can also paste it directly below)*.",
+        "description": "### 🔑 30-Second Token Guide (Recommended):\n1. Open [accounts.google.com/EmbeddedSetup](https://accounts.google.com/EmbeddedSetup) in your browser and log in with your Google account.\n2. **Important**: The final page will remain on a loading/blank screen (this is normal and indicates the token was created!).\n3. Press **F12** (Developer Tools) -> **Application** (or Storage) -> **Cookies** (https://accounts.google.com).\n4. Copy the value of the **oauth_token** cookie (starts with oauth2_4/...).\n5. Enter your Google Email and paste the token below.\n\n*(If you already have a Master Token aas_et/..., you can also paste it directly below)*.",
         "data": {
+
           "username": "Google Account Email",
           "master_token": "Token (oauth2_4/... or aas_et/...)"
         }
@@ -21,6 +22,7 @@
         "description": "### ⚙️ Choose how Google Home should integrate with Home Assistant:\n- **Local & Cloud (Hybrid)**: Fast local control for alarms/timers + cloud discovery for all Google Home devices.\n- **Local Only**: Pure local network communication for speakers.\n- **Cloud Only**: Cloud HomeGraph without local speaker polling.",
         "data": {
           "operation_mode": "Operation Mode",
+          "third_party_entity_mode": "Third-Party Devices Representation",
           "selected_homes": "Google Homes to synchronize",
           "ignore_ha_synced_devices": "Ignore devices already synced from Home Assistant (prevents duplicate entities & automation loops)"
         }
@@ -99,11 +101,14 @@
         "description": "Configure operation mode, Home Assistant device filtering, polling interval, and view/update your Master Token.",
         "data": {
           "operation_mode": "Operation Mode",
+          "third_party_entity_mode": "Third-Party Devices Representation",
           "selected_homes": "Google Homes to synchronize",
           "ignore_ha_synced_devices": "Ignore devices synced from Home Assistant",
-          "update_interval": "Update Interval (seconds)",
+          "local_update_interval": "Local Speaker Polling Interval (seconds, min 60s)",
+          "cloud_update_interval": "Cloud HomeGraph Polling Interval (seconds, min 60s)",
           "master_token": "Master Token (hidden - paste new aas_et/... or oauth2_4/... token to update)"
         }
+
       }
     }
   },
@@ -147,8 +152,15 @@
       },
       "refresh": {
         "name": "Refresh"
+      },
+      "delete_all_alarms": {
+        "name": "Delete All Alarms"
+      },
+      "delete_all_timers": {
+        "name": "Delete All Timers"
       }
     }
+
   },
   "selector": {
     "auth_method": {
@@ -176,6 +188,12 @@
         "hybrid": "Local & Cloud (Recommended - Fast speaker timers + all Google Home devices)",
         "local": "Local Only (100% LAN - timers, alarms, DND, volume)",
         "cloud": "Cloud Only (Google Home Web / HomeGraph)"
+      }
+    },
+    "third_party_entity_mode": {
+      "options": {
+        "readonly_sensors": "Read-Only Status Entities & Attributes (Default & Recommended)",
+        "control_entities": "Control Entities (Fan/Light/Switch/Cover/Vacuum/Climate - Read-only live state, Google Cloud outbound restricted)"
       }
     }
   }

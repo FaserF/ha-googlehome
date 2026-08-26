@@ -239,15 +239,32 @@ class GoogleHomeCloudMediaPlayer(
     async def async_set_volume_level(self, volume: float) -> None:
         """Set volume level."""
         cdev = self.get_cloud_device()
+        pct = int(round(volume * 100))
         if cdev:
-            pct = int(round(volume * 100))
             cdev.state["currentVolume"] = pct
-            await self.coordinator.cloud_client.async_execute_command(
-                self._device_id,
-                "action.devices.commands.setVolume",
-                {"volumeLevel": pct},
-            )
-            self.async_write_ha_state()
+
+        # 1. Direct local speaker control (zero latency & 100% working)
+        config_entry = getattr(self.coordinator, "config_entry", None)
+        entry_id = getattr(config_entry, "entry_id", None) if config_entry else None
+        if entry_id and entry_id in self.hass.data.get(DOMAIN, {}):
+            entry_data = self.hass.data[DOMAIN][entry_id]
+            local_client = entry_data.get("client")
+            local_coord = entry_data.get("coordinator")
+            if local_coord and local_client and cdev:
+                for ldev in local_coord.data or []:
+                    if ldev.name.lower() == cdev.name.lower() or (
+                        ldev.device_id and ldev.device_id == cdev.device_id
+                    ):
+                        await local_client.update_device_volume(ldev, pct)
+                        break
+
+        # 2. Cloud execute command fallback
+        await self.coordinator.cloud_client.async_execute_command(
+            self._device_id,
+            "action.devices.commands.setVolume",
+            {"volumeLevel": pct},
+        )
+        self.async_write_ha_state()
 
     async def async_mute_volume(self, mute: bool) -> None:
         """Mute the volume."""

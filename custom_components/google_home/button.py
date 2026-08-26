@@ -51,6 +51,16 @@ async def async_setup_entry(
                 device_id=device.device_id,
                 device_name=device.name,
             ),
+            GoogleHomeDeleteAllAlarmsButton(
+                coordinator=coordinator,
+                device_id=device.device_id,
+                device_name=device.name,
+            ),
+            GoogleHomeDeleteAllTimersButton(
+                coordinator=coordinator,
+                device_id=device.device_id,
+                device_name=device.name,
+            ),
         ]
 
     for device in coordinator.data or []:
@@ -140,4 +150,69 @@ class GoogleHomeRefreshButton(GoogleHomeBaseEntity, ButtonEntity):
 
     async def async_press(self) -> None:
         """Press the button to refresh data."""
+        await self.coordinator.async_request_refresh()
+
+
+class GoogleHomeDeleteAllAlarmsButton(GoogleHomeBaseEntity, ButtonEntity):
+    """Button to delete all active alarms on a Google Home device."""
+
+    _attr_entity_category = EntityCategory.CONFIG
+    _attr_icon = "mdi:alarm-multiple"
+    _attr_entity_registry_enabled_default = False
+
+    @property
+    def label(self) -> str:
+        """Label to use for unique_id and name."""
+        return "delete_all_alarms"
+
+    async def async_press(self) -> None:
+        """Press the button to delete all alarms."""
+        device = self.get_device()
+        if device is None:
+            _LOGGER.error("Device %s not found.", self.device_name)
+            return
+
+        alarms = device.get_sorted_alarms()
+        if not alarms:
+            _LOGGER.info("No active alarms to delete on %s", self.device_name)
+            return
+
+        for alarm in alarms:
+            await self.client.delete_alarm_or_timer(
+                device=device, item_to_delete=alarm.alarm_id
+            )
+
+        await self.coordinator.async_request_refresh()
+
+
+class GoogleHomeDeleteAllTimersButton(GoogleHomeBaseEntity, ButtonEntity):
+    """Button to delete all active timers on a Google Home device."""
+
+    _attr_entity_category = EntityCategory.CONFIG
+    _attr_icon = "mdi:timer-cancel-outline"
+    _attr_entity_registry_enabled_default = False
+
+    @property
+    def label(self) -> str:
+        """Label to use for unique_id and name."""
+        return "delete_all_timers"
+
+    async def async_press(self) -> None:
+        """Press the button to delete all timers."""
+        device = self.get_device()
+        if device is None:
+            _LOGGER.error("Device %s not found.", self.device_name)
+            return
+
+        timers = device.get_sorted_timers()
+        if not timers:
+            _LOGGER.info("No active timers to delete on %s", self.device_name)
+            return
+
+        for timer in timers:
+            if timer.timer_id:
+                await self.client.delete_alarm_or_timer(
+                    device=device, item_to_delete=timer.timer_id
+                )
+
         await self.coordinator.async_request_refresh()

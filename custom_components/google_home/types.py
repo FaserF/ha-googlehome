@@ -38,7 +38,7 @@ class AlarmsAttributes(TypedDict):
     """Alarms sensor attributes."""
 
     next_alarm_status: str
-    alarm_volume: float
+    alarm_volume: float | None
     alarms: list[GoogleHomeAlarmDict]
 
 

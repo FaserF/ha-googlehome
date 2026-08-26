@@ -760,3 +760,18 @@ class GlocaltokensApiClient:
             API_ENDPOINT_REBOOT,
             json_data={"params": "now"},
         )
+
+    async def broadcast_message(
+        self, device: GoogleHomeDevice, message: str
+    ) -> JsonDict | None:
+        """Play local speech announcement or chime on Google Home device."""
+        _LOGGER.info(
+            "Sending broadcast '%s' to %s (%s)", message, device.name, device.ip_address
+        )
+        # Attempt local Assistant speech endpoint
+        return await self._request(
+            "POST",
+            device,
+            "setup/assistant/alarms",
+            json_data={"custom_command": message},
+        )

@@ -65,28 +65,43 @@ Choose the best mode during setup or change it anytime in the Options Flow:
   - Multi-select filter allows you to synchronize only specific homes into Home Assistant.
 
 - **🌐 Full Google Home Ecosystem Support (Local & Cloud HomeGraph)**:
-  - **Google Home & Nest Speakers**: Live Media & Speech Volume Slider (0-100% with live sync), Alarm Volume Slider, Timers, Alarms, Next Alarm/Timer timestamps, Do Not Disturb, Night Mode, Reboot, Wi-Fi & Bluetooth MAC diagnostics.
+  - **Google Home & Nest Speakers**: Live Media & Speech Volume Slider (0-100% with live local sync), Alarm Volume Slider, Timers, Alarms, Next Alarm/Timer timestamps, Do Not Disturb, Night Mode, Reboot, Wi-Fi RSSI, Bluetooth MAC diagnostics, and call pickup status.
+  - **Smart Clocks & Nightlights**: Specialized Lenovo Smart Clock and smart clock nightlight support (`light.wohnzimmer_uhr` with On/Off & Brightness), display brightness diagnostics, and alarm synchronization.
   - **Lights & Dimmers**: On/Off, Brightness, Color temperature, and RGB color control (`light`).
-  - **Fans & Air Purifiers**: Power and percentage speed controls (`fan`).
-  - **Media Players & TVs**: Real-time state tracking, volume control, mute, play/pause (`media_player`).
+  - **Fans & Air Purifiers**: Power, oscillation, and percentage speed controls (`fan`).
+  - **Media Players & Smart TVs**: Real-time state tracking, volume control, mute, play/pause, input selection, app listing, and transport control (`media_player`).
   - **Switches & Smart Plugs**: Control power and inspect real-time state (`switch`).
-  - **Robot Vacuum Cleaners**: Start, stop, dock, and status tracking for connected vacuums (`vacuum`).
-  - **Thermostats & Climate**: Nest Thermostats and AC units with temperature control and HVAC modes (`climate`).
+  - **Robot Vacuum Cleaners**: Start, stop, dock, zone cleaning metadata, and status tracking for connected vacuums (`vacuum`).
+  - **Thermostats & Climate**: Nest Thermostats and AC units with temperature setpoints, humidity, and HVAC modes (`climate`).
   - **Smart Locks**: Lock/unlock Google Home and Nest x Yale locks (`lock`).
   - **Covers, Blinds & Garage Doors**: Open, close, and set position (0-100%) (`cover`).
   - **Cameras & Video Doorbells**: Live streams for Nest Cam, Nest Doorbell, and partner cameras (`camera`).
   - **Automations & Household Routines**: Trigger and execute any Google Home script, automation, or routine directly from Home Assistant (`scene`).
   - **Security Systems**: Arm home, arm away, disarm Nest Secure and security alarms (`alarm_control_panel`).
-  - **Sensors & Doorbells**: Motion, occupancy, contact, presence, and doorbell press binary sensors (`binary_sensor`).
+  - **Sensors & Doorbells**: Motion, occupancy, contact, presence, sound, and doorbell press binary sensors (`binary_sensor`).
 
-- **🔄 Intelligent Home Assistant Loop Prevention & Mapping**:
+  - **Household Presence & Attendance Tracker**: Real-time Home & Away tracking (`device_tracker`) leveraging live Google HomeGraph `AreaPresenceStateTrait` and `AreaAttendanceStateTrait` (tracking whether *all household members* or individual members are present).
+  - **Nest Aware Sound & Smoke/CO Alarm Sensing**: Acoustic smoke alarm, carbon monoxide, and glass break detection binary sensors for Nest speakers (`binary_sensor.xxx_rauch_co_alarmton`, disabled by default).
+  - **Nest Aware Familiar Face Library**: Sensor exposing recognized familiar face names and counts per household (`sensor.xxx_bekannte_gesichter`, disabled by default).
+  - **Gemini Activity Briefs**: Daily AI-generated activity summaries from Google Home Gemini AI (`sensor.xxx_home_briefs`, disabled by default).
+
+
+- **🔄 Intelligent Home Assistant Loop Prevention & Dynamic Cleanup**:
   - Automatically identifies devices that originated from Home Assistant (e.g., via Nabu Casa / Cloud Sync).
   - Configurable toggle: **"Ignore devices synced from Home Assistant"** (default: `True`) to prevent duplicate entities and infinite automation loops.
+  - **Dynamic Entity & Device Registry Purge**: When deselecting a home or switching third-party representation modes, stale or orphaned entities and devices are automatically and cleanly removed from Home Assistant's entity registry without leaving ghost entities.
 
-- **🏛️ Google Home Cloud Architecture & Third-Party Device Control**:
+- **🏛️ Google Home Cloud Architecture, Capabilities & Third-Party Control**:
+  - **Universal Capability & Attribute Extraction**: The integration dynamically inspects all Google HomeGraph key-value pairs (`message20` and `message30`), uncovering hidden capabilities across all your devices:
+    - *Smart TVs*: Available streaming apps (`availableApplications`), HDMI inputs (`availableInputs`), supported media types, and toggle states.
+    - *Robot Vacuums*: Configured cleaning zones (`availableZones`) and pause capabilities (`pausable`).
+    - *Speakers & Clocks*: Call capabilities (`communicationCallCapabilities`), ducking state (`RemoteDucking`), and active audio streams.
   - **HomeGraph Discovery & State Inspection**: The integration leverages the Google Foyer / HomeGraph gRPC endpoint (`GetHomeGraph`) to synchronize all devices, structures/homes, rooms, hardware models, and traits into Home Assistant.
-  - **Third-Party Control Notice**: Google's Cloud Foyer API serves as a secure read-and-aggregation layer for your Google Home ecosystem. Direct outbound cloud execution commands to third-party partner ecosystems (e.g., Xiaomi/Dmaker fans, Tuya, Smart Life, Dreame) are restricted by Google's cloud API architecture (`404 /devices:exec`).
-  - **Best Practice**: For full bi-directional control of third-party partner devices, use their respective native Home Assistant integrations (e.g. Xiaomi Miio for fans/air purifiers, Tuya, Hue). The Google Home integration provides unified status mapping, structure grouping, scene triggering, and presence tracking alongside direct local Google Cast speaker management.
+  - **Third-Party Control Architecture**: Google's Cloud Foyer API serves as a secure read-and-aggregation layer for consumer accounts. Outbound execution commands to third-party partner ecosystems (e.g. Xiaomi, Tuya, Smart Life, Dreame) are restricted by Google's cloud API architecture (`404 /devices:exec`).
+    - In **`control_entities` mode**, native HA control entities are created to display live states without sending invalid outbound API requests.
+    - In **`readonly_sensors` mode (Default & Recommended)**, third-party partner devices are represented as clean, descriptive status sensors (`sensor.xxx_status`) showing real-world German states (`an`, `aus`, `offen`, `geschlossen`, `saugt`, etc.) and rich diagnostic attributes.
+  - **Best Practice**: For full bi-directional switching of partner devices, use their respective native Home Assistant integrations (e.g. Xiaomi Miio, Tuya, Hue). Local Google Cast speakers are controlled directly and with zero latency via their local HTTPS/REST API!
+
 
 - **⚡ Direct Local Speaker Communication**:
   - Direct local HTTPS/REST polling and control for speakers within your local network (no cloud delay for alarms/timers).
@@ -103,8 +118,10 @@ Choose the best mode during setup or change it anytime in the Options Flow:
 - **Alarm & Timer Management**:
   - **Next Alarm Sensor**: Native timestamp sensor (`datetime | None`) with full alarm list, repeat days, and status in state attributes.
   - **Next Timer Sensor**: Native timestamp sensor with duration, remaining time, and state details.
+  - **Delete Buttons**: Convenient **Delete All Alarms** and **Delete All Timers** buttons (`button.xxx_alle_wecker_loschen` & `button.xxx_alle_timer_loschen`, disabled by default) to purge all active alarms and timers with one click.
   - **Native Bus Events**: Automatically fires `google_home_timer_finished` and `google_home_alarm_triggered` on the Home Assistant event bus for easy automations.
-  - Dedicated entity services to delete alarms, delete timers, and set alarm volume via automations or dashboard buttons.
+  - Dedicated entity services to delete alarms, delete timers, broadcast local announcements, and set alarm volume via automations or dashboard buttons.
+
 
 - **Diagnostics & Network Info**:
   - **Device IP Sensor**: Diagnostic sensor exposing speaker IP, hardware model, availability, and tokens.
@@ -163,10 +180,15 @@ You can customize your integration settings at any time without reinstalling:
 2. Click **Configure** on the integration card.
 3. Available options:
    - **Operation Mode**: Switch between *Hybrid (Local & Cloud)*, *Local Only*, or *Cloud Only*.
+   - **Third-Party Devices Representation**:
+     - **Read-Only Status Entities & Attributes (Default & Recommended)**: Third-party partner devices (Xiaomi/Tuya/Hue/Smart Life) are represented as clean diagnostic status sensors with live state and attributes, clearly communicating read-only nature without broken control switches.
+     - **Control Entities**: Third-party devices are mapped as native HA control domains (`fan`, `light`, `switch`, `cover`, `vacuum`, `climate`) reflecting live state from Google Cloud (with outbound partner execution restricted by Google Foyer API).
    - **Google Homes to synchronize**: Select or deselect individual homes/structures.
    - **Ignore devices synced from Home Assistant**: Toggle loop prevention on/off.
-   - **Update Interval**: Adjust polling frequency (10s to 600s, default: 60s).
+   - **Local Speaker Polling Interval**: Adjust local LAN speaker polling frequency (min: 60s, default: 60s / 1 min).
+   - **Cloud HomeGraph Polling Interval**: Adjust cloud HomeGraph synchronization frequency (min: 60s, default: 300s / 5 min).
    - **Master Token**: View or update your Master Token if you refreshed credentials.
+
 
 ---
 
@@ -198,8 +220,10 @@ The integration fires native events on the Home Assistant Event Bus that you can
 | `google_home.delete_alarm` | Deletes a specific alarm from a Google Home device | `alarm_id`, `skip_refresh` |
 | `google_home.delete_timer` | Deletes a specific timer from a Google Home device | `timer_id`, `skip_refresh` |
 | `google_home.set_alarm_volume` | Sets the alarm and timer volume (0-100%) | `volume` |
+| `google_home.broadcast` | Broadcasts an announcement locally to a Google Home speaker | `message` |
 | `google_home.reboot_device` | Reboots the Google Home speaker | `entity_id` |
 | `google_home.refresh_devices` | Triggers an immediate coordinator refresh | - |
+
 
 ---
 

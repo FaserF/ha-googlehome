@@ -88,9 +88,16 @@ async def async_setup_entry(
 class GoogleHomePresenceTracker(
     CoordinatorEntity[GoogleHomeCloudDataUpdateCoordinator], TrackerEntity
 ):
-    """Representation of Google Home Home & Away Presence Tracker."""
+    """Representation of Google Home Home & Away Presence Tracker.
+
+    Note: The Google Foyer API does not expose reliable presence/home-away state
+    data. This tracker is provided as a placeholder but will report 'home' unless
+    the device state payload contains a 'presence' or 'home_away' key.
+    Disabled by default to avoid confusion.
+    """
 
     _attr_icon = "mdi:home-account"
+    _attr_entity_registry_enabled_default = True
 
     def __init__(
         self,
@@ -116,21 +123,57 @@ class GoogleHomePresenceTracker(
         """Return the source type."""
         return SourceType.ROUTER
 
+    def _get_structure_presence_and_attendance(self) -> tuple[str, str | None]:
+        """Extract AreaPresenceStateTrait and AreaAttendanceStateTrait from cached HomeGraph."""
+        presence = "PRESENCE_STATE_OCCUPIED"
+        attendance = None
+        try:
+            auth_client = getattr(self.coordinator.client, "_auth_client", None)
+            if not auth_client or not getattr(auth_client, "homegraph", None):
+                return presence, attendance
+            raw = auth_client.homegraph.SerializeToString()
+            import re
+
+            # Search AreaPresenceStateTrait in protobuf payload
+            m_pres = re.search(
+                rb"AreaPresenceStateTrait[^\x00-\x1f]*presenceState[^\x00-\x1f]{0,50}(PRESENCE_STATE_[A-Z]+)",
+                raw,
+            )
+            if m_pres:
+                presence = m_pres.group(1).decode("utf-8", errors="ignore")
+
+            # Search AreaAttendanceStateTrait in protobuf payload
+            m_att = re.search(
+                rb"AreaAttendanceStateTrait[^\x00-\x1f]*attendanceState[^\x00-\x1f]{0,50}(ATTENDANCE_STATE_[A-Z_]+)",
+                raw,
+            )
+            if m_att:
+                raw_att = m_att.group(1).decode("utf-8", errors="ignore")
+                # Format into friendly text: e.g. "ALL_HOUSEHOLD_MEMBERS" -> "all_household_members"
+                attendance = raw_att.replace("ATTENDANCE_STATE_", "").lower()
+        except Exception:
+            pass
+        return presence, attendance
+
     @property
     def location_name(self) -> str:
-        """Return state: home or not_home."""
-        # Check if any device or routine in the structure indicates 'Away'
+        """Return state: home or not_home based on live Google HomeGraph presence state."""
+        pres, _ = self._get_structure_presence_and_attendance()
+        if "VACANT" in pres or "UNOCCUPIED" in pres or "AWAY" in pres:
+            return STATE_NOT_HOME
+
+        # Also check if any device state specifically signals AWAY
         for dev in self.coordinator.data or []:
             if dev.structure_id == self._structure_id:
                 p_state = dev.state.get("presence", dev.state.get("home_away"))
-                if p_state:
-                    if str(p_state).lower() in (
-                        "away",
-                        "not_home",
-                        "absent",
-                        "vacation",
-                    ):
-                        return STATE_NOT_HOME
+                if p_state and str(p_state).lower() in (
+                    "away",
+                    "not_home",
+                    "absent",
+                    "vacation",
+                    "vacant",
+                ):
+                    return STATE_NOT_HOME
         return STATE_HOME
 
     @property
@@ -152,14 +195,20 @@ class GoogleHomePresenceTracker(
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return structure presence attributes."""
+        pres_raw, attendance = self._get_structure_presence_and_attendance()
         devices_in_structure = [
             dev.name
             for dev in self.coordinator.data or []
             if dev.structure_id == self._structure_id
         ]
-        return {
+        attrs: dict[str, Any] = {
             "structure_id": self._structure_id,
             "structure_name": self._structure_name,
+            "presence_raw": pres_raw,
             "total_devices": len(devices_in_structure),
             "devices": devices_in_structure,
         }
+        if attendance:
+            attrs["attendance_state"] = attendance
+            attrs["all_members_present"] = "all_household_members" in attendance
+        return attrs

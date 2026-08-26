@@ -40,9 +40,10 @@ async def async_setup_entry(
     ][DATA_CLOUD_COORDINATOR]
 
     registered_ids: set[str] = set()
+    registered_sound_ids: set[str] = set()
 
-    def _create_entities() -> list[GoogleHomeCloudBinarySensor]:
-        new_ents = []
+    def _create_entities() -> list[BinarySensorEntity]:
+        new_ents: list[BinarySensorEntity] = []
         for dev in coordinator.data or []:
             if dev.is_binary_sensor and dev.device_id not in registered_ids:
                 registered_ids.add(dev.device_id)
@@ -51,9 +52,26 @@ async def async_setup_entry(
                         coordinator=coordinator, device_id=dev.device_id
                     )
                 )
+            # Create sound sensing sensor for Google speakers and displays
+            if (
+                (
+                    "SPEAKER" in dev.device_type
+                    or "DISPLAY" in dev.device_type
+                    or not dev.is_third_party
+                )
+                and not dev.is_automation_routine
+                and dev.device_id not in registered_sound_ids
+            ):
+                registered_sound_ids.add(dev.device_id)
+                new_ents.append(
+                    GoogleHomeSoundSensingBinarySensor(
+                        coordinator=coordinator, device_id=dev.device_id
+                    )
+                )
         return new_ents
 
     entities = _create_entities()
+
     if entities:
         async_add_entities(entities)
 
@@ -173,5 +191,73 @@ class GoogleHomeCloudBinarySensor(
             sw_version=device.firmware_version if device else None,
             hw_version=device.hardware_version if device else None,
             connections=connections,
+            configuration_url="https://home.google.com/",
+        )
+
+
+class GoogleHomeSoundSensingBinarySensor(
+    CoordinatorEntity[GoogleHomeCloudDataUpdateCoordinator], BinarySensorEntity
+):
+    """Google Home Nest Aware Sound & Smoke/CO Alarm Sensing binary sensor."""
+
+    _attr_device_class = BinarySensorDeviceClass.SMOKE
+    _attr_icon = "mdi:smoke-detector-alert"
+    # Disabled by default
+    _attr_entity_registry_enabled_default = False
+
+    def __init__(
+        self,
+        coordinator: GoogleHomeCloudDataUpdateCoordinator,
+        device_id: str,
+    ) -> None:
+        """Initialize."""
+        super().__init__(coordinator)
+        self.device_id = device_id
+        self._attr_unique_id = f"{device_id}_cloud_sound_sensing"
+
+    def get_device(self) -> CloudHomeDevice | None:
+        """Get device from coordinator."""
+        return self.coordinator.get_device(self.device_id)
+
+    @property
+    def name(self) -> str:
+        """Return name."""
+        device = self.get_device()
+        return f"{device.name} Rauch/CO-Alarmton" if device else "Rauch/CO-Alarmton"
+
+    @property
+    def is_on(self) -> bool:
+        """Return True if smoke or critical sound is detected."""
+        device = self.get_device()
+        if not device:
+            return False
+        return bool(
+            device.state.get("smokeDetected", False)
+            or device.state.get("coDetected", False)
+            or device.state.get("alarmSoundDetected", False)
+        )
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return sound sensing details."""
+        device = self.get_device()
+        if not device:
+            return {}
+        return {
+            "smoke_detected": bool(device.state.get("smokeDetected", False)),
+            "co_detected": bool(device.state.get("coDetected", False)),
+            "glass_break_detected": bool(device.state.get("glassBreakDetected", False)),
+            "sound_detected": bool(device.state.get("soundDetected", False)),
+        }
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        """Return device registry info."""
+        device = self.get_device()
+        return DeviceInfo(
+            identifiers={(DOMAIN, self.device_id)},
+            name=device.name if device else "Google Device",
+            manufacturer=device.manufacturer if device else MANUFACTURER,
+            model=device.model_name if device else "Google Device",
             configuration_url="https://home.google.com/",
         )

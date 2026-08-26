@@ -12,7 +12,14 @@ MANUFACTURER: Final = "Google"
 ATTRIBUTION: Final = "Data provided by Google Home local API"
 CONF_UPDATE_INTERVAL: Final = "update_interval"
 DEFAULT_UPDATE_INTERVAL: Final = 60
+
+CONF_LOCAL_UPDATE_INTERVAL: Final = "local_update_interval"
+DEFAULT_LOCAL_UPDATE_INTERVAL: Final = 60  # Default 1 minute, min 60s
+CONF_CLOUD_UPDATE_INTERVAL: Final = "cloud_update_interval"
+DEFAULT_CLOUD_UPDATE_INTERVAL: Final = 300  # Default 5 minutes, min 60s
+
 DEFAULT_TIMEOUT: Final = 10
+
 
 CONF_ANDROID_ID: Final = "android_id"
 CONF_MASTER_TOKEN: Final = "master_token"
@@ -50,6 +57,11 @@ MODE_CLOUD: Final = "cloud"
 CONF_IGNORE_HA_SYNCED_DEVICES: Final = "ignore_ha_synced_devices"
 DEFAULT_IGNORE_HA_SYNCED_DEVICES: Final = True
 CONF_SELECTED_HOMES: Final = "selected_homes"
+
+CONF_THIRD_PARTY_ENTITY_MODE: Final = "third_party_entity_mode"
+THIRD_PARTY_MODE_READONLY: Final = "readonly_sensors"
+THIRD_PARTY_MODE_CONTROL: Final = "control_entities"
+DEFAULT_THIRD_PARTY_ENTITY_MODE: Final = THIRD_PARTY_MODE_READONLY
 
 DATA_CLIENT: Final = "client"
 DATA_COORDINATOR: Final = "coordinator"
@@ -102,11 +114,14 @@ SERVICE_DELETE_ALARM: Final = "delete_alarm"
 SERVICE_DELETE_TIMER: Final = "delete_timer"
 SERVICE_REFRESH: Final = "refresh_devices"
 SERVICE_SET_ALARM_VOLUME: Final = "set_alarm_volume"
+SERVICE_BROADCAST: Final = "broadcast"
 
 SERVICE_ATTR_ALARM_ID: Final = "alarm_id"
 SERVICE_ATTR_TIMER_ID: Final = "timer_id"
 SERVICE_ATTR_SKIP_REFRESH: Final = "skip_refresh"
 SERVICE_ATTR_VOLUME: Final = "volume"
+SERVICE_ATTR_MESSAGE: Final = "message"
+
 
 PORT: Final = 8443
 API_ENDPOINT_ALARMS: Final = "setup/assistant/alarms"

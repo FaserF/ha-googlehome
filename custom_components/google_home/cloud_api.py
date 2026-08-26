@@ -121,6 +121,19 @@ class GoogleHomeCloudClient:
         default_home_id = getattr(homegraph.home, "home_id", "") or "default_home"
         default_home_name = getattr(homegraph.home, "home_name", "") or "Google Home"
 
+        # Build room_id -> room_name lookup from HomeGraph
+        room_name_map: dict[str, str] = {}
+        for room in getattr(homegraph.home, "rooms", []):
+            rid = getattr(room, "room_id", "") or getattr(room, "id", "")
+            rname = getattr(room, "name", "") or getattr(room, "room_name", "")
+            if rid and rname:
+                room_name_map[rid] = rname
+            # Also store by short suffix (some device room_ids are just suffixes)
+            if rid and "." in rid:
+                short = rid.split(".")[-1]
+                if short and rname:
+                    room_name_map[short] = rname
+
         devices: list[CloudHomeDevice] = []
         raw_devices = getattr(homegraph.home, "devices", [])
 
@@ -154,6 +167,34 @@ class GoogleHomeCloudClient:
                     self.selected_homes,
                 )
                 continue
+
+            # Resolve room_name from device's room_id field
+            dev_room_id = (
+                getattr(item, "room_id", "")
+                or getattr(item, "device_room_id", "")
+                or getattr(getattr(item, "device_info", None), "room_id", "")
+                or ""
+            )
+            room_name: str | None = None
+            if dev_room_id:
+                room_name = room_name_map.get(dev_room_id)
+                if not room_name and "." in dev_room_id:
+                    # Try matching by suffix
+                    suffix = dev_room_id.split(".")[-1]
+                    room_name = room_name_map.get(suffix)
+                if not room_name:
+                    # Scan raw bytes for any room name match
+                    for rid, rname in room_name_map.items():
+                        if rid.encode() in raw_item:
+                            room_name = rname
+                            break
+            # Fallback: scan raw bytes for any room name match
+            if not room_name:
+                for rid, rname in room_name_map.items():
+                    if rid.encode() in raw_item:
+                        room_name = rname
+                        break
+
             dev_info = getattr(item, "device_info", None)
             dev_id = getattr(dev_info, "device_id", "") or getattr(
                 item, "device_name", ""
@@ -216,6 +257,37 @@ class GoogleHomeCloudClient:
                 getattr(item, "device_info", None), "mac_address", ""
             ) or getattr(getattr(item, "hardware", None), "mac_address", "")
 
+            # Extract Attributes & Capabilities from message20 (Key/Value pairs)
+            attributes_dict: dict[str, Any] = {}
+            m20 = getattr(item, "message20", None)
+            if m20 and hasattr(m20, "message1"):
+                for m_entry in m20.message1:
+                    k = getattr(m_entry, "key", "")
+                    if not k:
+                        continue
+                    # Extract capability flags and subkeys
+                    raw_str = str(m_entry)
+                    import re
+
+                    extracted_values = re.findall(r'"([a-zA-Z0-9_\-\. ]+)"', raw_str)
+                    clean_vals = [
+                        v
+                        for v in extracted_values
+                        if v
+                        not in ("key", "value", "message1", "message5", "message6", k)
+                    ]
+                    attributes_dict[k] = clean_vals if clean_vals else True
+
+            # Extract State data from message30
+            state_dict: dict[str, Any] = {}
+            m30 = getattr(item, "message30", None)
+            if m30:
+                m30_str = str(m30)
+                if "onOff" in m30_str:
+                    state_dict["on"] = "bool4: true" in m30_str or "true" in m30_str
+                if "transportControl" in m30_str:
+                    state_dict["activityState"] = "active"
+
             dev = CloudHomeDevice(
                 device_id=dev_id,
                 name=name,
@@ -224,12 +296,15 @@ class GoogleHomeCloudClient:
                 hardware_version=hardware_version if hardware_version else None,
                 firmware_version=firmware_version if firmware_version else None,
                 mac_address=mac_address if mac_address else None,
+                room_name=room_name,
                 structure_id=item_structure_id if item_structure_id else None,
                 structure_name=item_structure_name if item_structure_name else None,
                 agent_id=agent_id,
                 agent_name=agent_name,
                 is_home_assistant_synced=is_ha,
                 traits=traits_list,
+                attributes=attributes_dict,
+                state=state_dict,
                 online=True,
             )
             devices.append(dev)
@@ -245,7 +320,75 @@ class GoogleHomeCloudClient:
         command: str,
         params: dict[str, Any],
     ) -> bool:
-        """Execute a trait command on a cloud device."""
-        _LOGGER.info("Executing cloud command %s on %s: %s", command, device_id, params)
-        # Execution via Assistant / Foyer gRPC Stub
-        return True
+        """Execute a trait command on a cloud device.
+
+        For third-party partner devices (Xiaomi, Tuya, Hue, Smart Life, etc.) the
+        Google Foyer API does NOT expose an outbound execution endpoint for consumer
+        accounts (returns 404 on /devices:exec and similar). Commands for those
+        devices are silently dropped here to avoid user confusion from failed requests.
+
+        Google-native devices (Cast speakers, Nest thermostats, Chromecast) are
+        similarly not controllable via this path – their commands go through the local
+        Cast / Nest API instead.
+        """
+        # Look up whether device is third-party
+        device = self._get_device_from_cache(device_id)
+        if device and device.is_third_party:
+            _LOGGER.debug(
+                "Skipping cloud command '%s' for third-party device '%s' (%s) – "
+                "Google Foyer API does not support outbound execution for partner devices.",
+                command,
+                device.name,
+                device_id,
+            )
+            return False
+
+        # For Google-native devices also log that we attempted (currently no working endpoint)
+        _LOGGER.debug(
+            "Cloud command '%s' requested for device %s – "
+            "no working Foyer execution endpoint available; skipping.",
+            command,
+            device_id,
+        )
+        return False
+
+    def _get_device_from_cache(self, device_id: str) -> CloudHomeDevice | None:
+        """Return a CloudHomeDevice from the last known coordinator data by device_id."""
+        # Walk the hass states / coordinator cache – we store last fetched devices in
+        # the coordinator; here we resolve via a simple linear scan over the
+        # cached homegraph result if we have one.
+        try:
+            homegraph = self._auth_client.homegraph
+            if not homegraph:
+                return None
+            raw_devices = getattr(getattr(homegraph, "home", None), "devices", [])
+            for item in raw_devices:
+                dev_info = getattr(item, "device_info", None)
+                did = getattr(dev_info, "device_id", "") or getattr(
+                    item, "device_name", ""
+                )
+                if did == device_id:
+                    # Quick is_third_party check via agent_info
+                    agent_info = getattr(dev_info, "agent_info", None)
+                    agent_id = (
+                        getattr(agent_info, "api_project_id", "")
+                        or getattr(agent_info, "agent_id", "")
+                        if agent_info
+                        else ""
+                    )
+                    agent_name = (
+                        getattr(agent_info, "agent_name", "") if agent_info else ""
+                    )
+                    from .cloud_models import CloudHomeDevice
+
+                    stub = CloudHomeDevice(
+                        device_id=did,
+                        name=getattr(item, "device_name", ""),
+                        device_type=getattr(dev_info, "device_type", "") or "",
+                        agent_id=agent_id,
+                        agent_name=agent_name,
+                    )
+                    return stub
+        except Exception:
+            pass
+        return None

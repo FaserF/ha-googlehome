@@ -15,7 +15,9 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from .api import GlocaltokensApiClient
 from .const import (
     CONF_ANDROID_ID,
+    CONF_CLOUD_UPDATE_INTERVAL,
     CONF_IGNORE_HA_SYNCED_DEVICES,
+    CONF_LOCAL_UPDATE_INTERVAL,
     CONF_MASTER_TOKEN,
     CONF_OPERATION_MODE,
     CONF_PASSWORD,
@@ -26,6 +28,7 @@ from .const import (
     DATA_CLOUD_CLIENT,
     DATA_CLOUD_COORDINATOR,
     DATA_COORDINATOR,
+    DEFAULT_CLOUD_UPDATE_INTERVAL,
     DEFAULT_IGNORE_HA_SYNCED_DEVICES,
     DEFAULT_UPDATE_INTERVAL,
     DOMAIN,
@@ -63,8 +66,26 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         CONF_SELECTED_HOMES,
         entry.data.get(CONF_SELECTED_HOMES),
     )
+    # Retrieve polling intervals: local (default 60s, min 60s), cloud (default 300s, min 60s)
 
-    update_interval = entry.options.get(CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL)
+    legacy_interval = entry.options.get(
+        CONF_UPDATE_INTERVAL,
+        entry.data.get(CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL),
+    )
+    local_update_interval = entry.options.get(
+        CONF_LOCAL_UPDATE_INTERVAL,
+        entry.data.get(CONF_LOCAL_UPDATE_INTERVAL, max(60, legacy_interval)),
+    )
+    # Enforce minimum 60s for local polling
+    local_update_interval = max(60, int(local_update_interval))
+
+    cloud_update_interval = entry.options.get(
+        CONF_CLOUD_UPDATE_INTERVAL,
+        entry.data.get(CONF_CLOUD_UPDATE_INTERVAL, DEFAULT_CLOUD_UPDATE_INTERVAL),
+    )
+    # Enforce minimum 60s for cloud polling
+    cloud_update_interval = max(60, int(cloud_update_interval))
+
     session = async_get_clientsession(hass)
 
     entry_data: dict[str, Any] = {}
@@ -86,7 +107,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         coordinator = GoogleHomeDataUpdateCoordinator(
             hass=hass,
             client=client,
-            update_interval=update_interval,
+            update_interval=local_update_interval,
         )
         try:
             await coordinator.async_config_entry_first_refresh()
@@ -112,7 +133,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         cloud_coordinator = GoogleHomeCloudDataUpdateCoordinator(
             hass=hass,
             client=cloud_client,
-            update_interval=update_interval,
+            update_interval=cloud_update_interval,
         )
         try:
             await cloud_coordinator.async_config_entry_first_refresh()
@@ -153,20 +174,13 @@ async def _async_cleanup_stale_devices_and_entities(
             if cdev.structure_id:
                 active_device_ids.add(f"{entry.entry_id}_structure_{cdev.structure_id}")
                 active_device_ids.add(f"structure_{cdev.structure_id}")
-        if hasattr(cloud_coordinator.client, "_get_available_homes_sync"):
-            try:
-                for hid in cloud_coordinator.client._get_available_homes_sync():
-                    active_device_ids.add(f"{entry.entry_id}_structure_{hid}")
-                    active_device_ids.add(f"structure_{hid}")
-            except Exception:
-                pass
         active_device_ids.add(f"{entry.entry_id}_hub")
         active_device_ids.add(f"{entry.entry_id}_routines")
 
     dev_reg = dr.async_get(hass)
     ent_reg = er.async_get(hass)
 
-    # Clean up deprecated entities (e.g. redundant number.volume slider)
+    # Clean up deprecated entities (e.g. redundant number.volume slider) and orphaned entities
     for ent_entry in er.async_entries_for_config_entry(ent_reg, entry.entry_id):
         if ent_entry.domain == "number" and (
             ent_entry.unique_id.endswith("_device_volume")
@@ -176,6 +190,86 @@ async def _async_cleanup_stale_devices_and_entities(
                 "Removing deprecated volume number entity: %s", ent_entry.entity_id
             )
             ent_reg.async_remove(ent_entry.entity_id)
+            continue
+
+        # Check if entity belongs to an active device or structure
+        dev_entry = (
+            dev_reg.async_get(ent_entry.device_id) if ent_entry.device_id else None
+        )
+        if dev_entry:
+            has_active_id = any(
+                ident[0] == DOMAIN and ident[1] in active_device_ids
+                for ident in dev_entry.identifiers
+            )
+            if not has_active_id:
+                _LOGGER.info(
+                    "Removing entity of unselected/orphaned Google Home device: %s (%s)",
+                    ent_entry.entity_id,
+                    ent_entry.unique_id,
+                )
+                ent_reg.async_remove(ent_entry.entity_id)
+                continue
+
+        # Check structure identifier in unique_id (e.g. scene, presence tracker, bridge)
+        if "structure_" in ent_entry.unique_id:
+            uid = ent_entry.unique_id
+            # Extract structure id from unique_id
+            is_valid_structure_entity = any(
+                str(act_id) in uid for act_id in active_device_ids
+            )
+            if not is_valid_structure_entity:
+                _LOGGER.info(
+                    "Removing entity of unselected Google Home structure: %s (%s)",
+                    ent_entry.entity_id,
+                    ent_entry.unique_id,
+                )
+                ent_reg.async_remove(ent_entry.entity_id)
+
+    # Mode-switch cleanup: remove stale control-entities or stale readonly sensors
+    # depending on current third_party_mode
+    from .const import (
+        CONF_THIRD_PARTY_ENTITY_MODE,
+        DEFAULT_THIRD_PARTY_ENTITY_MODE,
+        THIRD_PARTY_MODE_READONLY,
+    )
+
+    third_party_mode = entry.options.get(
+        CONF_THIRD_PARTY_ENTITY_MODE,
+        entry.data.get(CONF_THIRD_PARTY_ENTITY_MODE, DEFAULT_THIRD_PARTY_ENTITY_MODE),
+    )
+
+    # Controllable entity suffixes that should NOT exist in readonly mode for third-party devices
+    CONTROL_SUFFIXES = (
+        "_cloud_light",
+        "_cloud_fan",
+        "_cloud_switch",
+        "_cloud_cover",
+        "_cloud_vacuum",
+        "_cloud_climate",
+        "_cloud_lock",
+        "_cloud_alarm",
+        "_cloud_media",
+    )
+
+    if cloud_coordinator and cloud_coordinator.data:
+        third_party_ids = {
+            dev.device_id
+            for dev in cloud_coordinator.data
+            if dev.is_third_party and not dev.is_automation_routine
+        }
+        for ent_entry in er.async_entries_for_config_entry(ent_reg, entry.entry_id):
+            uid = ent_entry.unique_id or ""
+            if third_party_mode == THIRD_PARTY_MODE_READONLY:
+                # Remove leftover control entities for third-party devices
+                for dev_id in third_party_ids:
+                    for suffix in CONTROL_SUFFIXES:
+                        if uid == f"{dev_id}{suffix}":
+                            _LOGGER.info(
+                                "Removing stale control entity (mode=readonly): %s",
+                                ent_entry.entity_id,
+                            )
+                            ent_reg.async_remove(ent_entry.entity_id)
+                            break
 
     device_entries = dr.async_entries_for_config_entry(dev_reg, entry.entry_id)
     for dev_entry in device_entries:

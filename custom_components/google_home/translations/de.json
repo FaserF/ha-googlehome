@@ -17,10 +17,11 @@
         }
       },
       "mode": {
-        "title": "Betriebsmodus & Filter",
-        "description": "### ⚙️ Wähle, wie Google Home in Home Assistant eingebunden werden soll:\n- **Lokal & Cloud (Hybrid)**: Schnelle lokale Lautsprecher-Steuerung + Cloud-Erkennung aller Google Home Geräte.\n- **Nur Lokal**: Reine LAN-Steuerung für Lautsprecher (Wecker, Timer, Lautstärke, DND).\n- **Nur Cloud**: Google HomeGraph ohne lokales Polling.",
+        "title": "Integrations-Modus & Gerätefilterung",
+        "description": "### ⚙️ Wähle, wie Google Home in Home Assistant eingebunden werden soll:\n- **Lokal & Cloud (Hybrid)**: Schnelle lokale Steuerung für Wecker/Timer + Cloud-Synchronisierung für alle Google Home Geräte.\n- **Nur Lokal**: Reine lokale Kommunikation im Netzwerk für Lautsprecher.\n- **Nur Cloud**: Cloud HomeGraph ohne lokale Lautsprecher-Abfragen.",
         "data": {
           "operation_mode": "Betriebsmodus",
+          "third_party_entity_mode": "Darstellung von Drittanbieter-Geräten",
           "selected_homes": "Zu synchronisierende Google Homes",
           "ignore_ha_synced_devices": "Von Home Assistant synchronisierte Geräte ignorieren (verhindert Duplikate & Schleifen)"
         }
@@ -99,11 +100,14 @@
         "description": "Betriebsmodus, Filter für synchronisierte Geräte, Aktualisierungsintervall konfigurieren sowie Master Token anzeigen/aktualisieren.",
         "data": {
           "operation_mode": "Betriebsmodus",
+          "third_party_entity_mode": "Darstellung von Drittanbieter-Geräten",
           "selected_homes": "Zu synchronisierende Google Homes",
           "ignore_ha_synced_devices": "Von Home Assistant synchronisierte Geräte ignorieren",
-          "update_interval": "Aktualisierungsintervall (Sekunden)",
+          "local_update_interval": "Lokales Lautsprecher-Abfrageintervall (Sekunden, min. 60s)",
+          "cloud_update_interval": "Cloud HomeGraph-Abfrageintervall (Sekunden, min. 60s)",
           "master_token": "Master Token (versteckt - neuen aas_et/... oder oauth2_4/... Token einfügen zum Aktualisieren)"
         }
+
       }
     }
   },
@@ -147,8 +151,15 @@
       },
       "refresh": {
         "name": "Aktualisieren"
+      },
+      "delete_all_alarms": {
+        "name": "Alle Wecker löschen"
+      },
+      "delete_all_timers": {
+        "name": "Alle Timer löschen"
       }
     }
+
   },
   "selector": {
     "auth_method": {
@@ -176,6 +187,12 @@
         "hybrid": "Lokal & Cloud (Empfohlen - Schnelle Speaker-Timer + alle Google Home Geräte)",
         "local": "Nur Lokal (100% autark im LAN - Timer, Alarme, DND, Lautstärke)",
         "cloud": "Nur Cloud (Google Home Web / HomeGraph)"
+      }
+    },
+    "third_party_entity_mode": {
+      "options": {
+        "readonly_sensors": "Reine Status-Entitäten & Attribute (Standard & Empfohlen)",
+        "control_entities": "Steuerungs-Entitäten (Ventilator/Licht/Schalter/etc. - Live-Statusanzeige, Befehlsausführung durch Google Cloud beschränkt)"
       }
     }
   }

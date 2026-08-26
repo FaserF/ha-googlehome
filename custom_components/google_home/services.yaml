@@ -1,4 +1,4 @@
-﻿reboot_device:
+reboot_device:
   name: Reboot Device
   description: Reboots the specified Google Home / Nest device.
   target:
@@ -77,4 +77,21 @@ set_alarm_volume:
           max: 100
           step: 1
           unit_of_measurement: "%"
+
+broadcast:
+  name: Broadcast Message
+  description: Broadcasts a text message or announcement locally to a Google Home speaker.
+  target:
+    entity:
+      integration: google_home
+      domain: sensor
+  fields:
+    message:
+      name: Message
+      description: The announcement message to broadcast.
+      required: true
+      example: "Dinner is ready!"
+      selector:
+        text:
+
 

@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any
 import voluptuous as vol
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant, ServiceCall, callback
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import entity_platform
@@ -20,18 +21,22 @@ from .cloud_coordinator import GoogleHomeCloudDataUpdateCoordinator
 from .cloud_models import CloudHomeDevice
 from .const import (
     ALARM_AND_TIMER_ID_LENGTH,
+    CONF_THIRD_PARTY_ENTITY_MODE,
     DATA_CLOUD_COORDINATOR,
     DATA_COORDINATOR,
+    DEFAULT_THIRD_PARTY_ENTITY_MODE,
     DOMAIN,
-    GOOGLE_HOME_ALARM_DEFAULT_VALUE,
     MANUFACTURER,
     SERVICE_ATTR_ALARM_ID,
+    SERVICE_ATTR_MESSAGE,
     SERVICE_ATTR_SKIP_REFRESH,
     SERVICE_ATTR_TIMER_ID,
+    SERVICE_BROADCAST,
     SERVICE_DELETE_ALARM,
     SERVICE_DELETE_TIMER,
     SERVICE_REBOOT,
     SERVICE_REFRESH,
+    THIRD_PARTY_MODE_READONLY,
 )
 from .entity import GoogleHomeBaseEntity
 from .models import (
@@ -110,33 +115,89 @@ async def async_setup_entry(
     )
     if cloud_coordinator is not None:
         cloud_registered_ids: set[str] = set()
+        third_party_mode = entry.options.get(
+            CONF_THIRD_PARTY_ENTITY_MODE,
+            entry.data.get(
+                CONF_THIRD_PARTY_ENTITY_MODE, DEFAULT_THIRD_PARTY_ENTITY_MODE
+            ),
+        )
 
-        def _create_cloud_bridge_entities() -> list[GoogleHomeCloudBridgeSensor]:
-            new_bridge_ents = []
+        registered_struct_sensor_ids: set[str] = set()
+
+        def _create_cloud_sensor_entities() -> list[SensorEntity]:
+            new_ents: list[SensorEntity] = []
+            homes: dict[str, str] = {}
+            if hasattr(cloud_coordinator.client, "_get_available_homes_sync"):
+                try:
+                    homes.update(cloud_coordinator.client._get_available_homes_sync())
+                except Exception:
+                    pass
+
             for dev in cloud_coordinator.data or []:
+                if dev.structure_id:
+                    homes.setdefault(
+                        dev.structure_id, dev.structure_name or "Google Home"
+                    )
+                if dev.is_automation_routine:
+                    continue
                 if dev.is_control_bridge and dev.device_id not in cloud_registered_ids:
                     cloud_registered_ids.add(dev.device_id)
-                    new_bridge_ents.append(
+                    new_ents.append(
                         GoogleHomeCloudBridgeSensor(
                             coordinator=cloud_coordinator,
                             entry_id=entry.entry_id,
                             device_id=dev.device_id,
                         )
                     )
-            return new_bridge_ents
+                elif dev.device_id not in cloud_registered_ids:
+                    cloud_registered_ids.add(dev.device_id)
+                    is_primary = (
+                        third_party_mode == THIRD_PARTY_MODE_READONLY
+                        and dev.is_third_party
+                    )
+                    new_ents.append(
+                        GoogleHomeCloudStatusSensor(
+                            coordinator=cloud_coordinator,
+                            device_id=dev.device_id,
+                            as_diagnostic=not is_primary,
+                        )
+                    )
 
-        cloud_bridge_entities = _create_cloud_bridge_entities()
-        if cloud_bridge_entities:
-            async_add_entities(cloud_bridge_entities)
+            # Structure-level sensors: Home Briefs (Gemini activity summaries) and Face Library (Nest Aware)
+            for sid, sname in homes.items():
+                if sid not in registered_struct_sensor_ids:
+                    registered_struct_sensor_ids.add(sid)
+                    new_ents.append(
+                        GoogleHomeBriefsSensor(
+                            coordinator=cloud_coordinator,
+                            entry_id=entry.entry_id,
+                            structure_id=sid,
+                            structure_name=sname,
+                        )
+                    )
+                    new_ents.append(
+                        GoogleHomeFaceLibrarySensor(
+                            coordinator=cloud_coordinator,
+                            entry_id=entry.entry_id,
+                            structure_id=sid,
+                            structure_name=sname,
+                        )
+                    )
+
+            return new_ents
+
+        cloud_sensor_entities = _create_cloud_sensor_entities()
+        if cloud_sensor_entities:
+            async_add_entities(cloud_sensor_entities)
 
         @callback
-        def _async_add_new_cloud_bridges() -> None:
-            new_bridge_ents = _create_cloud_bridge_entities()
-            if new_bridge_ents:
-                async_add_entities(new_bridge_ents)
+        def _async_add_new_cloud_sensors() -> None:
+            new_ents = _create_cloud_sensor_entities()
+            if new_ents:
+                async_add_entities(new_ents)
 
         entry.async_on_unload(
-            cloud_coordinator.async_add_listener(_async_add_new_cloud_bridges)
+            cloud_coordinator.async_add_listener(_async_add_new_cloud_sensors)
         )
 
     # Register entity services
@@ -178,6 +239,14 @@ async def async_setup_entry(
             vol.Required("volume"): vol.All(vol.Coerce(int), vol.Clamp(min=0, max=100)),
         },
         GoogleHomeAlarmsSensor.async_set_alarm_volume,
+    )
+
+    platform.async_register_entity_service(
+        SERVICE_BROADCAST,
+        {
+            vol.Required(SERVICE_ATTR_MESSAGE): cv.string,
+        },
+        GoogleHomeAlarmsSensor.async_broadcast,
     )
 
     return True
@@ -245,15 +314,10 @@ class GoogleHomeAlarmsSensor(GoogleHomeBaseEntity, SensorEntity):
             else GoogleHomeAlarmStatus.NONE.name.lower()
         )
 
-    def _get_alarm_volume(self) -> float:
+    def _get_alarm_volume(self) -> float | None:
         """Get alarm volume status."""
         device = self.get_device()
-        alarm_volume = device.get_alarm_volume() if device else None
-        return (
-            alarm_volume
-            if alarm_volume is not None
-            else GOOGLE_HOME_ALARM_DEFAULT_VALUE
-        )
+        return device.get_alarm_volume() if device else None
 
     def _get_alarms_data(self) -> list[GoogleHomeAlarmDict]:
         """Get alarms data as list of dictionaries."""
@@ -296,6 +360,16 @@ class GoogleHomeAlarmsSensor(GoogleHomeBaseEntity, SensorEntity):
         volume: int = int(call.data["volume"])
         await self.client.update_alarm_volume(device=device, volume=volume)
         self.async_write_ha_state()
+
+    async def async_broadcast(self, call: ServiceCall) -> None:
+        """Service call to broadcast announcement on Google Home device."""
+        device = self.get_device()
+        if device is None:
+            _LOGGER.error("Device %s is not found.", self.device_name)
+            return
+
+        message: str = str(call.data[SERVICE_ATTR_MESSAGE])
+        await self.client.broadcast_message(device=device, message=message)
 
 
 class GoogleHomeTimersSensor(GoogleHomeBaseEntity, SensorEntity):
@@ -388,6 +462,9 @@ class GoogleHomeCloudBridgeSensor(
     """Google Home Cloud Bridge / Hub diagnostic sensor."""
 
     _attr_icon = "mdi:bridge"
+    # Bridges are diagnostic only and disabled by default to reduce clutter
+    _attr_entity_registry_enabled_default = False
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     def __init__(
         self,
@@ -456,6 +533,407 @@ class GoogleHomeCloudBridgeSensor(
         return DeviceInfo(
             identifiers={(DOMAIN, f"{self.entry_id}_structure_{struct_id}")},
             name=f"Google Home ({struct_name})",
+            manufacturer=MANUFACTURER,
+            model="Google Home Household & Structure",
+            configuration_url="https://home.google.com/",
+        )
+
+
+class GoogleHomeCloudStatusSensor(
+    CoordinatorEntity[GoogleHomeCloudDataUpdateCoordinator], SensorEntity
+):
+    """Google Home Cloud status sensor.
+
+    Always registered for all cloud devices (third-party and Google-native).
+    In readonly mode for third-party devices: primary entity (no category).
+    In control mode or for Google-native devices: supplemental diagnostic entity.
+    """
+
+    def __init__(
+        self,
+        coordinator: GoogleHomeCloudDataUpdateCoordinator,
+        device_id: str,
+        as_diagnostic: bool = False,
+    ) -> None:
+        """Initialize."""
+        super().__init__(coordinator)
+        self.device_id = device_id
+        self._attr_unique_id = f"{device_id}_cloud_status"
+        if as_diagnostic:
+            self._attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def get_device(self) -> CloudHomeDevice | None:
+        """Get device from coordinator."""
+        return self.coordinator.get_device(self.device_id)
+
+    @property
+    def name(self) -> str:
+        """Return name."""
+        device = self.get_device()
+        return f"{device.name} Status" if device else "Google Device Status"
+
+    @property
+    def native_value(self) -> str:
+        """Return human-readable device state. Never returns 'online'."""
+        device = self.get_device()
+        if not device:
+            return "unavailable"
+        if not device.online:
+            return "offline"
+
+        state = device.state
+        dtype = device.device_type.upper()
+
+        # OnOff trait: most common
+        if "on" in state:
+            return "an" if state["on"] else "aus"
+        if "is_on" in state:
+            return "an" if state["is_on"] else "aus"
+
+        # OpenClose trait (covers, doors, blinds, valves, garages)
+        if "openPercent" in state:
+            pct = state["openPercent"]
+            if pct == 0:
+                return "geschlossen"
+            if pct == 100:
+                return "offen"
+            return f"offen ({pct}%)"
+
+        # Lock
+        if "isLocked" in state:
+            return "gesperrt" if state["isLocked"] else "entsperrt"
+        if "isJammed" in state:
+            return "blockiert" if state["isJammed"] else "frei"
+
+        # Vacuum / mower
+        if "VACUUM" in dtype or "MOWER" in dtype:
+            vac_status = (
+                state.get("currentMode") or state.get("vacuumMode") or state.get("on")
+            )
+            if vac_status in (True, "cleaning", "CLEANING", "running"):
+                return "saugt"
+            if vac_status in ("docking", "DOCKING", "returning"):
+                return "kehrt zurück"
+            if vac_status in ("docked", "DOCKED", False):
+                return "angedockt"
+
+        # StartStop trait (robot, mowers)
+        if "isRunning" in state:
+            if state["isRunning"]:
+                return "läuft"
+            if state.get("isPaused"):
+                return "pausiert"
+            return "gestoppt"
+
+        # Thermostat / climate
+        if "thermostatMode" in state:
+            mode = str(state["thermostatMode"]).lower()
+            temp = state.get("thermostatTemperatureSetpoint")
+            if temp is not None:
+                return f"{mode} ({temp}°C)"
+            return mode
+
+        # ArmDisarm (security)
+        if "isArmed" in state:
+            return "gesichert" if state["isArmed"] else "nicht gesichert"
+
+        # Fan speed
+        if "currentFanSpeedSetting" in state:
+            return str(state["currentFanSpeedSetting"])
+        if "fanSpeed" in state:
+            return str(state["fanSpeed"])
+
+        # Media / volume state
+        if "activityState" in state:
+            activity = str(state["activityState"]).lower()
+            if activity in ("playing", "active"):
+                return "spielt"
+            if activity in ("paused", "standby"):
+                return "pausiert"
+            return activity
+
+        # Brightness
+        if "brightness" in state:
+            bri = state["brightness"]
+            on_state = state.get("on", True)
+            return f"an ({bri}%)" if on_state else "aus"
+
+        # Sensor state data
+        if "currentSensorStateData" in state:
+            sensor_data = state["currentSensorStateData"]
+            if sensor_data:
+                parts = []
+                for s in sensor_data if isinstance(sensor_data, list) else []:
+                    sname = s.get("name", "")
+                    sval = s.get("currentSensorState", "")
+                    if sname and sval:
+                        parts.append(f"{sname}: {sval}")
+                if parts:
+                    return ", ".join(parts)
+
+        # Fallback for devices without explicit state payload in HomeGraph:
+        # Never return "erreichbar" or "online" — return real domain status
+        traits = device.traits or []
+        if (
+            "action.devices.traits.OpenClose" in traits
+            or "SHUTTER" in dtype
+            or "BLINDS" in dtype
+            or "GARAGE" in dtype
+        ):
+            return "geschlossen"
+        if "action.devices.traits.LockUnlock" in traits or "LOCK" in dtype:
+            return "gesperrt"
+        if (
+            "action.devices.traits.Dock" in traits
+            or "VACUUM" in dtype
+            or "MOWER" in dtype
+        ):
+            return "angedockt"
+        if "SCENE" in dtype or "action.devices.traits.Scene" in traits:
+            return "bereit"
+
+        # Default for all switchable/controllable entities (Fans, Lights, Switches, TVs, Speakers)
+        return "aus"
+
+    @property
+    def icon(self) -> str:
+        """Return icon based on device type."""
+        device = self.get_device()
+        if not device:
+            return "mdi:cloud-outline"
+        dtype = device.device_type.upper()
+        if "FAN" in dtype or "AIRPURIFIER" in dtype:
+            return "mdi:fan"
+        if "LIGHT" in dtype:
+            return "mdi:lightbulb"
+        if "SWITCH" in dtype or "OUTLET" in dtype or "PLUG" in dtype:
+            return "mdi:power-socket-eu"
+        if "FRYER" in dtype or "COOKER" in dtype:
+            return "mdi:pot"
+        if "VACUUM" in dtype or "MOWER" in dtype:
+            return "mdi:robot-vacuum"
+        if "SHUTTER" in dtype or "BLINDS" in dtype or "CURTAIN" in dtype:
+            return "mdi:window-shutter"
+        if "TV" in dtype or "SETTOP" in dtype:
+            return "mdi:television"
+        if "LOCK" in dtype:
+            return "mdi:lock"
+        if "THERMOSTAT" in dtype or "AC_UNIT" in dtype or "HEATER" in dtype:
+            return "mdi:thermostat"
+        if "CAMERA" in dtype or "DOORBELL" in dtype:
+            return "mdi:camera"
+        if "SPEAKER" in dtype or "SOUNDBAR" in dtype:
+            return "mdi:speaker"
+        if "VALVE" in dtype or "SPRINKLER" in dtype or "FAUCET" in dtype:
+            return "mdi:pipe-valve"
+        if "GARAGE" in dtype:
+            return "mdi:garage"
+        return "mdi:cloud-check"
+
+    @property
+    def available(self) -> bool:
+        """Return availability."""
+        device = self.get_device()
+        return device is not None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return all state and trait diagnostic attributes."""
+        device = self.get_device()
+        if not device:
+            return {}
+        return {
+            "online": device.online,
+            "device_type": device.device_type,
+            "traits": device.traits,
+            "agent_id": device.agent_id,
+            "agent_name": device.agent_name,
+            "hardware_model": device.hardware_model,
+            "structure": device.structure_name,
+            "room": device.room_name,
+            "state_data": device.state,
+            "attributes_data": device.attributes,
+        }
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        """Return device registry info."""
+        device = self.get_device()
+        connections = set()
+        if device and device.mac_address:
+            from homeassistant.helpers.device_registry import (
+                CONNECTION_NETWORK_MAC,
+                format_mac,
+            )
+
+            connections.add((CONNECTION_NETWORK_MAC, format_mac(device.mac_address)))
+
+        return DeviceInfo(
+            identifiers={(DOMAIN, self.device_id)},
+            name=device.name if device else "Device",
+            manufacturer=device.manufacturer if device else MANUFACTURER,
+            model=device.model_name if device else "Cloud Device",
+            sw_version=device.firmware_version if device else None,
+            hw_version=device.hardware_version if device else None,
+            suggested_area=device.room_name if device else None,
+            connections=connections,
+            configuration_url="https://home.google.com/",
+        )
+
+
+class GoogleHomeBriefsSensor(
+    CoordinatorEntity[GoogleHomeCloudDataUpdateCoordinator], SensorEntity
+):
+    """Google Home Gemini / Home Agent daily activity brief summary sensor."""
+
+    _attr_icon = "mdi:text-box-search-outline"
+    _attr_entity_registry_enabled_default = False
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(
+        self,
+        coordinator: GoogleHomeCloudDataUpdateCoordinator,
+        entry_id: str,
+        structure_id: str,
+        structure_name: str,
+    ) -> None:
+        """Initialize."""
+        super().__init__(coordinator)
+        self.entry_id = entry_id
+        self.structure_id = structure_id
+        self.structure_name = structure_name
+        self._attr_unique_id = f"google_home_briefs_{structure_id}"
+
+    @property
+    def name(self) -> str:
+        """Return name."""
+        return f"{self.structure_name} Home Briefs"
+
+    def _extract_briefs_data(self) -> dict[str, Any]:
+        """Extract HomeBriefsTrait and Gemini info from raw HomeGraph payload."""
+        result: dict[str, Any] = {"status": "available", "briefs": []}
+        try:
+            auth_client = getattr(self.coordinator.client, "_auth_client", None)
+            if auth_client and getattr(auth_client, "homegraph", None):
+                raw = auth_client.homegraph.SerializeToString()
+                import re
+
+                # Extract strings around HomeBriefsTrait
+                matches = re.findall(
+                    rb"HomeBriefsTrait[^\xaa]*\x1a[\x01-\x40]([^\x00-\x1f]+)", raw
+                )
+                brief_texts = [
+                    m.decode("utf-8", errors="ignore")
+                    for m in matches
+                    if len(m) > 3 and b"trait" not in m.lower()
+                ]
+                if brief_texts:
+                    result["briefs"] = brief_texts
+        except Exception:
+            pass
+        return result
+
+    @property
+    def native_value(self) -> str:
+        """Return brief status."""
+        data = self._extract_briefs_data()
+        briefs = data.get("briefs", [])
+        return str(briefs[0]) if briefs else "Keine neuen Zusammenfassungen"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return full briefs metadata."""
+        data = self._extract_briefs_data()
+        return {
+            "structure_id": self.structure_id,
+            "structure_name": self.structure_name,
+            "all_briefs": data.get("briefs", []),
+            "total_briefs": len(data.get("briefs", [])),
+        }
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        """Return household device info."""
+        return DeviceInfo(
+            identifiers={(DOMAIN, f"{self.entry_id}_structure_{self.structure_id}")},
+            name=f"Google Home ({self.structure_name})",
+            manufacturer=MANUFACTURER,
+            model="Google Home Household & Structure",
+            configuration_url="https://home.google.com/",
+        )
+
+
+class GoogleHomeFaceLibrarySensor(
+    CoordinatorEntity[GoogleHomeCloudDataUpdateCoordinator], SensorEntity
+):
+    """Google Nest Aware Familiar Faces Library sensor."""
+
+    _attr_icon = "mdi:account-box-multiple-outline"
+    _attr_entity_registry_enabled_default = False
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(
+        self,
+        coordinator: GoogleHomeCloudDataUpdateCoordinator,
+        entry_id: str,
+        structure_id: str,
+        structure_name: str,
+    ) -> None:
+        """Initialize."""
+        super().__init__(coordinator)
+        self.entry_id = entry_id
+        self.structure_id = structure_id
+        self.structure_name = structure_name
+        self._attr_unique_id = f"google_home_face_library_{structure_id}"
+
+    @property
+    def name(self) -> str:
+        """Return name."""
+        return f"{self.structure_name} Bekannte Gesichter"
+
+    def _extract_face_library(self) -> list[str]:
+        """Extract FaceLibraryTrait names from raw HomeGraph payload."""
+        faces = []
+        try:
+            auth_client = getattr(self.coordinator.client, "_auth_client", None)
+            if auth_client and getattr(auth_client, "homegraph", None):
+                raw = auth_client.homegraph.SerializeToString()
+                import re
+
+                matches = re.findall(
+                    rb"FaceLibraryTrait[^\xaa]*\x1a[\x01-\x30]([^\x00-\x1f]+)", raw
+                )
+                faces = [
+                    m.decode("utf-8", errors="ignore")
+                    for m in matches
+                    if len(m) > 1 and b"trait" not in m.lower()
+                ]
+        except Exception:
+            pass
+        return faces
+
+    @property
+    def native_value(self) -> int:
+        """Return number of recognized familiar faces."""
+        return len(self._extract_face_library())
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return recognized familiar face names."""
+        faces = self._extract_face_library()
+        return {
+            "structure_id": self.structure_id,
+            "structure_name": self.structure_name,
+            "familiar_faces": faces,
+            "count": len(faces),
+        }
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        """Return household device info."""
+        return DeviceInfo(
+            identifiers={(DOMAIN, f"{self.entry_id}_structure_{self.structure_id}")},
+            name=f"Google Home ({self.structure_name})",
             manufacturer=MANUFACTURER,
             model="Google Home Household & Structure",
             configuration_url="https://home.google.com/",
