@@ -12,7 +12,7 @@ from homeassistant.components.climate import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import UnitOfTemperature
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -41,17 +41,31 @@ async def async_setup_entry(
         entry.entry_id
     ][DATA_CLOUD_COORDINATOR]
 
-    entities: list[GoogleHomeCloudClimate] = []
-    for device in coordinator.data or []:
-        if device.is_climate:
-            entities.append(
-                GoogleHomeCloudClimate(
-                    coordinator=coordinator,
-                    device_id=device.device_id,
-                )
-            )
+    registered_ids: set[str] = set()
 
-    async_add_entities(entities)
+    def _create_entities() -> list[GoogleHomeCloudClimate]:
+        new_ents = []
+        for dev in coordinator.data or []:
+            if dev.is_climate and dev.device_id not in registered_ids:
+                registered_ids.add(dev.device_id)
+                new_ents.append(
+                    GoogleHomeCloudClimate(
+                        coordinator=coordinator, device_id=dev.device_id
+                    )
+                )
+        return new_ents
+
+    entities = _create_entities()
+    if entities:
+        async_add_entities(entities)
+
+    @callback
+    def _async_add_new_devices() -> None:
+        new_ents = _create_entities()
+        if new_ents:
+            async_add_entities(new_ents)
+
+    entry.async_on_unload(coordinator.async_add_listener(_async_add_new_devices))
     return True
 
 

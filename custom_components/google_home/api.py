@@ -300,24 +300,56 @@ class GlocaltokensApiClient:
             return
 
         try:
-            # Poll Alarms & Timers
+            # Poll Alarms & Timers & Alarm Volume
             alarms_data = await self.get_alarms_and_timers(device)
+            alarm_vol_found = False
             if alarms_data:
                 device.set_alarms(alarms_data.get(JSON_ALARM, []))
                 device.set_timers(alarms_data.get(JSON_TIMER, []))
+                if (
+                    JSON_ALARM_VOLUME in alarms_data
+                    and alarms_data[JSON_ALARM_VOLUME] is not None
+                ):
+                    raw_vol = alarms_data[JSON_ALARM_VOLUME]
+                    # Google Home API returns volume as a float between 0.0 and 1.0 (e.g. 0.4 for 40%)
+                    # or as a 0-100 percentage.
+                    vol_pct = round(raw_vol * 100) if raw_vol <= 1.0 else round(raw_vol)
+                    device.set_alarm_volume(vol_pct)
+                    alarm_vol_found = True
 
-            # Poll Alarm Volume
-            volume_data = await self.get_alarm_volume(device)
-            if volume_data and JSON_ALARM_VOLUME in volume_data:
-                device.set_alarm_volume(volume_data[JSON_ALARM_VOLUME] * 100)
+            # If alarms response didn't include alarm volume, poll dedicated endpoint
+            if not alarm_vol_found:
+                try:
+                    vol_data = await self.get_alarm_volume(device)
+                    if vol_data and JSON_ALARM_VOLUME in vol_data:
+                        raw_vol = vol_data[JSON_ALARM_VOLUME]
+                        if raw_vol is not None:
+                            vol_pct = (
+                                round(raw_vol * 100)
+                                if raw_vol <= 1.0
+                                else round(raw_vol)
+                            )
+                            device.set_alarm_volume(vol_pct)
+                except Exception:
+                    pass
 
-            # Poll Device Media / Speech Volume
+            # Poll Device Media / Speech Live Volume
             try:
                 curr_vol_data = await self.get_current_device_volume(device)
-                if curr_vol_data and "volume" in curr_vol_data:
-                    device.set_device_volume(curr_vol_data["volume"] * 100)
-                elif curr_vol_data and "level" in curr_vol_data:
-                    device.set_device_volume(curr_vol_data["level"] * 100)
+                if curr_vol_data:
+                    raw_val = (
+                        curr_vol_data.get("volume")
+                        if "volume" in curr_vol_data
+                        else curr_vol_data.get("level")
+                    )
+                    if raw_val is not None:
+                        val_float = float(raw_val)
+                        vol_pct = (
+                            round(val_float * 100)
+                            if val_float <= 1.0
+                            else round(val_float)
+                        )
+                        device.set_device_volume(vol_pct)
             except Exception:
                 pass
 
@@ -331,9 +363,22 @@ class GlocaltokensApiClient:
             if night_mode_data and "enabled" in night_mode_data:
                 device.set_night_mode(bool(night_mode_data["enabled"]))
 
-            # Poll Eureka Info (Wi-Fi SSID, RSSI, Bluetooth MAC)
+            # Poll Eureka Info (Wi-Fi SSID, RSSI, Bluetooth MAC, Firmware Version, Audio Volume)
             eureka_data = await self.get_eureka_info(device)
             if eureka_data:
+                # Also check audio block in eureka_info as backup/supplemental volume source
+                audio_data = eureka_data.get("audio") or {}
+                if "volume" in audio_data or "level" in audio_data:
+                    raw_val = audio_data.get("volume", audio_data.get("level"))
+                    if raw_val is not None:
+                        val_float = float(raw_val)
+                        vol_pct = (
+                            round(val_float * 100)
+                            if val_float <= 1.0
+                            else round(val_float)
+                        )
+                        device.set_device_volume(vol_pct)
+
                 wifi_data = eureka_data.get("wifi") or eureka_data.get("wlan") or {}
                 net_data = eureka_data.get("net") or {}
                 device.set_wifi_info(
@@ -341,17 +386,39 @@ class GlocaltokensApiClient:
                     rssi=wifi_data.get("signal_level") or wifi_data.get("rssi"),
                 )
 
+                build_info = eureka_data.get("build_info") or {}
                 device_info = eureka_data.get("device_info") or {}
                 firmware = (
-                    eureka_data.get("build_version")
+                    build_info.get("cast_build_revision")
+                    or build_info.get("system_build_number")
+                    or build_info.get("build_version")
                     or eureka_data.get("cast_build_revision")
-                    or device_info.get("build_version")
+                    or eureka_data.get("system_build_number")
+                    or eureka_data.get("build_version")
                     or device_info.get("cast_build_revision")
+                    or device_info.get("system_build_number")
+                    or device_info.get("build_version")
+                    or (
+                        str(eureka_data.get("version"))
+                        if isinstance(eureka_data.get("version"), str)
+                        else None
+                    )
                 )
                 net_mac = (
-                    net_data.get("ethernet", {}).get("mac_address")
-                    or net_data.get("wlan", {}).get("mac_address")
+                    (
+                        net_data.get("ethernet", {}).get("mac_address")
+                        if isinstance(net_data.get("ethernet"), dict)
+                        else None
+                    )
+                    or (
+                        net_data.get("wlan", {}).get("mac_address")
+                        if isinstance(net_data.get("wlan"), dict)
+                        else None
+                    )
+                    or net_data.get("mac_address")
+                    or wifi_data.get("mac_address")
                     or eureka_data.get("mac_address")
+                    or device_info.get("mac_address")
                 )
                 device.set_system_info(
                     firmware=str(firmware) if firmware else None,
@@ -439,6 +506,9 @@ class GlocaltokensApiClient:
 
     async def get_alarm_volume(self, device: GoogleHomeDevice) -> JsonDict | None:
         """Get alarm volume from device."""
+        alarms_data = await self.get_alarms_and_timers(device)
+        if alarms_data and JSON_ALARM_VOLUME in alarms_data:
+            return {JSON_ALARM_VOLUME: alarms_data[JSON_ALARM_VOLUME]}
         return await self._request("GET", device, API_ENDPOINT_ALARM_VOLUME)
 
     async def set_alarm_volume(
@@ -462,18 +532,23 @@ class GlocaltokensApiClient:
         self, device: GoogleHomeDevice
     ) -> JsonDict | None:
         """Get current live speaker / media volume."""
-        return await self._request("GET", device, API_ENDPOINT_CURRENT_VOLUME)
+        res = await self._request("GET", device, API_ENDPOINT_CURRENT_VOLUME)
+        if not res:
+            res = await self._request("GET", device, "setup/assistant/volume")
+        return res
 
     async def set_device_volume(
         self, device: GoogleHomeDevice, volume: float
     ) -> JsonDict | None:
         """Set normal speaker volume on device (0.0 - 1.0)."""
-        return await self._request(
+        payload = {"level": volume, "volume": volume}
+        res = await self._request(
             "POST",
             device,
             API_ENDPOINT_CURRENT_VOLUME,
-            json_data={"level": volume},
+            json_data=payload,
         )
+        return res
 
     async def update_device_volume(self, device: GoogleHomeDevice, volume: int) -> None:
         """Update normal speaker volume percentage (0-100) and sync local state."""

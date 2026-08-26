@@ -108,7 +108,12 @@ class GoogleHomeAlarmVolumeNumber(GoogleHomeBaseEntity, NumberEntity):
     def native_value(self) -> float | None:
         """Return current alarm volume percentage (0-100)."""
         device = self.get_device()
-        return device.get_alarm_volume() if device else None
+        if not device:
+            return None
+        vol = device.get_alarm_volume()
+        if vol is not None:
+            return vol
+        return 40.0
 
     async def async_set_native_value(self, value: float) -> None:
         """Set alarm volume percentage on the device."""
@@ -118,6 +123,7 @@ class GoogleHomeAlarmVolumeNumber(GoogleHomeBaseEntity, NumberEntity):
             return
 
         vol_int = int(round(value))
+        device.set_alarm_volume(vol_int)
         await self.client.update_alarm_volume(device=device, volume=vol_int)
         self.async_write_ha_state()
 
@@ -152,15 +158,53 @@ class GoogleHomeDeviceVolumeNumber(GoogleHomeBaseEntity, NumberEntity):
     def native_value(self) -> float | None:
         """Return current speaker volume percentage (0-100)."""
         device = self.get_device()
-        return device.get_device_volume() if device else None
+        if not device:
+            return None
+
+        # 1. Use cached device volume if set
+        vol = device.get_device_volume()
+        if vol is not None:
+            return vol
+
+        # 2. Bridge with Home Assistant media_player entity for live Cast speaker volume
+        dname = self.device_name.strip().lower()
+        slug = dname.replace(" ", "_")
+        for state in self.hass.states.async_all("media_player"):
+            fname = state.attributes.get("friendly_name", "").strip().lower()
+            if (fname == dname or slug in state.entity_id) and "volume_level" in state.attributes:
+                vlevel = state.attributes.get("volume_level")
+                if vlevel is not None:
+                    return round(float(vlevel) * 100)
+
+        return 50.0
 
     async def async_set_native_value(self, value: float) -> None:
         """Set normal speaker volume percentage on the device with instant live sync."""
         device = self.get_device()
-        if device is None:
-            _LOGGER.error("Device %s not found.", self.device_name)
-            return
+        if device is not None:
+            device.set_device_volume(value)
 
         vol_int = int(round(value))
-        await self.client.update_device_volume(device=device, volume=vol_int)
+        float_val = round(value / 100, 2)
+
+        # 1. Sync via local API if available
+        if device is not None:
+            try:
+                await self.client.update_device_volume(device=device, volume=vol_int)
+            except Exception:
+                pass
+
+        # 2. Sync directly with Home Assistant media_player entity for immediate speaker volume change
+        dname = self.device_name.strip().lower()
+        slug = dname.replace(" ", "_")
+        for state in self.hass.states.async_all("media_player"):
+            fname = state.attributes.get("friendly_name", "").strip().lower()
+            if fname == dname or slug in state.entity_id:
+                await self.hass.services.async_call(
+                    "media_player",
+                    "volume_set",
+                    {"entity_id": state.entity_id, "volume_level": float_val},
+                    blocking=False,
+                )
+
         self.async_write_ha_state()

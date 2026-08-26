@@ -38,7 +38,9 @@ async def async_get_config_entry_diagnostics(
     """Return diagnostics for a config entry."""
     data = hass.data[DOMAIN].get(entry.entry_id, {})
     coordinator = data.get(DATA_COORDINATOR)
+    cloud_coordinator = data.get("cloud_coordinator")
     client = data.get(DATA_CLIENT)
+    cloud_client = data.get("cloud_client")
 
     devices_data = []
     if coordinator and coordinator.data:
@@ -57,6 +59,24 @@ async def async_get_config_entry_diagnostics(
             }
             devices_data.append(async_redact_data(dev_info, REDACT_DEVICE))
 
+    cloud_devices_data = []
+    if cloud_coordinator and cloud_coordinator.data:
+        for cdev in cloud_coordinator.data:
+            cdev_info = {
+                "name": cdev.name,
+                "device_id": cdev.device_id,
+                "device_type": cdev.device_type,
+                "hardware_model": cdev.hardware_model,
+                "hardware_version": cdev.hardware_version,
+                "firmware_version": cdev.firmware_version,
+                "mac_address": cdev.mac_address,
+                "agent_id": cdev.agent_id,
+                "agent_name": cdev.agent_name,
+                "traits": cdev.traits,
+                "is_ha_synced": cdev.is_home_assistant_synced,
+            }
+            cloud_devices_data.append(async_redact_data(cdev_info, REDACT_DEVICE))
+
     return {
         "entry": {
             "title": entry.title,
@@ -66,5 +86,7 @@ async def async_get_config_entry_diagnostics(
             "options": dict(entry.options),
         },
         "devices": devices_data,
+        "cloud_devices": cloud_devices_data,
         "client_initialized": client is not None,
+        "cloud_client_initialized": cloud_client is not None,
     }

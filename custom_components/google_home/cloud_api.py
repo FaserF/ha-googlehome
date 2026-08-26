@@ -29,14 +29,20 @@ class GoogleHomeCloudClient:
         self,
         hass: HomeAssistant,
         master_token: str,
+        username: str | None = None,
+        android_id: str | None = None,
         ignore_ha_synced: bool = True,
     ) -> None:
         """Initialize cloud client."""
         self.hass = hass
         self.master_token = master_token
+        self.username = username
+        self.android_id = android_id
         self.ignore_ha_synced = ignore_ha_synced
         self._auth_client = GLocalAuthenticationTokens(
+            username=username,
             master_token=master_token,
+            android_id=android_id,
             verbose=False,
         )
 

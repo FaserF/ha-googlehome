@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Google Home Setup",
-        "description": "Google requires authentication to communicate with your Google Home speakers and HomeGraph devices.\n\n### 🔐 Choose an authentication method:\n- **Token (Master Token / Web OAuth Token)**: 100% reliable, recommended by Google Home community.\n- **Google Home Token Hub Add-on**: Automatic setup via Add-on (auto-detected, edge & stable).\n- **App Password**: Automatic token generation (requires App Password from Google Account).",
+        "description": "{discovery_intro}Google requires authentication to communicate with your Google Home speakers and HomeGraph devices.\n\n### 🔐 Choose an authentication method:\n- **Token (Master Token / Web OAuth Token)**: 100% reliable, recommended by Google Home community.\n- **Google Home Token Hub Add-on**: Automatic setup via Add-on (auto-detected, edge & stable).\n- **App Password**: Automatic token generation (requires App Password from Google Account).",
         "data": {
           "auth_method": "Authentication Method"
         }
@@ -34,11 +34,24 @@
       },
       "addon_login": {
         "title": "Add-on Login",
-        "description": "Enter your Google account credentials. The Add-on will perform the login and extract your master token.",
+        "description": "{discovery_intro}Enter your Google account email and password (or App Password). The Add-on will automatically authenticate and acquire your Master Token in the background.",
         "data": {
           "username": "Google Account Email",
-          "password": "Password / App-Password (optional)",
-          "master_token": "Web Token (oauth2_4/... optional)"
+          "password": "Password / App-Password"
+        }
+      },
+      "addon_existing": {
+        "title": "Existing Master Token Found",
+        "description": "An active Master Token for **{email}** was detected in the Google Home Token Hub Add-on.\n\nWould you like to use this existing token or generate a new one?",
+        "data": {
+          "existing_action": "Action"
+        }
+      },
+      "addon_2fa": {
+        "title": "Google Authentication in Progress",
+        "description": "{two_factor_instruction}",
+        "data": {
+          "two_factor_code": "Verification Code (SMS / Authenticator App)"
         }
       },
       "addon_action": {
@@ -58,6 +71,9 @@
       }
     },
     "error": {
+      "invalid_email": "Please enter a valid Google email address (e.g. name@gmail.com).",
+      "invalid_token_format": "Invalid token format. Token must start with 'aas_et/' (Master Token) or 'oauth2_4/' (Web OAuth Token).",
+      "invalid_app_password_format": "Invalid App Password format. Google App Passwords must consist of 16 letters (e.g. abcd efgh ijkl mnop).",
       "invalid_master_token": "The token provided is invalid or expired. Please generate a fresh token from https://accounts.google.com/EmbeddedSetup.",
       "advanced_protection": "Your Google account has the Advanced Protection Program enabled. Google strictly prohibits App Passwords for this account. Please use the Token method instead.",
       "two_factor_required": "Google rejected password login (BadAuthentication / 2FA). Please enter an App Password at https://myaccount.google.com/apppasswords or provide a web OAuth token.",
@@ -70,7 +86,9 @@
       "unknown": "An unexpected error occurred. Please check Home Assistant logs."
     },
     "abort": {
-      "single_instance_allowed": "Only a single Google Home integration instance is allowed."
+      "single_instance_allowed": "Only a single Google Home integration instance is allowed.",
+      "already_configured": "Google Home is already configured.",
+      "already_in_progress": "A Google Home setup is already in progress."
     }
   },
   "options": {
@@ -126,6 +144,35 @@
       },
       "refresh": {
         "name": "Refresh"
+      }
+    }
+  },
+  "selector": {
+    "auth_method": {
+      "options": {
+        "token": "Token (Master Token / Web OAuth Token) [Recommended]",
+        "addon": "Google Home Token Hub Add-on (Ingress Hub)",
+        "password": "App Password (Username + App Password)"
+      }
+    },
+    "addon_action": {
+      "options": {
+        "stop": "Stop Add-on (Recommended - saves RAM/CPU, token is saved)",
+        "uninstall": "Uninstall Add-on (No longer needed)",
+        "keep_running": "Keep Add-on running"
+      }
+    },
+    "existing_action": {
+      "options": {
+        "use_existing": "Use existing Master Token (Recommended)",
+        "generate_new": "Generate new Master Token / Login with different account"
+      }
+    },
+    "operation_mode": {
+      "options": {
+        "hybrid": "Local & Cloud (Recommended - Fast speaker timers + all Google Home devices)",
+        "local": "Local Only (100% LAN - timers, alarms, DND, volume)",
+        "cloud": "Cloud Only (Google Home Web / HomeGraph)"
       }
     }
   }

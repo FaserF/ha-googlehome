@@ -58,6 +58,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     session = async_get_clientsession(hass)
 
     entry_data: dict[str, Any] = {}
+    hass.data[DOMAIN][entry.entry_id] = entry_data
 
     # 1. Setup Local Subsystem
     if mode in (MODE_HYBRID, MODE_LOCAL):
@@ -92,6 +93,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         cloud_client = GoogleHomeCloudClient(
             hass=hass,
             master_token=master_token,
+            username=username,
+            android_id=android_id,
             ignore_ha_synced=ignore_ha_synced,
         )
         cloud_coordinator = GoogleHomeCloudDataUpdateCoordinator(
@@ -106,8 +109,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
         entry_data[DATA_CLOUD_CLIENT] = cloud_client
         entry_data[DATA_CLOUD_COORDINATOR] = cloud_coordinator
-
-    hass.data[DOMAIN][entry.entry_id] = entry_data
 
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)

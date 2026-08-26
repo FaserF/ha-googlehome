@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Google Home Einrichtung",
-        "description": "Google verlangt eine Authentifizierung, um deine Google Home & Nest Lautsprecher und Cloud-Geräte abzufragen.\n\n### 🔐 Wähle deine Anmeldemethode:\n- **Token (Master-Token / Web-OAuth-Token)**: 100% zuverlässig, von der Community empfohlen.\n- **Google Home Token Hub Add-on**: Automatische Einrichtung über das Add-on (Erkennung für Edge & Stable).\n- **App-Passwort**: Automatische Token-Generierung (erfordert ein App-Passwort von Google).",
+        "description": "{discovery_intro}Google verlangt eine Authentifizierung, um deine Google Home & Nest Lautsprecher und Cloud-Geräte abzufragen.\n\n### 🔐 Wähle deine Anmeldemethode:\n- **Token (Master-Token / Web-OAuth-Token)**: 100% zuverlässig, von der Community empfohlen.\n- **Google Home Token Hub Add-on**: Automatische Einrichtung über das Add-on (Erkennung für Edge & Stable).\n- **App-Passwort**: Automatische Token-Generierung (erfordert ein App-Passwort von Google).",
         "data": {
           "auth_method": "Anmeldemethode"
         }
@@ -34,11 +34,24 @@
       },
       "addon_login": {
         "title": "Add-on Anmeldung",
-        "description": "Gib deine Google-Zugangsdaten ein. Das Add-on führt die Anmeldung durch und erzeugt den Master-Token.",
+        "description": "{discovery_intro}Gib deine Google-Konto E-Mail und dein Passwort (oder App-Passwort) ein. Das Add-on führt die Anmeldung automatisch durch und ruft den Master-Token im Hintergrund ab.",
         "data": {
-          "username": "Google-Konto E-Mail-Adresse",
-          "password": "Passwort / App-Passwort (optional)",
-          "master_token": "Web-Token (oauth2_4/... optional)"
+          "username": "Google-Konto E-Mail",
+          "password": "Passwort / App-Passwort"
+        }
+      },
+      "addon_existing": {
+        "title": "Bestehender Master-Token gefunden",
+        "description": "Ein aktiver Master-Token für **{email}** wurde im Google Home Token Hub Add-on gefunden.\n\nMöchtest du diesen bestehenden Master-Token übernehmen oder dich neu anmelden?",
+        "data": {
+          "existing_action": "Aktion"
+        }
+      },
+      "addon_2fa": {
+        "title": "Google-Authentifizierung läuft...",
+        "description": "{two_factor_instruction}",
+        "data": {
+          "two_factor_code": "Bestätigungscode (SMS / Authenticator-App)"
         }
       },
       "addon_action": {
@@ -58,19 +71,24 @@
       }
     },
     "error": {
-      "invalid_master_token": "Der angegebene Token ist ungültig oder abgelaufen. Bitte erzeuge auf https://accounts.google.com/EmbeddedSetup einen frischen Token.",
-      "advanced_protection": "Für dein Google-Konto ist das Erweiterte Sicherheitsprogramm (Advanced Protection) aktiv. Google verbietet hierfür Passwörter und App-Passwörter komplett. Bitte nutze die Token-Methode.",
-      "two_factor_required": "Google verweigert die Passwort-Anmeldung (BadAuthentication / 2FA). Bitte erstelle unter https://myaccount.google.com/apppasswords ein 16-stelliges App-Passwort oder nutze einen Web-Token.",
-      "missing_email_for_oauth": "Bitte gib oben deine Google-Konto E-Mail-Adresse an.",
-      "missing_credentials": "Bitte gib entweder ein Passwort oder einen Token an.",
-      "addon_not_logged_in": "Das Google Home Add-on läuft, aber es wurde noch kein Token hinterlegt.",
-      "cannot_connect_addon": "Verbindung zum Google Home Add-on fehlgeschlagen. Bitte prüfe, ob das Add-on installiert ist und läuft.",
-      "invalid_auth": "Ungültige E-Mail-Adresse oder Zugangsdaten. Bitte Zugangsdaten prüfen.",
-      "password_too_long": "Das Passwort überschreitet die maximale Länge (100 Zeichen).",
-      "unknown": "Unerwarteter Fehler aufgetreten. Bitte erstelle ein Fehlerprotokoll."
+      "invalid_email": "Bitte gib eine gültige Google-Mailadresse ein (z. B. name@gmail.com).",
+      "invalid_token_format": "Ungültiges Token-Format. Der Token muss mit 'aas_et/' (Master-Token) oder 'oauth2_4/' (OAuth-Token) beginnen.",
+      "invalid_app_password_format": "Ungültiges App-Passwort. Google App-Passwörter bestehen aus 16 Zeichen (z. B. abcd efgh ijkl mnop).",
+      "invalid_master_token": "Der angegebene Token ist ungültig oder abgelaufen. Bitte erstelle einen neuen Token unter https://accounts.google.com/EmbeddedSetup.",
+      "advanced_protection": "Für dieses Google-Konto ist das 'Erweiterte Sicherheitsprogramm' aktiv. Google erlaubt keine App-Passwörter für dieses Konto. Bitte nutze die Token-Methode.",
+      "two_factor_required": "Google hat die Passwort-Anmeldung abgewiesen (2FA aktiv). Bitte erstelle ein 16-stelliges App-Passwort unter https://myaccount.google.com/apppasswords oder verwende die Token-Methode.",
+      "missing_email_for_oauth": "Bitte gib oben deine Google-Konto E-Mail-Adresse ein.",
+      "missing_credentials": "Bitte gib entweder ein Passwort oder einen Token ein.",
+      "addon_not_logged_in": "Das Google Home Add-on läuft, es wurde jedoch noch kein Token hinterlegt.",
+      "cannot_connect_addon": "Verbindung zum Google Home Add-on fehlgeschlagen. Bitte stelle sicher, dass das Add-on läuft.",
+      "invalid_auth": "Ungültige E-Mail-Adresse oder Zugangsdaten. Bitte überprüfe deine Eingabe.",
+      "password_too_long": "Das Passwort ist zu lang (maximal 100 Zeichen).",
+      "unknown": "Ein unerwarteter Fehler ist aufgetreten. Bitte prüfe die Home Assistant Logs."
     },
     "abort": {
-      "single_instance_allowed": "Es ist nur eine einzige Instanz der Google Home Integration erlaubt."
+      "single_instance_allowed": "Es ist nur eine einzige Instanz der Google Home Integration erlaubt.",
+      "already_configured": "Google Home ist bereits eingerichtet.",
+      "already_in_progress": "Eine Google Home Einrichtung ist bereits im Gange."
     }
   },
   "options": {
@@ -126,6 +144,35 @@
       },
       "refresh": {
         "name": "Aktualisieren"
+      }
+    }
+  },
+  "selector": {
+    "auth_method": {
+      "options": {
+        "token": "Token (Master-Token / Web-OAuth-Token) [Empfohlen]",
+        "addon": "Google Home Token Hub Add-on (Ingress Hub)",
+        "password": "App-Passwort (E-Mail + App-Passwort)"
+      }
+    },
+    "addon_action": {
+      "options": {
+        "stop": "Add-on stoppen (Empfohlen - spart RAM/CPU, Token bleibt gesichert)",
+        "uninstall": "Add-on deinstallieren (Wird nicht mehr benötigt)",
+        "keep_running": "Add-on weiterlaufen lassen"
+      }
+    },
+    "existing_action": {
+      "options": {
+        "use_existing": "Bestehenden Master-Token verwenden (Empfohlen)",
+        "generate_new": "Neuen Master-Token generieren / Mit anderem Konto anmelden"
+      }
+    },
+    "operation_mode": {
+      "options": {
+        "hybrid": "Lokal & Cloud (Empfohlen - Schnelle Speaker-Timer + alle Google Home Geräte)",
+        "local": "Nur Lokal (100% autark im LAN - Timer, Alarme, DND, Lautstärke)",
+        "cloud": "Nur Cloud (Google Home Web / HomeGraph)"
       }
     }
   }

@@ -4,12 +4,11 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import voluptuous as vol
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant, ServiceCall, callback
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import entity_platform
@@ -20,10 +19,6 @@ from .const import (
     DATA_COORDINATOR,
     DOMAIN,
     GOOGLE_HOME_ALARM_DEFAULT_VALUE,
-    ICON_ALARMS,
-    ICON_TIMERS,
-    ICON_TOKEN,
-    ICON_WIFI,
     SERVICE_ATTR_ALARM_ID,
     SERVICE_ATTR_SKIP_REFRESH,
     SERVICE_ATTR_TIMER_ID,
@@ -45,7 +40,6 @@ if TYPE_CHECKING:
     from .coordinator import GoogleHomeDataUpdateCoordinator
     from .types import (
         AlarmsAttributes,
-        DeviceAttributes,
         GoogleHomeAlarmDict,
         GoogleHomeTimerDict,
         TimersAttributes,
@@ -75,22 +69,12 @@ async def async_setup_entry(
         ) -> list[GoogleHomeBaseEntity]:
             registered_device_ids.add(device.device_id)
             return [
-                GoogleHomeDeviceSensor(
-                    coordinator=coordinator,
-                    device_id=device.device_id,
-                    device_name=device.name,
-                ),
                 GoogleHomeAlarmsSensor(
                     coordinator=coordinator,
                     device_id=device.device_id,
                     device_name=device.name,
                 ),
                 GoogleHomeTimersSensor(
-                    coordinator=coordinator,
-                    device_id=device.device_id,
-                    device_name=device.name,
-                ),
-                GoogleHomeWifiSensor(
                     coordinator=coordinator,
                     device_id=device.device_id,
                     device_name=device.name,
@@ -139,13 +123,13 @@ async def async_setup_entry(
     platform.async_register_entity_service(
         SERVICE_REBOOT,
         {},
-        GoogleHomeDeviceSensor.async_reboot_device,
+        GoogleHomeAlarmsSensor.async_reboot_device,
     )
 
     platform.async_register_entity_service(
         SERVICE_REFRESH,
         {},
-        GoogleHomeDeviceSensor.async_refresh_devices,
+        GoogleHomeAlarmsSensor.async_refresh_devices,
     )
 
     platform.async_register_entity_service(
@@ -159,38 +143,15 @@ async def async_setup_entry(
     return True
 
 
-class GoogleHomeDeviceSensor(GoogleHomeBaseEntity, SensorEntity):
-    """Google Home Device / Connection info sensor."""
+class GoogleHomeAlarmsSensor(GoogleHomeBaseEntity, SensorEntity):
+    """Google Home Alarms sensor."""
 
-    _attr_icon = ICON_TOKEN
-    _attr_entity_category = EntityCategory.DIAGNOSTIC
-    _attr_entity_registry_enabled_default = False
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
 
     @property
-    def label(self) -> str:
-        """Label to use for name and unique id."""
-        return "device"
-
-    @property
-    def native_value(self) -> str | None:
-        """Return the device IP address."""
-        device = self.get_device()
-        return device.ip_address if device else None
-
-    @property
-    def extra_state_attributes(self) -> DeviceAttributes:
-        """Return device attributes."""
-        device = self.get_device()
-        return {
-            "device_id": device.device_id if device else None,
-            "device_name": self.device_name,
-            "auth_token": device.auth_token if device else None,
-            "ip_address": device.ip_address if device else None,
-            "available": device.available if device else False,
-            "hardware": device.hardware if device else None,
-            "firmware_version": device.firmware_version if device else None,
-            "mac_address": device.mac_address if device else None,
-        }
+    def icon(self) -> str:
+        """Return dynamic icon based on active alarm status."""
+        return "mdi:alarm-check" if self.native_value is not None else "mdi:alarm-off"
 
     async def async_reboot_device(self) -> None:
         """Service call to reboot device."""
@@ -204,13 +165,6 @@ class GoogleHomeDeviceSensor(GoogleHomeBaseEntity, SensorEntity):
     async def async_refresh_devices(self) -> None:
         """Service call to refresh coordinator data."""
         await self.coordinator.async_request_refresh()
-
-
-class GoogleHomeAlarmsSensor(GoogleHomeBaseEntity, SensorEntity):
-    """Google Home Alarms sensor."""
-
-    _attr_icon = ICON_ALARMS
-    _attr_device_class = SensorDeviceClass.TIMESTAMP
 
     @property
     def label(self) -> str:
@@ -255,7 +209,11 @@ class GoogleHomeAlarmsSensor(GoogleHomeBaseEntity, SensorEntity):
         """Get alarm volume status."""
         device = self.get_device()
         alarm_volume = device.get_alarm_volume() if device else None
-        return alarm_volume if alarm_volume else GOOGLE_HOME_ALARM_DEFAULT_VALUE
+        return (
+            alarm_volume
+            if alarm_volume is not None
+            else GOOGLE_HOME_ALARM_DEFAULT_VALUE
+        )
 
     def _get_alarms_data(self) -> list[GoogleHomeAlarmDict]:
         """Get alarms data as list of dictionaries."""
@@ -303,8 +261,16 @@ class GoogleHomeAlarmsSensor(GoogleHomeBaseEntity, SensorEntity):
 class GoogleHomeTimersSensor(GoogleHomeBaseEntity, SensorEntity):
     """Google Home Timers sensor."""
 
-    _attr_icon = ICON_TIMERS
     _attr_device_class = SensorDeviceClass.TIMESTAMP
+
+    @property
+    def icon(self) -> str:
+        """Return dynamic icon based on active timer status."""
+        return (
+            "mdi:timer-outline"
+            if self.native_value is not None
+            else "mdi:timer-off-outline"
+        )
 
     @property
     def label(self) -> str:
@@ -374,32 +340,3 @@ class GoogleHomeTimersSensor(GoogleHomeBaseEntity, SensorEntity):
         await self.client.delete_alarm_or_timer(device=device, item_to_delete=timer_id)
         if not call.data.get(SERVICE_ATTR_SKIP_REFRESH, False):
             await self.coordinator.async_request_refresh()
-
-
-class GoogleHomeWifiSensor(GoogleHomeBaseEntity, SensorEntity):
-    """Google Home Wi-Fi sensor."""
-
-    _attr_icon = ICON_WIFI
-    _attr_entity_category = EntityCategory.DIAGNOSTIC
-    _attr_entity_registry_enabled_default = False
-
-    @property
-    def label(self) -> str:
-        """Label to use for name and unique id."""
-        return "wifi"
-
-    @property
-    def native_value(self) -> str | None:
-        """Return connected Wi-Fi SSID."""
-        device = self.get_device()
-        return device.get_wifi_ssid() if device else None
-
-    @property
-    def extra_state_attributes(self) -> dict[str, Any]:
-        """Return Wi-Fi signal level attributes."""
-        device = self.get_device()
-        rssi = device.get_wifi_rssi() if device else None
-        return {
-            "signal_level": rssi,
-            "ip_address": device.ip_address if device else None,
-        }

@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 
 from homeassistant.util.dt import as_local, utc_from_timestamp
 
-from .const import DATETIME_STR_FORMAT, GOOGLE_HOME_ALARM_DEFAULT_VALUE
+from .const import DATETIME_STR_FORMAT
 
 if TYPE_CHECKING:
     from .types import (
@@ -20,9 +20,13 @@ if TYPE_CHECKING:
     )
 
 
-def convert_from_ms_to_s(timestamp: int) -> int:
+def convert_from_ms_to_s(timestamp: int | float | str) -> int:
     """Convert from milliseconds to seconds."""
-    return round(timestamp / 1000)
+    try:
+        ts = float(timestamp)
+        return round(ts / 1000)
+    except (ValueError, TypeError):
+        return 0
 
 
 class GoogleHomeDevice:
@@ -46,8 +50,8 @@ class GoogleHomeDevice:
         self.mac_address: str | None = None
         self.available = True
         self._do_not_disturb = False
-        self._alarm_volume = GOOGLE_HOME_ALARM_DEFAULT_VALUE
-        self._device_volume: float = 0.5
+        self._alarm_volume: float | None = None
+        self._device_volume: float | None = None
         self._night_mode = False
         self._wifi_rssi: int | None = None
         self._wifi_ssid: str | None = None
@@ -68,29 +72,49 @@ class GoogleHomeDevice:
 
     def set_alarms(self, alarms: list[AlarmJsonDict]) -> None:
         """Store alarms as GoogleHomeAlarm objects."""
-        self._alarms = [
-            GoogleHomeAlarm(
-                alarm_id=alarm["id"],
-                fire_time=alarm["fire_time"],
-                status=alarm["status"],
-                label=alarm.get("label"),
-                recurrence=alarm.get("recurrence"),
+        new_alarms = []
+        for alarm in alarms:
+            if not isinstance(alarm, dict) or "id" not in alarm:
+                continue
+            fire_time = alarm.get("fire_time")
+            if fire_time is None:
+                continue
+            new_alarms.append(
+                GoogleHomeAlarm(
+                    alarm_id=str(alarm["id"]),
+                    fire_time=fire_time,
+                    status=alarm.get("status", 1),
+                    label=alarm.get("label"),
+                    recurrence=alarm.get("recurrence"),
+                )
             )
-            for alarm in alarms
-        ]
+        self._alarms = new_alarms
 
     def set_timers(self, timers: list[TimerJsonDict]) -> None:
         """Store timers as GoogleHomeTimer objects."""
-        self._timers = [
-            GoogleHomeTimer(
-                timer_id=timer["id"],
-                fire_time=timer.get("fire_time"),
-                duration=timer["original_duration"],
-                status=timer["status"],
-                label=timer.get("label"),
+        new_timers = []
+        for timer in timers:
+            if not isinstance(timer, dict) or "id" not in timer:
+                continue
+            raw_dur = timer.get("original_duration") or timer.get("duration", 0)
+            duration_int = int(raw_dur) if isinstance(raw_dur, (int, float, str)) else 0
+            raw_status = timer.get("status", 1)
+            status_int = (
+                int(raw_status)
+                if isinstance(raw_status, (int, float, str))
+                and str(raw_status).isdigit()
+                else 1
             )
-            for timer in timers
-        ]
+            new_timers.append(
+                GoogleHomeTimer(
+                    timer_id=str(timer["id"]),
+                    fire_time=timer.get("fire_time"),
+                    duration=duration_int,
+                    status=status_int,
+                    label=timer.get("label"),
+                )
+            )
+        self._timers = new_timers
 
     def get_sorted_alarms(self) -> list[GoogleHomeAlarm]:
         """Return alarms in a sorted order."""
@@ -133,7 +157,7 @@ class GoogleHomeDevice:
         """Set Alarm Volume status."""
         self._alarm_volume = float(volume)
 
-    def get_alarm_volume(self) -> float:
+    def get_alarm_volume(self) -> float | None:
         """Return Alarm Volume status."""
         return self._alarm_volume
 
@@ -141,7 +165,7 @@ class GoogleHomeDevice:
         """Set normal device media/speech volume level."""
         self._device_volume = float(volume)
 
-    def get_device_volume(self) -> float:
+    def get_device_volume(self) -> float | None:
         """Return normal device media/speech volume level."""
         return self._device_volume
 
@@ -178,6 +202,9 @@ class GoogleHomeDevice:
 class GoogleHomeTimer:
     """Local representation of Google Home timer."""
 
+    fire_time: int | None
+    status: GoogleHomeTimerStatus
+
     def __init__(
         self,
         timer_id: str,
@@ -191,10 +218,16 @@ class GoogleHomeTimer:
         duration_seconds = convert_from_ms_to_s(duration)
         self.duration_seconds = duration_seconds
         self.duration = str(timedelta(seconds=duration_seconds))
-        try:
-            self.status = GoogleHomeTimerStatus(status)
-        except ValueError:
-            self.status = GoogleHomeTimerStatus.NONE
+        if isinstance(status, str):
+            try:
+                self.status = GoogleHomeTimerStatus[status.upper()]
+            except (KeyError, ValueError):
+                self.status = GoogleHomeTimerStatus.NONE
+        else:
+            try:
+                self.status = GoogleHomeTimerStatus(int(status))
+            except (ValueError, TypeError):
+                self.status = GoogleHomeTimerStatus.NONE
         self.label = label
 
         if fire_time is None:
@@ -227,24 +260,32 @@ class GoogleHomeTimer:
 class GoogleHomeAlarm:
     """Local representation of Google Home alarm."""
 
+    fire_time: int
+    status: GoogleHomeAlarmStatus
+
     def __init__(
         self,
         alarm_id: str,
-        fire_time: int,
-        status: int,
+        fire_time: int | float | str,
+        status: int | str,
         label: str | None,
         recurrence: str | None,
     ) -> None:
         """Create Google Home Alarm object."""
         self.alarm_id = alarm_id
-        self.recurrence = recurrence
         self.fire_time = convert_from_ms_to_s(fire_time)
-        try:
-            self.status = GoogleHomeAlarmStatus(status)
-        except ValueError:
-            self.status = GoogleHomeAlarmStatus.NONE
+        if isinstance(status, str):
+            try:
+                self.status = GoogleHomeAlarmStatus[status.upper()]
+            except (KeyError, ValueError):
+                self.status = GoogleHomeAlarmStatus.NONE
+        else:
+            try:
+                self.status = GoogleHomeAlarmStatus(int(status))
+            except (ValueError, TypeError):
+                self.status = GoogleHomeAlarmStatus.NONE
         self.label = label
-
+        self.recurrence = recurrence
         dt_utc = utc_from_timestamp(self.fire_time)
         dt_local = as_local(dt_utc)
         self.date_time: datetime = dt_local

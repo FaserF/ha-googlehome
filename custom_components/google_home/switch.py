@@ -72,14 +72,34 @@ async def async_setup_entry(
         entry.async_on_unload(coordinator.async_add_listener(_async_add_new_devices))
 
     if cloud_coordinator is not None:
-        for cdev in cloud_coordinator.data or []:
-            if cdev.is_switch:
-                entities.append(
-                    GoogleHomeCloudSwitch(
-                        coordinator=cloud_coordinator,
-                        device_id=cdev.device_id,
+        registered_cloud_ids: set[str] = set()
+
+        def _create_cloud_entities() -> list[GoogleHomeCloudSwitch]:
+            new_ents = []
+            for cdev in cloud_coordinator.data or []:
+                if cdev.is_switch and cdev.device_id not in registered_cloud_ids:
+                    registered_cloud_ids.add(cdev.device_id)
+                    new_ents.append(
+                        GoogleHomeCloudSwitch(
+                            coordinator=cloud_coordinator,
+                            device_id=cdev.device_id,
+                        )
                     )
-                )
+            return new_ents
+
+        cloud_ents = _create_cloud_entities()
+        if cloud_ents:
+            entities.extend(cloud_ents)
+
+        @callback
+        def _async_add_new_cloud_switches() -> None:
+            new_ents = _create_cloud_entities()
+            if new_ents:
+                async_add_entities(new_ents)
+
+        entry.async_on_unload(
+            cloud_coordinator.async_add_listener(_async_add_new_cloud_switches)
+        )
 
     if entities:
         async_add_entities(entities)

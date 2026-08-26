@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from homeassistant.components.button import ButtonDeviceClass, ButtonEntity
 from homeassistant.config_entries import ConfigEntry
@@ -107,6 +108,35 @@ class GoogleHomeRefreshButton(GoogleHomeBaseEntity, ButtonEntity):
     def label(self) -> str:
         """Label to use for unique_id and name."""
         return "refresh"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return diagnostic device attributes (IP, Wi-Fi, activity, MACs)."""
+        device = self.get_device()
+        if not device:
+            return {}
+
+        primary_mac = device.mac_address or device.get_bluetooth_mac()
+        attrs: dict[str, Any] = {
+            "device_ip": device.ip_address,
+            "wifi_network": device.get_wifi_ssid(),
+            "wifi_signal_level": device.get_wifi_rssi(),
+            "mac_address": primary_mac,
+            "activity": "idle" if device.available else "offline",
+            "hardware": device.hardware,
+            "firmware_version": device.firmware_version,
+        }
+
+        # Only expose separate bluetooth_mac if it exists and actually differs from mac_address
+        bt_mac = device.get_bluetooth_mac()
+        if (
+            bt_mac
+            and primary_mac
+            and bt_mac.strip().upper() != primary_mac.strip().upper()
+        ):
+            attrs["bluetooth_mac"] = bt_mac
+
+        return attrs
 
     async def async_press(self) -> None:
         """Press the button to refresh data."""
