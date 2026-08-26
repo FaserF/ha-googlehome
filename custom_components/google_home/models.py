@@ -42,6 +42,8 @@ class GoogleHomeDevice:
         self.auth_token = auth_token
         self.ip_address = ip_address
         self.hardware = hardware
+        self.firmware_version: str | None = None
+        self.mac_address: str | None = None
         self.available = True
         self._do_not_disturb = False
         self._alarm_volume = GOOGLE_HOME_ALARM_DEFAULT_VALUE
@@ -51,6 +53,17 @@ class GoogleHomeDevice:
         self._bluetooth_mac: str | None = None
         self._timers: list[GoogleHomeTimer] = []
         self._alarms: list[GoogleHomeAlarm] = []
+
+    def set_system_info(
+        self,
+        firmware: str | None = None,
+        mac: str | None = None,
+    ) -> None:
+        """Set firmware version and MAC address."""
+        if firmware:
+            self.firmware_version = firmware
+        if mac:
+            self.mac_address = mac
 
     def set_alarms(self, alarms: list[AlarmJsonDict]) -> None:
         """Store alarms as GoogleHomeAlarm objects."""

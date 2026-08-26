@@ -330,8 +330,24 @@ class GlocaltokensApiClient:
                     rssi=wifi_data.get("signal_level") or wifi_data.get("rssi"),
                 )
 
-                bt_data = eureka_data.get("bluetooth") or {}
                 device_info = eureka_data.get("device_info") or {}
+                firmware = (
+                    eureka_data.get("build_version")
+                    or eureka_data.get("cast_build_revision")
+                    or device_info.get("build_version")
+                    or device_info.get("cast_build_revision")
+                )
+                net_mac = (
+                    net_data.get("ethernet", {}).get("mac_address")
+                    or net_data.get("wlan", {}).get("mac_address")
+                    or eureka_data.get("mac_address")
+                )
+                device.set_system_info(
+                    firmware=str(firmware) if firmware else None,
+                    mac=str(net_mac) if net_mac else None,
+                )
+
+                bt_data = eureka_data.get("bluetooth") or {}
                 bt_mac = (
                     bt_data.get("mac_address")
                     or bt_data.get("device_address")

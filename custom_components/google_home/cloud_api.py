@@ -96,11 +96,26 @@ class GoogleHomeCloudClient:
             if hasattr(item, "traits"):
                 traits_list = [str(t) for t in item.traits]
 
+            # Extract Hardware/Software/MAC info
+            hardware_version = (
+                getattr(getattr(item, "hardware", None), "hw_version", "")
+                or hardware_model
+            )
+            firmware_version = getattr(
+                getattr(item, "hardware", None), "sw_version", ""
+            ) or getattr(getattr(item, "device_info", None), "sw_version", "")
+            mac_address = getattr(
+                getattr(item, "device_info", None), "mac_address", ""
+            ) or getattr(getattr(item, "hardware", None), "mac_address", "")
+
             dev = CloudHomeDevice(
                 device_id=dev_id,
                 name=name,
                 device_type=device_type,
                 hardware_model=hardware_model,
+                hardware_version=hardware_version if hardware_version else None,
+                firmware_version=firmware_version if firmware_version else None,
+                mac_address=mac_address if mac_address else None,
                 agent_id=agent_id,
                 agent_name=agent_name,
                 is_home_assistant_synced=is_ha,

@@ -108,6 +108,12 @@ class GoogleHomeCloudVacuum(
     def device_info(self) -> DeviceInfo:
         """Return device registry info."""
         device = self.get_device()
+        connections = set()
+        if device and device.mac_address:
+            from homeassistant.helpers.device_registry import CONNECTION_NETWORK_MAC
+
+            connections.add((CONNECTION_NETWORK_MAC, device.mac_address))
+
         return DeviceInfo(
             identifiers={(DOMAIN, self.device_id)},
             name=self.name,
@@ -117,6 +123,10 @@ class GoogleHomeCloudVacuum(
             model=device.hardware_model
             if device and device.hardware_model
             else "Google Robot Vacuum",
+            sw_version=device.firmware_version if device else None,
+            hw_version=device.hardware_version if device else None,
+            connections=connections,
+            configuration_url="https://home.google.com/",
         )
 
     async def async_start(self) -> None:

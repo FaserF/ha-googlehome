@@ -66,10 +66,23 @@ class GoogleHomeBaseEntity(CoordinatorEntity[GoogleHomeDataUpdateCoordinator]):
         """Return device information."""
         device = self.get_device()
         model = device.hardware if device and device.hardware else "Google Home / Nest"
+        firmware = device.firmware_version if device else None
+        connections = set()
+        if device and (device.mac_address or device.get_bluetooth_mac()):
+            from homeassistant.helpers.device_registry import (
+                CONNECTION_NETWORK_MAC,
+            )
+
+            mac = device.mac_address or device.get_bluetooth_mac()
+            if mac:
+                connections.add((CONNECTION_NETWORK_MAC, mac))
+
         return DeviceInfo(
             identifiers={(DOMAIN, self.device_id)},
             name=self.device_name,
             manufacturer=MANUFACTURER,
             model=model,
+            sw_version=firmware,
+            connections=connections,
             configuration_url="https://home.google.com/",
         )

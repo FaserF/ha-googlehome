@@ -49,7 +49,7 @@ class TimersAttributes(TypedDict):
     timers: list[GoogleHomeTimerDict]
 
 
-class DeviceAttributes(TypedDict):
+class DeviceAttributes(TypedDict, total=False):
     """Device sensor attributes."""
 
     device_id: str | None
@@ -57,6 +57,9 @@ class DeviceAttributes(TypedDict):
     auth_token: str | None
     ip_address: str | None
     available: bool
+    hardware: str | None
+    firmware_version: str | None
+    mac_address: str | None
 
 
 class AlarmJsonDict(TypedDict):

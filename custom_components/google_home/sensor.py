@@ -193,6 +193,9 @@ class GoogleHomeDeviceSensor(GoogleHomeBaseEntity, SensorEntity):
             "auth_token": device.auth_token if device else None,
             "ip_address": device.ip_address if device else None,
             "available": device.available if device else False,
+            "hardware": device.hardware if device else None,
+            "firmware_version": device.firmware_version if device else None,
+            "mac_address": device.mac_address if device else None,
         }
 
     async def async_reboot_device(self) -> None:

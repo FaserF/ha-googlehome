@@ -14,6 +14,9 @@ class CloudHomeDevice:
     name: str
     device_type: str
     hardware_model: str | None = None
+    hardware_version: str | None = None
+    firmware_version: str | None = None
+    mac_address: str | None = None
     room_name: str | None = None
     structure_name: str | None = None
     agent_id: str | None = None
