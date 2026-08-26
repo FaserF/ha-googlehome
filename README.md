@@ -11,7 +11,7 @@
   <img src="custom_components/google_home/brand/logo.png" alt="Google Home Logo" height="100">
 </p>
 
-A modern, fast, and reliable Home Assistant custom integration offering **Hybrid Local & Google Home Cloud HomeGraph control** for all Google Home, Nest Audio, Nest Mini, Nest Hub, Nest Cams, and smart home devices.
+A modern, fast, and feature-complete Home Assistant integration offering **Hybrid Local & Google Cloud HomeGraph control** for all Google Home & Nest speakers, smart home devices, household routines, and multi-home structures.
 
 ---
 
@@ -19,16 +19,56 @@ A modern, fast, and reliable Home Assistant custom integration offering **Hybrid
 
 | | | | |
 | :--- | :--- | :--- | :--- |
-| [✨ Features](#-features) | [📦 Installation](#-installation) | [⚙️ Configuration](#️-configuration) | [🛠️ Options](#️-options-flow) |
-| [⚡ Events](#-automation-events) | [🧱 Services](#-services) | [💖 Credits](#-credits--acknowledgements) | [📄 License](#-license) |
+| [✨ Features](#-features) | [🔄 Operation Modes Comparison](#-operation-modes-comparison) | [📦 Installation](#-installation) | [⚙️ Configuration](#️-configuration) |
+| [🛠️ Options Flow](#️-options-flow) | [⚡ Events](#-automation-events) | [🧱 Services](#-services) | [📄 License](#-license) |
+
+---
+
+## 🔄 Operation Modes Comparison
+
+Choose the best mode during setup or change it anytime in the Options Flow:
+
+| Feature / Device Type | 🏠 **Local Only** (`local`) | ☁️ **Cloud Only** (`cloud`) | ⚡ **Hybrid (Recommended)** (`hybrid`) |
+|---|:---:|:---:|:---:|
+| **Internet Dependency** | ❌ None (local network) | 🌐 Internet required | 🌐 Internet for cloud sync, local fallback |
+| **Speaker Alarms & Timers** | ✅ Yes (zero latency) | ❌ No | ✅ Yes (zero latency via local API) |
+| **Next Alarm / Timer Timestamps** | ✅ Yes | ❌ No | ✅ Yes |
+| **Speaker Volume & Alarm Volume** | ✅ Yes | ❌ No | ✅ Yes |
+| **Do Not Disturb & Night Mode** | ✅ Yes | ❌ No | ✅ Yes |
+| **Reboot Speaker & Diagnostics** | ✅ Yes (IP, Wi-Fi RSSI, Bluetooth) | ❌ No | ✅ Yes |
+| **Lights & Dimmers** (Hue, Tuya, etc.) | ❌ No | ✅ Yes (On/Off, Brightness, Color) | ✅ Yes |
+| **Fans & Air Purifiers** | ❌ No | ✅ Yes (On/Off, Speed %) | ✅ Yes |
+| **Media Players & Smart TVs** | ❌ No | ✅ Yes (State, Play/Pause, Volume) | ✅ Yes |
+| **Thermostats & AC (`climate`)** | ❌ No | ✅ Yes (Temp setpoints, HVAC modes) | ✅ Yes |
+| **Smart Plugs & Switches** | ❌ No | ✅ Yes | ✅ Yes |
+| **Robot Vacuums & Mowers** | ❌ No | ✅ Yes (Start, Stop, Dock) | ✅ Yes |
+| **Smart Locks** | ❌ No | ✅ Yes (Lock/Unlock) | ✅ Yes |
+| **Covers, Blinds & Garage Doors** | ❌ No | ✅ Yes (Open, Close, Position %) | ✅ Yes |
+| **Cameras & Video Doorbells** | ❌ No | ✅ Yes | ✅ Yes |
+| **Security Systems & Alarm Panels** | ❌ No | ✅ Yes (Arm Home/Away, Disarm) | ✅ Yes |
+| **Sensors** (Motion, Presence, Doorbell) | ❌ No | ✅ Yes | ✅ Yes |
+| **Google Routines & Scenes (`scene`)** | ❌ No | ✅ Yes (Trigger any routine/scene) | ✅ Yes |
+| **Multi-Home Structure Filtering** | ❌ No | ✅ Yes | ✅ Yes |
+| **HA-Loop Prevention Filter** | ❌ No | ✅ Yes | ✅ Yes |
 
 ---
 
 ## ✨ Features
 
+- **👥 Multi-Account Support**:
+  - Add **multiple distinct Google Accounts** simultaneously to your Home Assistant instance.
+  - Automatic deduplication prevents accidental duplicate setups of the same account.
+
+- **🏡 Dynamic Multi-Home (Structure) Discovery & Filtering**:
+  - Automatically discovers all homes (structures) linked to your Google Account (e.g. *Main Home*, *Parents' House*, *Holiday Home*).
+  - Dynamically displays human-readable home names while internally binding to stable UUIDs (renaming a home in the Google Home app will never break your Home Assistant setup).
+  - Multi-select filter allows you to synchronize only specific homes into Home Assistant.
+
 - **🌐 Full Google Home Ecosystem Support (Local & Cloud HomeGraph)**:
   - **Google Home & Nest Speakers**: Live Media & Speech Volume Slider (0-100% with live sync), Alarm Volume Slider, Timers, Alarms, Next Alarm/Timer timestamps, Do Not Disturb, Night Mode, Reboot, Wi-Fi & Bluetooth MAC diagnostics.
-  - **Lights & Dimmers**: On/Off, Brightness, Color control for all Google Home synced lights (`light`).
+  - **Lights & Dimmers**: On/Off, Brightness, Color temperature, and RGB color control (`light`).
+  - **Fans & Air Purifiers**: Power and percentage speed controls (`fan`).
+  - **Media Players & TVs**: Real-time state tracking, volume control, mute, play/pause (`media_player`).
   - **Switches & Smart Plugs**: Control power and inspect real-time state (`switch`).
   - **Robot Vacuum Cleaners**: Start, stop, dock, and status tracking for connected vacuums (`vacuum`).
   - **Thermostats & Climate**: Nest Thermostats and AC units with temperature control and HVAC modes (`climate`).
@@ -37,26 +77,35 @@ A modern, fast, and reliable Home Assistant custom integration offering **Hybrid
   - **Cameras & Video Doorbells**: Live streams for Nest Cam, Nest Doorbell, and partner cameras (`camera`).
   - **Automations & Household Routines**: Trigger and execute any Google Home script, automation, or routine directly from Home Assistant (`scene`).
   - **Security Systems**: Arm home, arm away, disarm Nest Secure and security alarms (`alarm_control_panel`).
-  - **Sensors & Doorbells**: Motion, occupancy, contact, and doorbell press binary sensors (`binary_sensor`).
+  - **Sensors & Doorbells**: Motion, occupancy, contact, presence, and doorbell press binary sensors (`binary_sensor`).
+
 - **🔄 Intelligent Home Assistant Loop Prevention & Mapping**:
   - Automatically identifies devices that originated from Home Assistant (e.g., via Nabu Casa / Cloud Sync).
   - Configurable toggle: **"Ignore devices synced from Home Assistant"** (default: `True`) to prevent duplicate entities and infinite automation loops.
+
+- **🏛️ Google Home Cloud Architecture & Third-Party Device Control**:
+  - **HomeGraph Discovery & State Inspection**: The integration leverages the Google Foyer / HomeGraph gRPC endpoint (`GetHomeGraph`) to synchronize all devices, structures/homes, rooms, hardware models, and traits into Home Assistant.
+  - **Third-Party Control Notice**: Google's Cloud Foyer API serves as a secure read-and-aggregation layer for your Google Home ecosystem. Direct outbound cloud execution commands to third-party partner ecosystems (e.g., Xiaomi/Dmaker fans, Tuya, Smart Life, Dreame) are restricted by Google's cloud API architecture (`404 /devices:exec`).
+  - **Best Practice**: For full bi-directional control of third-party partner devices, use their respective native Home Assistant integrations (e.g. Xiaomi Miio for fans/air purifiers, Tuya, Hue). The Google Home integration provides unified status mapping, structure grouping, scene triggering, and presence tracking alongside direct local Google Cast speaker management.
+
 - **⚡ Direct Local Speaker Communication**:
   - Direct local HTTPS/REST polling and control for speakers within your local network (no cloud delay for alarms/timers).
   - Automatic token management and background recovery when local authorization tokens expire.
   - Zeroconf local IP resolution with intelligent caching & dynamic discovery.
   - Concurrently polled endpoints to minimize latency and eliminate timeout freezes.
+
 - **Native User-Friendly Configuration**:
   - Clear multi-step Config Flow:
     - **Token Authentication (Recommended)**: 100% reliable 30-second setup using a browser token from Google setup page, automatically exchanged for a permanent Master Token.
     - **[Google Home Token Hub Add-on](https://github.com/FaserF/hassio-addons/tree/master/googlehome)**: Automatic setup via Add-on (auto-detected, edge & stable).
     - **App Password Authentication**: Automatic token extraction via Google App Password.
-  - Integrated Options Flow to dynamically customize operation modes and polling intervals (10s to 600s).
+
 - **Alarm & Timer Management**:
   - **Next Alarm Sensor**: Native timestamp sensor (`datetime | None`) with full alarm list, repeat days, and status in state attributes.
   - **Next Timer Sensor**: Native timestamp sensor with duration, remaining time, and state details.
   - **Native Bus Events**: Automatically fires `google_home_timer_finished` and `google_home_alarm_triggered` on the Home Assistant event bus for easy automations.
   - Dedicated entity services to delete alarms, delete timers, and set alarm volume via automations or dashboard buttons.
+
 - **Diagnostics & Network Info**:
   - **Device IP Sensor**: Diagnostic sensor exposing speaker IP, hardware model, availability, and tokens.
   - **Wi-Fi Network Sensor**: Shows connected Wi-Fi SSID with signal strength (RSSI in dBm) and IP in attributes.
@@ -82,14 +131,14 @@ A modern, fast, and reliable Home Assistant custom integration offering **Hybrid
 
 ## ⚙️ Configuration
 
-1. In Home Assistant, go to **Settings** -> **Devices & Services** (or click on the discovered Google Home card).
+1. In Home Assistant, go to **Settings** -> **Devices & Services** -> **Add Integration** -> **Google Home**.
 2. Select your preferred authentication method:
 
 ### Option 1: Token Authentication (Recommended - 100% Reliable)
 1. Open **[accounts.google.com/EmbeddedSetup](https://accounts.google.com/EmbeddedSetup)** in your browser and log in with your Google account.
 2. *Note*: The final page will remain on a loading/blank screen (this is normal and indicates the token was created!).
 3. Press **F12** (Developer Tools) -> **Application** (or Storage) -> **Cookies** (`https://accounts.google.com`).
-4. Copy the value of the **`oauth_token`** cookie (starts with `oauth2_4/...`).
+4. Copy the value of the **`oauth_token`** cookie (starts with `oauth2_4/...` or `1//...`).
 5. Enter your **Google Email Address**, paste the token into the **Token** field, and click **Submit**.
 6. ✨ **Done!** The integration automatically exchanges this token for a permanent Master Token (`aas_et/...`) in the background.
 
@@ -109,10 +158,15 @@ A modern, fast, and reliable Home Assistant custom integration offering **Hybrid
 
 ## 🛠️ Options Flow
 
-You can customize the polling interval at any time:
+You can customize your integration settings at any time without reinstalling:
 1. Navigate to **Settings** -> **Devices & Services** -> **Google Home**.
 2. Click **Configure** on the integration card.
-3. Adjust the **Update Interval** (default: 60 seconds).
+3. Available options:
+   - **Operation Mode**: Switch between *Hybrid (Local & Cloud)*, *Local Only*, or *Cloud Only*.
+   - **Google Homes to synchronize**: Select or deselect individual homes/structures.
+   - **Ignore devices synced from Home Assistant**: Toggle loop prevention on/off.
+   - **Update Interval**: Adjust polling frequency (10s to 600s, default: 60s).
+   - **Master Token**: View or update your Master Token if you refreshed credentials.
 
 ---
 
@@ -168,3 +222,4 @@ The original concept, reverse engineering, and foundational ideas were pioneered
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+

@@ -51,6 +51,10 @@ from .const import (
     DEFAULT_ADDON_PORT,
     DEFAULT_IGNORE_HA_SYNCED_DEVICES,
     DEFAULT_UPDATE_INTERVAL,
+    DATA_CLIENT,
+    DATA_CLOUD_CLIENT,
+    DATA_CLOUD_COORDINATOR,
+    DATA_COORDINATOR,
     DOMAIN,
     MAX_PASSWORD_LENGTH,
     MODE_CLOUD,
@@ -70,7 +74,7 @@ _LOGGER: logging.Logger = logging.getLogger(__package__)
 class GoogleHomeFlowHandler(AddonFlowMixin, ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Google Home."""
 
-    VERSION = 2
+    VERSION = 3
 
     def __init__(self) -> None:
         """Initialize."""
@@ -105,9 +109,6 @@ class GoogleHomeFlowHandler(AddonFlowMixin, ConfigFlow, domain=DOMAIN):
         _LOGGER.info(
             "Supervisor auto-discovered Google Home Add-on: %s", discovery_info
         )
-        if self._async_current_entries():
-            return self.async_abort(reason="single_instance_allowed")
-
         self._discovery_source = "hassio"
         host = discovery_info.config.get("host", DEFAULT_ADDON_HOST)
         port = int(discovery_info.config.get("port", DEFAULT_ADDON_PORT))
@@ -115,10 +116,6 @@ class GoogleHomeFlowHandler(AddonFlowMixin, ConfigFlow, domain=DOMAIN):
 
     async def async_step_zeroconf(self, discovery_info: Any) -> ConfigFlowResult:
         """Handle zeroconf discovery of Google Cast / Home devices."""
-        # Abort if Google Home is already set up in Home Assistant
-        if self._async_current_entries():
-            return self.async_abort(reason="single_instance_allowed")
-
         # Extract device friendly name from mDNS properties ('fn') if available
         device_name = "Google Home"
         properties = getattr(discovery_info, "properties", {})
@@ -133,12 +130,6 @@ class GoogleHomeFlowHandler(AddonFlowMixin, ConfigFlow, domain=DOMAIN):
                 device_name = fn_val
 
         self._discovered_device_name = device_name
-
-        # Do NOT set unique_id here — doing so would reserve the unique_id for
-        # this discovery flow and cause HA to return `already_in_progress` when
-        # the user tries to start a manual flow afterwards (even after cancelling
-        # the discovery prompt).  The unique_id is set only at entry-creation time.
-
         self.context["title_placeholders"] = {"name": device_name}
 
         # Check if the Google Home Token Hub Add-on is running on the system
@@ -178,22 +169,12 @@ class GoogleHomeFlowHandler(AddonFlowMixin, ConfigFlow, domain=DOMAIN):
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Handle the initial setup step: select authentication method.
-
-        If called from the UI (user source), we first abort any stale discovery flows
-        so the user is never blocked by an already_in_progress error from a prior
-        zeroconf / hassio discovery attempt that was never completed.
-        """
+        """Handle the initial setup step: select authentication method."""
         self._errors = {}
 
         # Abort any lingering discovery flows so the user can always proceed manually.
-        # Only do this when this IS the user-initiated flow (not when we are ourselves
-        # a zeroconf flow that redirected into async_step_user).
         if self.source == "user":
             self._async_abort_discovery_flows()
-
-        if self._async_current_entries():
-            return self.async_abort(reason="single_instance_allowed")
 
         if user_input is not None:
             method = user_input.get(CONF_AUTH_METHOD, AUTH_METHOD_TOKEN)
@@ -250,37 +231,34 @@ class GoogleHomeFlowHandler(AddonFlowMixin, ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             username = user_input.get(CONF_USERNAME, "").strip()
             master_token = user_input.get(CONF_MASTER_TOKEN, "").strip()
-            session = async_get_clientsession(self.hass)
 
-            clean_token = master_token
-            if clean_token.startswith("oauth_token="):
-                clean_token = clean_token.split("oauth_token=")[1].split(";")[0].strip()
-
-            if not username or "@" not in username or "." not in username:
+            if not username or "@" not in username:
                 self._errors["base"] = "invalid_email"
-            elif not clean_token.startswith("aas_et/") and not clean_token.startswith(
-                "oauth2_4/"
-            ):
-                self._errors["base"] = "invalid_token_format"
+            elif not master_token:
+                self._errors["base"] = "missing_credentials"
             else:
+                session = async_get_clientsession(self.hass)
                 client = GlocaltokensApiClient(
                     hass=self.hass,
                     session=session,
-                    username=username if username else None,
-                    master_token=clean_token
-                    if clean_token.startswith("aas_et/")
-                    else None,
+                    username=username,
+                    master_token=master_token,
                 )
-
                 try:
-                    if not clean_token.startswith("aas_et/"):
-                        master_token = await client.exchange_web_token(clean_token)
-                    else:
-                        master_token = clean_token
-                        await client.get_access_token()
-                except (InvalidMasterToken, AuthenticationFailed):
-                    if "base" not in self._errors:
-                        self._errors["base"] = "invalid_master_token"
+                    # If user provided a web OAuth token (oauth2_4/... or 1//...), exchange it
+                    if master_token.startswith("oauth2_4/") or master_token.startswith(
+                        "1//"
+                    ):
+                        master_token = await client.exchange_web_token(master_token)
+                        client.master_token = master_token
+                        client._client.master_token = master_token
+
+                    # Validate token by retrieving access token
+                    await client.get_access_token()
+                except AuthenticationFailed:
+                    self._errors["base"] = "invalid_master_token"
+                except InvalidMasterToken:
+                    self._errors["base"] = "invalid_master_token"
                 except Exception as err:
                     _LOGGER.exception("Unexpected error validating token: %s", err)
                     self._errors["base"] = "unknown"
@@ -306,7 +284,14 @@ class GoogleHomeFlowHandler(AddonFlowMixin, ConfigFlow, domain=DOMAIN):
             )
             selected_homes = user_input.get(CONF_SELECTED_HOMES)
 
-            await self.async_set_unique_id(DOMAIN)
+            # Use normalized Google Account email as unique_id to allow multiple distinct accounts
+            # while preventing duplicates of the same account
+            account_unique_id = (
+                self._username.strip().lower()
+                if self._username
+                else (self._master_token[:32] if self._master_token else DOMAIN)
+            )
+            await self.async_set_unique_id(account_unique_id)
             self._abort_if_unique_id_configured()
             return self.async_create_entry(
                 title=f"Google Home ({self._username})"
@@ -497,8 +482,36 @@ class GoogleHomeOptionsFlowHandler(OptionsFlow):
         )
 
         # Query available homes for multi-selection
-        homes_options: list[SelectOptionDict] = []
-        if current_token:
+        homes_dict: dict[str, str] = {}
+        entry_data = self.hass.data.get(DOMAIN, {}).get(
+            self.config_entry.entry_id, {}
+        )
+        cloud_coord = entry_data.get(DATA_CLOUD_COORDINATOR)
+        cloud_client = entry_data.get(DATA_CLOUD_CLIENT)
+        local_client = entry_data.get(DATA_CLIENT)
+
+        # 1. From active cloud coordinator data
+        if cloud_coord and cloud_coord.data:
+            for dev in cloud_coord.data:
+                if dev.structure_id and dev.structure_name:
+                    homes_dict[dev.structure_id] = dev.structure_name
+
+        # 2. From active cloud client
+        if cloud_client and hasattr(cloud_client, "_get_available_homes_sync"):
+            try:
+                homes_dict.update(cloud_client._get_available_homes_sync())
+            except Exception as err:
+                _LOGGER.debug("Could not query homes from cloud client: %s", err)
+
+        # 3. From active local client
+        if local_client:
+            try:
+                homes_dict.update(await local_client.async_get_available_homes())
+            except Exception as err:
+                _LOGGER.debug("Could not query homes from local client: %s", err)
+
+        # 4. Fallback if integration not loaded but token present
+        if not homes_dict and current_token:
             try:
                 client = GlocaltokensApiClient(
                     hass=self.hass,
@@ -506,11 +519,21 @@ class GoogleHomeOptionsFlowHandler(OptionsFlow):
                     username=username,
                     master_token=current_token,
                 )
-                homes_dict = await client.async_get_available_homes()
-                for hid, hname in homes_dict.items():
-                    homes_options.append(SelectOptionDict(value=hid, label=hname))
+                homes_dict.update(await client.async_get_available_homes())
             except Exception as err:
                 _LOGGER.debug("Could not query homes in options flow: %s", err)
+
+        homes_options: list[SelectOptionDict] = [
+            SelectOptionDict(value=hid, label=hname)
+            for hid, hname in homes_dict.items()
+        ]
+
+        # Ensure any currently configured homes are included as options
+        if current_homes and isinstance(current_homes, list):
+            existing_values = {opt["value"] for opt in homes_options}
+            for ch in current_homes:
+                if ch not in existing_values:
+                    homes_options.append(SelectOptionDict(value=ch, label=ch))
 
         schema_dict: dict[Any, Any] = {
             vol.Required(CONF_OPERATION_MODE, default=current_mode): SelectSelector(
@@ -524,7 +547,9 @@ class GoogleHomeOptionsFlowHandler(OptionsFlow):
 
         if homes_options:
             all_hids = [opt["value"] for opt in homes_options]
-            default_selection = current_homes if current_homes is not None else all_hids
+            default_selection = (
+                current_homes if current_homes is not None else all_hids
+            )
             schema_dict[
                 vol.Optional(CONF_SELECTED_HOMES, default=default_selection)
             ] = SelectSelector(

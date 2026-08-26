@@ -109,28 +109,35 @@ class GlocaltokensApiClient:
                     raw = hg.SerializeToString()
                     import re
 
+                    found_names: list[str] = []
                     for match in re.finditer(
                         b"StructureTrait[^\x00-\x1f]*\x12[\x01-\x20]\n\x04name\x12[\x01-\x20]\x1a[\x01-\x20]([^\x00-\x1f]+)",
                         raw,
                     ):
                         struct_name = match.group(1).decode("utf-8", errors="ignore")
-                        start_pos = max(0, match.start() - 1500)
-                        chunk = raw[start_pos : match.start()]
-                        uuid_matches = re.findall(
-                            b"([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})",
-                            chunk,
-                        )
-                        if uuid_matches:
-                            struct_id = uuid_matches[-1].decode()
-                            homes[struct_id] = struct_name
+                        if struct_name not in found_names:
+                            found_names.append(struct_name)
 
-                    # Also correlate any rooms that belong to other structure UUIDs
+                    # Correlate any rooms that belong to other structure UUIDs
+                    other_structure_ids: list[str] = []
                     for r in getattr(hg.home, "rooms", []):
                         rid = getattr(r, "room_id", "")
                         if "." in rid:
                             prefix_uuid = rid.split(".")[0]
-                            if prefix_uuid not in homes:
-                                homes[prefix_uuid] = prefix_uuid
+                            if (
+                                prefix_uuid != hid
+                                and prefix_uuid not in other_structure_ids
+                            ):
+                                other_structure_ids.append(prefix_uuid)
+
+                    other_names = [n for n in found_names if n != hname]
+                    for idx, sid in enumerate(other_structure_ids):
+                        if idx < len(other_names):
+                            homes[sid] = other_names[idx]
+                        elif len(other_names) == 1:
+                            homes[sid] = other_names[0]
+                        else:
+                            homes[sid] = f"Zuhause ({sid[:8]})"
 
                     return homes
             except Exception as exc:
@@ -319,6 +326,24 @@ class GlocaltokensApiClient:
                     else None
                 )
 
+                # If IP address not discovered yet via local mDNS, search existing Home Assistant states / Cast
+                if not dev_ip and self.hass:
+                    dname = str(getattr(device, "device_name", "")).strip().lower()
+                    slug = dname.replace(" ", "_")
+                    for state in self.hass.states.async_all():
+                        fname = (
+                            state.attributes.get("friendly_name", "").strip().lower()
+                        )
+                        if fname == dname or slug in state.entity_id:
+                            ip_cand = (
+                                state.attributes.get("ip_address")
+                                or state.attributes.get("ip")
+                                or state.attributes.get("host")
+                            )
+                            if ip_cand:
+                                dev_ip = str(ip_cand)
+                                break
+
                 if device.device_id in existing_by_id:
                     dev = existing_by_id[device.device_id]
                     dev.name = device.device_name
@@ -462,11 +487,43 @@ class GlocaltokensApiClient:
                         )
                         device.set_device_volume(vol_pct)
 
-                wifi_data = eureka_data.get("wifi") or eureka_data.get("wlan") or {}
+                wifi_data = (
+                    eureka_data.get("wifi")
+                    or eureka_data.get("wlan")
+                    or eureka_data.get("net", {}).get("wifi")
+                    or eureka_data.get("net", {}).get("wlan")
+                    or {}
+                )
                 net_data = eureka_data.get("net") or {}
+
+                # Extract SSID
+                raw_ssid = (
+                    wifi_data.get("ssid")
+                    or wifi_data.get("wlan_ssid")
+                    or net_data.get("ssid")
+                    or eureka_data.get("ssid")
+                )
+
+                # Extract Signal Level (dBm or percentage)
+                raw_rssi = (
+                    wifi_data.get("signal_level")
+                    or wifi_data.get("rssi")
+                    or wifi_data.get("signal")
+                    or net_data.get("signal_level")
+                    or net_data.get("rssi")
+                    or eureka_data.get("signal_level")
+                )
+
+                rssi_int = None
+                if raw_rssi is not None:
+                    try:
+                        rssi_int = int(round(float(raw_rssi)))
+                    except (ValueError, TypeError):
+                        pass
+
                 device.set_wifi_info(
-                    ssid=wifi_data.get("ssid") or net_data.get("ssid"),
-                    rssi=wifi_data.get("signal_level") or wifi_data.get("rssi"),
+                    ssid=str(raw_ssid) if raw_ssid is not None else None,
+                    rssi=rssi_int,
                 )
 
                 build_info = eureka_data.get("build_info") or {}

@@ -5,9 +5,12 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from homeassistant.components.device_tracker import SourceType
-from homeassistant.components.device_tracker.config_entry import TrackerEntity
+from homeassistant.components.device_tracker import (
+    SourceType,
+    TrackerEntity,
+)
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import STATE_HOME, STATE_NOT_HOME
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -40,10 +43,22 @@ async def async_setup_entry(
 
     def _create_trackers() -> list[GoogleHomePresenceTracker]:
         new_trackers = []
-        # Find all distinct Google Home structures in the cloud coordinator data
+        homes: dict[str, str] = {}
+        # 1. Query all available homes directly from the client
+        if hasattr(coordinator.client, "_get_available_homes_sync"):
+            try:
+                homes.update(coordinator.client._get_available_homes_sync())
+            except Exception:
+                pass
+        # 2. Add any structures found on individual devices
         for dev in coordinator.data or []:
-            struct_id = dev.structure_id or "default_home"
-            struct_name = dev.structure_name or "Google Home"
+            if dev.structure_id:
+                homes.setdefault(dev.structure_id, dev.structure_name or "Google Home")
+
+        if not homes:
+            homes["default_home"] = "Google Home"
+
+        for struct_id, struct_name in homes.items():
             if struct_id not in registered_structures:
                 registered_structures.add(struct_id)
                 new_trackers.append(
@@ -98,17 +113,15 @@ class GoogleHomePresenceTracker(
 
     @property
     def source_type(self) -> SourceType:
-        """Return the source type of the device tracker."""
+        """Return the source type."""
         return SourceType.ROUTER
 
     @property
     def location_name(self) -> str:
-        """Return location name (home or not_home)."""
-        # Determine if any device or routine in the structure indicates 'Home' or 'Away'
-        # Default to 'home' when connected and devices online
+        """Return state: home or not_home."""
+        # Check if any device or routine in the structure indicates 'Away'
         for dev in self.coordinator.data or []:
             if dev.structure_id == self._structure_id:
-                # Check for explicit home/away presence state if available
                 p_state = dev.state.get("presence", dev.state.get("home_away"))
                 if p_state:
                     if str(p_state).lower() in (
@@ -117,19 +130,22 @@ class GoogleHomePresenceTracker(
                         "absent",
                         "vacation",
                     ):
-                        return "not_home"
-                    return "home"
-        return "home"
+                        return STATE_NOT_HOME
+        return STATE_HOME
+
+    @property
+    def available(self) -> bool:
+        """Return True if coordinator is loaded and devices exist."""
+        return self.coordinator.last_update_success
 
     @property
     def device_info(self) -> DeviceInfo:
-        """Return unified central main device info for the entire Google Home household."""
+        """Return unified central main device info for this Google Home household."""
         return DeviceInfo(
-            identifiers={(DOMAIN, f"{self._entry_id}_hub")},
+            identifiers={(DOMAIN, f"{self._entry_id}_structure_{self._structure_id}")},
             name=f"Google Home ({self._structure_name})",
             manufacturer=MANUFACTURER,
-            model="Google Home Hub & Household",
-            sw_version="Cloud HomeGraph",
+            model="Google Home Household & Structure",
             configuration_url="https://home.google.com/",
         )
 

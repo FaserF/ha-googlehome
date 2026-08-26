@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import voluptuous as vol
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
@@ -12,13 +12,19 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall, callback
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import entity_platform
+from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
+from .cloud_coordinator import GoogleHomeCloudDataUpdateCoordinator
+from .cloud_models import CloudHomeDevice
 from .const import (
     ALARM_AND_TIMER_ID_LENGTH,
+    DATA_CLOUD_COORDINATOR,
     DATA_COORDINATOR,
     DOMAIN,
     GOOGLE_HOME_ALARM_DEFAULT_VALUE,
+    MANUFACTURER,
     SERVICE_ATTR_ALARM_ID,
     SERVICE_ATTR_SKIP_REFRESH,
     SERVICE_ATTR_TIMER_ID,
@@ -98,6 +104,40 @@ async def async_setup_entry(
 
     if entities:
         async_add_entities(entities)
+
+    cloud_coordinator: GoogleHomeCloudDataUpdateCoordinator | None = entry_data.get(
+        DATA_CLOUD_COORDINATOR
+    )
+    if cloud_coordinator is not None:
+        cloud_registered_ids: set[str] = set()
+
+        def _create_cloud_bridge_entities() -> list[GoogleHomeCloudBridgeSensor]:
+            new_bridge_ents = []
+            for dev in cloud_coordinator.data or []:
+                if dev.is_control_bridge and dev.device_id not in cloud_registered_ids:
+                    cloud_registered_ids.add(dev.device_id)
+                    new_bridge_ents.append(
+                        GoogleHomeCloudBridgeSensor(
+                            coordinator=cloud_coordinator,
+                            entry_id=entry.entry_id,
+                            device_id=dev.device_id,
+                        )
+                    )
+            return new_bridge_ents
+
+        cloud_bridge_entities = _create_cloud_bridge_entities()
+        if cloud_bridge_entities:
+            async_add_entities(cloud_bridge_entities)
+
+        @callback
+        def _async_add_new_cloud_bridges() -> None:
+            new_bridge_ents = _create_cloud_bridge_entities()
+            if new_bridge_ents:
+                async_add_entities(new_bridge_ents)
+
+        entry.async_on_unload(
+            cloud_coordinator.async_add_listener(_async_add_new_cloud_bridges)
+        )
 
     # Register entity services
     platform = entity_platform.async_get_current_platform()
@@ -340,3 +380,83 @@ class GoogleHomeTimersSensor(GoogleHomeBaseEntity, SensorEntity):
         await self.client.delete_alarm_or_timer(device=device, item_to_delete=timer_id)
         if not call.data.get(SERVICE_ATTR_SKIP_REFRESH, False):
             await self.coordinator.async_request_refresh()
+
+
+class GoogleHomeCloudBridgeSensor(
+    CoordinatorEntity[GoogleHomeCloudDataUpdateCoordinator], SensorEntity
+):
+    """Google Home Cloud Bridge / Hub diagnostic sensor."""
+
+    _attr_icon = "mdi:bridge"
+
+    def __init__(
+        self,
+        coordinator: GoogleHomeCloudDataUpdateCoordinator,
+        entry_id: str,
+        device_id: str,
+    ) -> None:
+        """Initialize."""
+        super().__init__(coordinator)
+        self.entry_id = entry_id
+        self.device_id = device_id
+        self._attr_unique_id = f"{device_id}_cloud_bridge_status"
+
+    def get_device(self) -> CloudHomeDevice | None:
+        """Get device from coordinator."""
+        return self.coordinator.get_device(self.device_id)
+
+    @property
+    def name(self) -> str:
+        """Return name."""
+        device = self.get_device()
+        return f"{device.name} Status" if device else "Bridge Status"
+
+    @property
+    def native_value(self) -> str:
+        """Return online status of bridge."""
+        device = self.get_device()
+        if not device:
+            return "unavailable"
+        return "online" if device.online else "offline"
+
+    @property
+    def available(self) -> bool:
+        """Return availability."""
+        device = self.get_device()
+        return device is not None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return bridge diagnostic attributes."""
+        device = self.get_device()
+        if not device:
+            return {}
+        return {
+            "bridge_name": device.name,
+            "device_id": device.device_id,
+            "device_type": device.device_type,
+            "traits": device.traits,
+            "agent_id": device.agent_id,
+            "agent_name": device.agent_name,
+            "hardware_model": device.hardware_model,
+            "structure": device.structure_name,
+            "room": device.room_name,
+        }
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        """Return device info grouping bridge sensor under its Google Home household main device."""
+        device = self.get_device()
+        struct_id = (
+            device.structure_id if device and device.structure_id else "default_home"
+        )
+        struct_name = (
+            device.structure_name if device and device.structure_name else "Google Home"
+        )
+        return DeviceInfo(
+            identifiers={(DOMAIN, f"{self.entry_id}_structure_{struct_id}")},
+            name=f"Google Home ({struct_name})",
+            manufacturer=MANUFACTURER,
+            model="Google Home Household & Structure",
+            configuration_url="https://home.google.com/",
+        )

@@ -109,15 +109,27 @@ class GoogleHomeCloudFan(
         manufacturer = cdev.manufacturer if cdev else MANUFACTURER
         model = cdev.model_name if cdev else "Cloud Fan"
         sw_version = cdev.firmware_version if cdev else None
+        hw_version = cdev.hardware_version if cdev else None
         suggested_area = cdev.room_name if cdev else None
 
+        connections = set()
+        if cdev and cdev.mac_address:
+            from homeassistant.helpers.device_registry import (
+                CONNECTION_NETWORK_MAC,
+                format_mac,
+            )
+
+            connections.add((CONNECTION_NETWORK_MAC, format_mac(cdev.mac_address)))
+
         return DeviceInfo(
-            identifiers={(DOMAIN, f"cloud_{self._device_id}")},
+            identifiers={(DOMAIN, self._device_id)},
             name=self.name,
             manufacturer=manufacturer,
             model=model,
             sw_version=sw_version,
+            hw_version=hw_version,
             suggested_area=suggested_area,
+            connections=connections,
             configuration_url="https://home.google.com/",
         )
 
@@ -137,17 +149,57 @@ class GoogleHomeCloudFan(
             or "speed" in cdev.state
         ):
             features |= FanEntityFeature.SET_SPEED
+            features |= FanEntityFeature.PRESET_MODE
 
+        # Smart fans like Xiaomi / Dyson with FanSpeed also support oscillation and direction in HomeGraph
         if (
             "action.devices.traits.Oscillation" in traits
+            or "action.devices.traits.FanSpeed" in traits
             or "isOscillating" in cdev.state
         ):
             features |= FanEntityFeature.OSCILLATE
 
-        if "action.devices.traits.Reverse" in traits or "fanDirection" in cdev.state:
+        if (
+            "action.devices.traits.Reverse" in traits
+            or "action.devices.traits.FanSpeed" in traits
+            or "fanDirection" in cdev.state
+        ):
             features |= FanEntityFeature.DIRECTION
 
         return features
+
+    @property
+    def speed_count(self) -> int:
+        """Return the number of speeds the fan supports (e.g. 4 for Level1-Level4)."""
+        cdev = self.get_cloud_device()
+        if not cdev:
+            return 100
+        avail = cdev.attributes.get("availableFanSpeeds")
+        if isinstance(avail, dict) and "speeds" in avail and avail["speeds"]:
+            return len(avail["speeds"])
+        return 4
+
+    @property
+    def preset_modes(self) -> list[str] | None:
+        """Return available preset speed modes (e.g. Level 1, Level 2, Level 3, Level 4)."""
+        return ["Level 1", "Level 2", "Level 3", "Level 4", "Auto", "Nature"]
+
+    @property
+    def preset_mode(self) -> str | None:
+        """Return the current preset mode."""
+        cdev = self.get_cloud_device()
+        if not cdev:
+            return None
+        pct = self.percentage
+        if pct is not None:
+            if pct <= 25:
+                return "Level 1"
+            if pct <= 50:
+                return "Level 2"
+            if pct <= 75:
+                return "Level 3"
+            return "Level 4"
+        return str(cdev.state.get("currentFanSpeedSetting", "Level 1"))
 
     @property
     def is_on(self) -> bool | None:
@@ -162,7 +214,7 @@ class GoogleHomeCloudFan(
             return bool(cdev.state["is_on"])
         if "currentFanSpeedPercent" in cdev.state:
             return float(cdev.state["currentFanSpeedPercent"]) > 0
-        return None
+        return False
 
     @property
     def percentage(self) -> int | None:
@@ -315,5 +367,30 @@ class GoogleHomeCloudFan(
             self._device_id,
             "action.devices.commands.SetFanDirection",
             {"direction": direction},
+        )
+        self.async_write_ha_state()
+
+    async def async_set_preset_mode(self, preset_mode: str) -> None:
+        """Set preset mode."""
+        cdev = self.get_cloud_device()
+        if not cdev:
+            return
+
+        mode_pct_map = {
+            "Level 1": 25,
+            "Level 2": 50,
+            "Level 3": 75,
+            "Level 4": 100,
+            "Auto": 50,
+            "Nature": 30,
+        }
+        pct = mode_pct_map.get(preset_mode, 50)
+        cdev.state["on"] = True
+        cdev.state["currentFanSpeedPercent"] = pct
+        cdev.state["currentFanSpeedSetting"] = preset_mode
+        await self.coordinator.cloud_client.async_execute_command(
+            self._device_id,
+            "action.devices.commands.SetFanSpeed",
+            {"fanSpeed": preset_mode, "fanSpeedPercent": pct},
         )
         self.async_write_ha_state()

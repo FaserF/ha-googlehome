@@ -66,28 +66,35 @@ class GoogleHomeCloudClient:
                 raw = homegraph.SerializeToString()
                 import re
 
+                found_names: list[str] = []
                 for match in re.finditer(
                     b"StructureTrait[^\x00-\x1f]*\x12[\x01-\x20]\n\x04name\x12[\x01-\x20]\x1a[\x01-\x20]([^\x00-\x1f]+)",
                     raw,
                 ):
                     struct_name = match.group(1).decode("utf-8", errors="ignore")
-                    start_pos = max(0, match.start() - 1500)
-                    chunk = raw[start_pos : match.start()]
-                    uuid_matches = re.findall(
-                        b"([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})",
-                        chunk,
-                    )
-                    if uuid_matches:
-                        struct_id = uuid_matches[-1].decode()
-                        homes[struct_id] = struct_name
+                    if struct_name not in found_names:
+                        found_names.append(struct_name)
 
-                # Also correlate any rooms that belong to other structure UUIDs
+                # Correlate any rooms that belong to other structure UUIDs
+                other_structure_ids: list[str] = []
                 for r in getattr(homegraph.home, "rooms", []):
                     rid = getattr(r, "room_id", "")
                     if "." in rid:
                         prefix_uuid = rid.split(".")[0]
-                        if prefix_uuid not in homes:
-                            homes[prefix_uuid] = prefix_uuid
+                        if (
+                            prefix_uuid != hid
+                            and prefix_uuid not in other_structure_ids
+                        ):
+                            other_structure_ids.append(prefix_uuid)
+
+                other_names = [n for n in found_names if n != hname]
+                for idx, sid in enumerate(other_structure_ids):
+                    if idx < len(other_names):
+                        homes[sid] = other_names[idx]
+                    elif len(other_names) == 1:
+                        homes[sid] = other_names[0]
+                    else:
+                        homes[sid] = f"Zuhause ({sid[:8]})"
 
                 return homes
         except Exception as exc:

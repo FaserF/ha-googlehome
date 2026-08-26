@@ -174,15 +174,27 @@ class GoogleHomeCloudMediaPlayer(
         manufacturer = cdev.manufacturer if cdev else MANUFACTURER
         model = cdev.model_name if cdev else "Cloud Media Player"
         sw_version = cdev.firmware_version if cdev else None
+        hw_version = cdev.hardware_version if cdev else None
         suggested_area = cdev.room_name if cdev else None
 
+        connections = set()
+        if cdev and cdev.mac_address:
+            from homeassistant.helpers.device_registry import (
+                CONNECTION_NETWORK_MAC,
+                format_mac,
+            )
+
+            connections.add((CONNECTION_NETWORK_MAC, format_mac(cdev.mac_address)))
+
         return DeviceInfo(
-            identifiers={(DOMAIN, f"cloud_{self._device_id}")},
+            identifiers={(DOMAIN, self._device_id)},
             name=self.name,
             manufacturer=manufacturer,
             model=model,
             sw_version=sw_version,
+            hw_version=hw_version,
             suggested_area=suggested_area,
+            connections=connections,
             configuration_url="https://home.google.com/",
         )
 

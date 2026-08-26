@@ -102,17 +102,19 @@ class GoogleHomeCloudScene(
 
     @property
     def device_info(self) -> DeviceInfo:
-        """Return unified device registry info for all Google Home Automations, Routines, and Presence."""
+        """Return device info grouping scene under its Google Home household device."""
         device = self.get_device()
+        struct_id = (
+            device.structure_id if device and device.structure_id else "default_home"
+        )
         struct_name = (
-            device.structure_name if device and device.structure_name else "Zuhause"
+            device.structure_name if device and device.structure_name else "Google Home"
         )
         return DeviceInfo(
-            identifiers={(DOMAIN, f"{self.entry_id}_hub")},
+            identifiers={(DOMAIN, f"{self.entry_id}_structure_{struct_id}")},
             name=f"Google Home ({struct_name})",
             manufacturer="Google",
-            model="Google Home Hub & Household",
-            sw_version="Cloud HomeGraph",
+            model="Google Home Household & Structure",
             configuration_url="https://home.google.com/automations",
         )
 

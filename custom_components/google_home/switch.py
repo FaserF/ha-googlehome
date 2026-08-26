@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from homeassistant.components.switch import SwitchEntity
+from homeassistant.components.switch import SwitchDeviceClass, SwitchEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity import DeviceInfo
@@ -137,6 +137,36 @@ class GoogleHomeCloudSwitch(
         """Return name."""
         device = self.get_device()
         return device.name if device else "Google Switch"
+
+    @property
+    def device_class(self) -> SwitchDeviceClass | None:
+        """Return device class based on type."""
+        device = self.get_device()
+        if not device:
+            return SwitchDeviceClass.SWITCH
+        dtype = device.device_type.upper()
+        if "OUTLET" in dtype or "PLUG" in dtype:
+            return SwitchDeviceClass.OUTLET
+        return SwitchDeviceClass.SWITCH
+
+    @property
+    def icon(self) -> str | None:
+        """Return specialized icon for appliances like fryers, coffee makers, etc."""
+        device = self.get_device()
+        if not device:
+            return None
+        dtype = device.device_type.upper()
+        if "FRYER" in dtype:
+            return "mdi:pot-steam" if self.is_on else "mdi:pot"
+        if "COFFEE_MAKER" in dtype:
+            return "mdi:coffee-maker"
+        if "KETTLE" in dtype:
+            return "mdi:kettle"
+        if "TOASTER" in dtype:
+            return "mdi:toaster"
+        if "OUTLET" in dtype or "PLUG" in dtype:
+            return "mdi:power-socket-eu" if self.is_on else "mdi:power-socket-eu"
+        return None
 
     @property
     def is_on(self) -> bool:

@@ -150,11 +150,32 @@ async def _async_cleanup_stale_devices_and_entities(
     if cloud_coordinator and cloud_coordinator.data:
         for cdev in cloud_coordinator.data:
             active_device_ids.add(cdev.device_id)
-        # Unified routines device identifier
+            if cdev.structure_id:
+                active_device_ids.add(f"{entry.entry_id}_structure_{cdev.structure_id}")
+                active_device_ids.add(f"structure_{cdev.structure_id}")
+        if hasattr(cloud_coordinator.client, "_get_available_homes_sync"):
+            try:
+                for hid in cloud_coordinator.client._get_available_homes_sync():
+                    active_device_ids.add(f"{entry.entry_id}_structure_{hid}")
+                    active_device_ids.add(f"structure_{hid}")
+            except Exception:
+                pass
+        active_device_ids.add(f"{entry.entry_id}_hub")
         active_device_ids.add(f"{entry.entry_id}_routines")
 
     dev_reg = dr.async_get(hass)
     ent_reg = er.async_get(hass)
+
+    # Clean up deprecated entities (e.g. redundant number.volume slider)
+    for ent_entry in er.async_entries_for_config_entry(ent_reg, entry.entry_id):
+        if ent_entry.domain == "number" and (
+            ent_entry.unique_id.endswith("_device_volume")
+            or ent_entry.unique_id.endswith("_volume")
+        ):
+            _LOGGER.info(
+                "Removing deprecated volume number entity: %s", ent_entry.entity_id
+            )
+            ent_reg.async_remove(ent_entry.entity_id)
 
     device_entries = dr.async_entries_for_config_entry(dev_reg, entry.entry_id)
     for dev_entry in device_entries:
@@ -174,6 +195,45 @@ async def _async_cleanup_stale_devices_and_entities(
                 ent_reg.async_remove(ent_entry.entity_id)
             # Remove the device itself
             dev_reg.async_remove_device(dev_entry.id)
+        else:
+            # Check if this is a structure or an actual device
+            is_structure = any(
+                ident[1].startswith(f"{entry.entry_id}_structure_")
+                or ident[1].startswith("structure_")
+                or ident[1].endswith("_hub")
+                or ident[1].endswith("_routines")
+                for ident in dev_entry.identifiers
+                if ident[0] == DOMAIN
+            )
+            if is_structure:
+                if dev_entry.sw_version:
+                    dev_reg.async_update_device(dev_entry.id, sw_version=None)
+            else:
+                # Find matching device in local or cloud coordinator and sync sw_version / hw_version
+                for ident in dev_entry.identifiers:
+                    if ident[0] == DOMAIN:
+                        dev_id = ident[1]
+                        # 1. Local coordinator
+                        if local_coordinator:
+                            ldev = local_coordinator.get_device(dev_id)
+                            if ldev and ldev.firmware_version:
+                                dev_reg.async_update_device(
+                                    dev_entry.id,
+                                    sw_version=ldev.firmware_version,
+                                    hw_version=ldev.hardware,
+                                )
+                                break
+                        # 2. Cloud coordinator
+                        if cloud_coordinator:
+                            cdev = cloud_coordinator.get_device(dev_id)
+                            if cdev and cdev.firmware_version:
+                                dev_reg.async_update_device(
+                                    dev_entry.id,
+                                    sw_version=cdev.firmware_version,
+                                    hw_version=cdev.hardware_version
+                                    or cdev.hardware_model,
+                                )
+                                break
 
 
 async def async_remove_config_entry_device(
@@ -223,5 +283,18 @@ async def async_migrate_entry(hass: HomeAssistant, config_entry: ConfigEntry) ->
         new_data = {**config_entry.data}
         hass.config_entries.async_update_entry(config_entry, data=new_data, version=2)
         _LOGGER.info("Successfully migrated Google Home config entry to version 2")
+
+    if config_entry.version == 2:
+        username = config_entry.data.get(CONF_USERNAME)
+        new_unique_id = username.strip().lower() if username else config_entry.unique_id
+        hass.config_entries.async_update_entry(
+            config_entry,
+            unique_id=new_unique_id,
+            version=3,
+        )
+        _LOGGER.info(
+            "Successfully migrated Google Home config entry to version 3 (unique_id=%s)",
+            new_unique_id,
+        )
 
     return True
