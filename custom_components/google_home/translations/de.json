@@ -1,0 +1,119 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Google Home Einrichtung",
+        "description": "Google verlangt eine Authentifizierung, um deine Google Home & Nest Lautsprecher lokal im Netzwerk abzufragen.\n\n### 🔐 Wähle deine Anmeldemethode:\n- **Token (Master-Token / Web-OAuth-Token)**: 100% zuverlässig, von der Community empfohlen.\n- **[Google Home Token Hub Add-on](https://github.com/FaserF/hassio-addons/tree/master/googlehome)**: Automatische Einrichtung über das Add-on (Erkennung für Edge & Stable).\n- **App-Passwort**: Automatische Token-Generierung (erfordert ein App-Passwort von Google).",
+        "data": {
+          "auth_method": "Anmeldemethode"
+        }
+      },
+      "token": {
+        "title": "Token-Anmeldung",
+        "description": "### 🔑 30-Sekunden Token-Anleitung (Empfohlen):\n1. Öffne [accounts.google.com/EmbeddedSetup](https://accounts.google.com/EmbeddedSetup) im Browser und melde dich mit deinem Google-Konto an.\n2. **Wichtig**: Die Seite bleibt am Ende beim Ladebalken/weiß stehen (das ist völlig normal und bedeutet, dass der Token erfolgreich erzeugt wurde!).\n3. Drücke **F12** (Entwicklertools) -> **Anwendung** (oder Speicher) -> **Cookies** (https://accounts.google.com).\n4. Kopiere den Wert des Cookies **`oauth_token`** (beginnt mit `oauth2_4/...`).\n5. Gib unten deine Google E-Mail-Adresse ein und füge den Token ein.\n\n*(Falls du bereits direkt einen `aas_et/...` Master-Token besitzt, kannst du ihn ebenfalls direkt einfügen)*.",
+        "data": {
+          "username": "Google-Konto E-Mail-Adresse",
+          "master_token": "Token (oauth2_4/... oder aas_et/...)"
+        }
+      },
+      "addon": {
+        "title": "Mit Google Home Add-on verbinden",
+        "description": "Stelle sicher, dass das **[Google Home Token Hub](https://github.com/FaserF/hassio-addons/tree/master/googlehome)** Add-on installiert ist und läuft.",
+        "data": {
+          "addon_host": "Add-on Host",
+          "addon_port": "Add-on Port"
+        }
+      },
+      "addon_login": {
+        "title": "Add-on Anmeldung",
+        "description": "Gib deine Google-Zugangsdaten ein. Das Add-on führt die Anmeldung durch und erzeugt den Master-Token.",
+        "data": {
+          "username": "Google-Konto E-Mail-Adresse",
+          "password": "Passwort / App-Passwort (optional)",
+          "master_token": "Web-Token (oauth2_4/... optional)"
+        }
+      },
+      "addon_action": {
+        "title": "Einrichtung abgeschlossen - Add-on Status",
+        "description": "✅ **Master-Token für {email} erfolgreich gespeichert!**\n\nDie Integration kommuniziert nun 100% lokal mit deinen Google Home Lautsprechern und benötigt das Add-on im Dauerbetrieb nicht mehr.\n\nWas möchtest du mit dem Add-on tun?",
+        "data": {
+          "addon_action": "Aktion für Add-on"
+        }
+      },
+      "app_password": {
+        "title": "App-Passwort Anmeldung",
+        "description": "Gib deine Google-Konto E-Mail-Adresse und ein 16-stelliges [Google App-Passwort](https://myaccount.google.com/apppasswords) ein.\n\nDie Integration verbindet sich im Hintergrund automatisch mit Google und generiert deinen dauerhaften Master-Token.",
+        "data": {
+          "username": "Google-Konto E-Mail-Adresse",
+          "password": "16-stelliges App-Passwort"
+        }
+      }
+    },
+    "error": {
+      "invalid_master_token": "Der angegebene Token ist ungültig oder abgelaufen. Bitte erzeuge auf https://accounts.google.com/EmbeddedSetup einen frischen Token.",
+      "advanced_protection": "Für dein Google-Konto ist das Erweiterte Sicherheitsprogramm (Advanced Protection) aktiv. Google verbietet hierfür Passwörter und App-Passwörter komplett. Bitte nutze die Token-Methode.",
+      "two_factor_required": "Google verweigert die Passwort-Anmeldung (BadAuthentication / 2FA). Bitte erstelle unter https://myaccount.google.com/apppasswords ein 16-stelliges App-Passwort oder nutze einen Web-Token.",
+      "missing_email_for_oauth": "Bitte gib oben deine Google-Konto E-Mail-Adresse an.",
+      "missing_credentials": "Bitte gib entweder ein Passwort oder einen Token an.",
+      "addon_not_logged_in": "Das Google Home Add-on läuft, aber es wurde noch kein Token hinterlegt.",
+      "cannot_connect_addon": "Verbindung zum Google Home Add-on fehlgeschlagen. Bitte prüfe, ob das Add-on installiert ist und läuft.",
+      "invalid_auth": "Ungültige E-Mail-Adresse oder Zugangsdaten. Bitte Zugangsdaten prüfen.",
+      "password_too_long": "Das Passwort überschreitet die maximale Länge (100 Zeichen).",
+      "unknown": "Unerwarteter Fehler aufgetreten. Bitte erstelle ein Fehlerprotokoll."
+    },
+    "abort": {
+      "single_instance_allowed": "Es ist nur eine einzige Instanz der Google Home Integration erlaubt."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Google Home Einstellungen",
+        "description": "Aktualisierungsintervall für Gerätestatus, Timer und Alarme konfigurieren.",
+        "data": {
+          "update_interval": "Aktualisierungsintervall (Sekunden)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "device": {
+        "name": "Geräte-IP"
+      },
+      "alarms": {
+        "name": "Nächster Alarm"
+      },
+      "timers": {
+        "name": "Nächster Timer"
+      },
+      "wifi": {
+        "name": "WLAN Netzwerk"
+      },
+      "bluetooth": {
+        "name": "Bluetooth MAC"
+      }
+    },
+    "switch": {
+      "do_not_disturb": {
+        "name": "Nicht stören"
+      },
+      "night_mode": {
+        "name": "Nachtmodus"
+      }
+    },
+    "number": {
+      "alarm_volume": {
+        "name": "Weckerlautstärke"
+      }
+    },
+    "button": {
+      "reboot": {
+        "name": "Neustarten"
+      },
+      "refresh": {
+        "name": "Aktualisieren"
+      }
+    }
+  }
+}

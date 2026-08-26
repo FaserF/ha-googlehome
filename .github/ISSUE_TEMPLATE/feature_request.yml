@@ -1,0 +1,37 @@
+﻿name: Feature Request
+description: Suggest an idea or enhancement for the Google Home integration
+title: "[Feature]: "
+labels: ["enhancement", "triage"]
+assignees:
+  - FaserF
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Before submitting
+        - 🔍 Search [existing feature requests](https://github.com/FaserF/ha-googlehome/issues?q=label%3Aenhancement) to avoid duplicates
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Description
+      description: Is your feature request related to a problem? Describe it clearly.
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: A clear and concise description of what you want to happen.
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional Context
+      description: Add any other context, screenshots, or examples about the feature request here.
+    validations:
+      required: false
+

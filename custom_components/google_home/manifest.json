@@ -1,0 +1,25 @@
+{
+  "domain": "google_home",
+  "name": "Google Home",
+  "after_dependencies": [
+    "cloud",
+    "http",
+    "zeroconf"
+  ],
+  "codeowners": [
+    "@FaserF"
+  ],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/FaserF/ha-googlehome",
+  "integration_type": "hub",
+  "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/FaserF/ha-googlehome/issues",
+  "requirements": [
+    "glocaltokens>=0.7.6"
+  ],
+  "version": "1.0.0",
+  "zeroconf": [
+    "_googlecast._tcp.local."
+  ]
+}

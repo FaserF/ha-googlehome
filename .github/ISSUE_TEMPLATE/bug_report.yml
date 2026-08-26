@@ -1,0 +1,90 @@
+name: Bug Report
+description: Report a bug with the Google Home integration
+title: "[Bug]: "
+labels: ["bug", "triage"]
+assignees:
+  - FaserF
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Before submitting
+        - 🔍 Search [existing issues](https://github.com/FaserF/ha-googlehome/issues) to avoid duplicates
+        - 🔗 View the integration: [![Open your Home Assistant instance and show the google_home integration.](https://my.home-assistant.io/badges/integration.svg)](https://my.home-assistant.io/redirect/integration/?domain=google_home)
+
+  - type: input
+    id: integration_version
+    attributes:
+      label: Integration Version
+      description: Which version of ha-googlehome are you running? (HACS or integration page)
+      placeholder: e.g. v1.0.0
+    validations:
+      required: true
+
+  - type: input
+    id: ha_version
+    attributes:
+      label: Home Assistant Version
+      description: |
+        [![Open your Home Assistant instance and show your Home Assistant version information.](https://my.home-assistant.io/badges/info.svg)](https://my.home-assistant.io/redirect/info/)
+      placeholder: e.g. 2026.8.3
+    validations:
+      required: true
+
+  - type: dropdown
+    id: ha_install_type
+    attributes:
+      label: Home Assistant Installation Type
+      options:
+        - Home Assistant OS
+        - Home Assistant Container
+        - Home Assistant Supervised
+        - Home Assistant Core
+    validations:
+      required: true
+
+  - type: input
+    id: device_model
+    attributes:
+      label: Google Home Device Model(s)
+      description: Which Google Home / Nest device models are affected? (e.g. Nest Audio, Google Home Mini, Nest Hub)
+      placeholder: e.g. Google Nest Audio, Nest Mini
+    validations:
+      required: false
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Describe the Bug
+      description: A clear and concise description of what the bug is.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: Step-by-step instructions to reproduce the behavior.
+      placeholder: |
+        1. Add integration with ...
+        2. Set timer on device
+        3. See error in logs
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Log Output
+      description: |
+        Enable debug logging and paste relevant log lines here:
+        `yaml
+        logger:
+          default: warning
+          logs:
+            custom_components.googlehome: debug
+        `
+      render: shell
+    validations:
+      required: true
+

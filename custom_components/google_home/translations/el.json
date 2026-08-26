@@ -1,0 +1,68 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Ρύθμιση Google Home",
+        "description": "Συνδεθείτε με τον λογαριασμό σας Google. Εάν έχετε 2FA, δημιουργήστε έναν κωδικό πρόσβασης εφαρμογής (https://myaccount.google.com/apppasswords).",
+        "data": {
+          "username": "Διεύθυνση Email λογαριασμού Google",
+          "password": "Κωδικός πρόσβασης / Κωδικός εφαρμογής",
+          "master_token": "Master Token (Προαιρετικό)"
+        }
+      }
+    },
+    "error": {
+      "invalid_master_token": "Το master token δεν είναι έγκυρο ή έχει λήξει.",
+      "two_factor_required": "Απαιτείται κωδικός πρόσβασης εφαρμογής (2FA): https://myaccount.google.com/apppasswords.",
+      "invalid_auth": "Μη έγκυρα στοιχεία σύνδεσης.",
+      "password_too_long": "Ο κωδικός πρόσβασης υπερβαίνει το μέγιστο όριο χαρακτήρων.",
+      "missing_credentials": "Παρακαλώ εισαγάγετε Email και κωδικό πρόσβασης ή Master Token.",
+      "unknown": "Παρουσιάστηκε μη αναμενόμενο σφάλμα. Ελέγξτε τα αρχεία καταγραφής."
+    },
+    "abort": {
+      "single_instance_allowed": "Επιτρέπεται μόνο μία εγκατάσταση του Google Home."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Ρυθμίσεις Google Home",
+        "description": "Διαμόρφωση διαστήματος ενημέρωσης για κατάσταση συσκευής, χρονόμετρα και αφυπνίσεις.",
+        "data": {
+          "update_interval": "Διάστημα ενημέρωσης (δευτερόλεπτα)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "device": {
+        "name": "IP συσκευής"
+      },
+      "alarms": {
+        "name": "Επόμενη αφύπνιση"
+      },
+      "timers": {
+        "name": "Επόμενο χρονόμετρο"
+      }
+    },
+    "switch": {
+      "do_not_disturb": {
+        "name": "Μην ενοχλείτε"
+      }
+    },
+    "number": {
+      "alarm_volume": {
+        "name": "Ένταση αφύπνισης"
+      }
+    },
+    "button": {
+      "reboot": {
+        "name": "Επανεκκίνηση"
+      },
+      "refresh": {
+        "name": "Ανανέωση"
+      }
+    }
+  }
+}

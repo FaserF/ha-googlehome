@@ -1,0 +1,80 @@
+﻿reboot_device:
+  name: Reboot Device
+  description: Reboots the specified Google Home / Nest device.
+  target:
+    entity:
+      integration: google_home
+      domain:
+        - sensor
+        - button
+
+delete_alarm:
+  name: Delete Alarm
+  description: Deletes an alarm from the Google Home device.
+  target:
+    entity:
+      integration: google_home
+      domain: sensor
+  fields:
+    alarm_id:
+      name: Alarm ID
+      description: The ID of the alarm to delete (e.g., alarm/6ed06a56-8a58-c6e3-a7d4-03f92c9d8a51).
+      required: true
+      example: "alarm/6ed06a56-8a58-c6e3-a7d4-03f92c9d8a51"
+      selector:
+        text:
+    skip_refresh:
+      name: Skip Refresh
+      description: Whether to skip immediate data coordinator refresh after deletion.
+      required: false
+      default: false
+      selector:
+        boolean:
+
+delete_timer:
+  name: Delete Timer
+  description: Deletes a timer from the Google Home device.
+  target:
+    entity:
+      integration: google_home
+      domain: sensor
+  fields:
+    timer_id:
+      name: Timer ID
+      description: The ID of the timer to delete (e.g., timer/6ed06a56-8a58-c6e3-a7d4-03f92c9d8a51).
+      required: true
+      example: "timer/6ed06a56-8a58-c6e3-a7d4-03f92c9d8a51"
+      selector:
+        text:
+    skip_refresh:
+      name: Skip Refresh
+      description: Whether to skip immediate data coordinator refresh after deletion.
+      required: false
+      default: false
+      selector:
+        boolean:
+
+refresh_devices:
+  name: Refresh Devices
+  description: Manually triggers a coordinator update to refresh all Google Home devices.
+
+set_alarm_volume:
+  name: Set Alarm Volume
+  description: Sets the alarm and timer volume (0-100%) on a Google Home device.
+  target:
+    entity:
+      integration: google_home
+      domain: sensor
+  fields:
+    volume:
+      name: Volume
+      description: The target alarm volume percentage (0 to 100).
+      required: true
+      example: 75
+      selector:
+        number:
+          min: 0
+          max: 100
+          step: 1
+          unit_of_measurement: "%"
+
