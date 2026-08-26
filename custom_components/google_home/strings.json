@@ -21,6 +21,7 @@
         "description": "### ⚙️ Choose how Google Home should integrate with Home Assistant:\n- **Local & Cloud (Hybrid)**: Fast local control for alarms/timers + cloud discovery for all Google Home devices.\n- **Local Only**: Pure local network communication for speakers.\n- **Cloud Only**: Cloud HomeGraph without local speaker polling.",
         "data": {
           "operation_mode": "Operation Mode",
+          "selected_homes": "Google Homes to synchronize",
           "ignore_ha_synced_devices": "Ignore devices already synced from Home Assistant (prevents duplicate entities & automation loops)"
         }
       },
@@ -95,11 +96,13 @@
     "step": {
       "init": {
         "title": "Google Home Options",
-        "description": "Configure operation mode, Home Assistant device filtering, and polling interval.",
+        "description": "Configure operation mode, Home Assistant device filtering, polling interval, and view/update your Master Token.",
         "data": {
           "operation_mode": "Operation Mode",
+          "selected_homes": "Google Homes to synchronize",
           "ignore_ha_synced_devices": "Ignore devices synced from Home Assistant",
-          "update_interval": "Update Interval (seconds)"
+          "update_interval": "Update Interval (seconds)",
+          "master_token": "Master Token (hidden - paste new aas_et/... or oauth2_4/... token to update)"
         }
       }
     }

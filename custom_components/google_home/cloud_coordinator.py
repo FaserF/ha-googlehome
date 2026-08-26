@@ -23,6 +23,9 @@ class GoogleHomeCloudDataUpdateCoordinator(
 ):
     """Class to manage fetching Google Home Cloud (HomeGraph) data."""
 
+    client: GoogleHomeCloudClient
+    cloud_client: GoogleHomeCloudClient
+
     def __init__(
         self,
         hass: HomeAssistant,
@@ -31,6 +34,7 @@ class GoogleHomeCloudDataUpdateCoordinator(
     ) -> None:
         """Initialize cloud coordinator."""
         self.client = client
+        self.cloud_client = client
         super().__init__(
             hass,
             _LOGGER,

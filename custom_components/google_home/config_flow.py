@@ -20,9 +20,13 @@ from homeassistant.helpers.selector import (
     NumberSelector,
     NumberSelectorConfig,
     NumberSelectorMode,
+    SelectOptionDict,
     SelectSelector,
     SelectSelectorConfig,
     SelectSelectorMode,
+    TextSelector,
+    TextSelectorConfig,
+    TextSelectorType,
 )
 from homeassistant.helpers.service_info.hassio import HassioServiceInfo
 
@@ -40,6 +44,7 @@ from .const import (
     CONF_MASTER_TOKEN,
     CONF_OPERATION_MODE,
     CONF_PASSWORD,
+    CONF_SELECTED_HOMES,
     CONF_UPDATE_INTERVAL,
     CONF_USERNAME,
     DEFAULT_ADDON_HOST,
@@ -293,12 +298,13 @@ class GoogleHomeFlowHandler(AddonFlowMixin, ConfigFlow, domain=DOMAIN):
     async def async_step_mode(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Step to select operation mode (Local & Cloud, Local only, Cloud only) and HA entity filtering."""
+        """Step to select operation mode (Local & Cloud, Local only, Cloud only), home selection, and HA entity filtering."""
         if user_input is not None:
             mode = user_input.get(CONF_OPERATION_MODE, MODE_HYBRID)
             ignore_ha = user_input.get(
                 CONF_IGNORE_HA_SYNCED_DEVICES, DEFAULT_IGNORE_HA_SYNCED_DEVICES
             )
+            selected_homes = user_input.get(CONF_SELECTED_HOMES)
 
             await self.async_set_unique_id(DOMAIN)
             self._abort_if_unique_id_configured()
@@ -312,30 +318,60 @@ class GoogleHomeFlowHandler(AddonFlowMixin, ConfigFlow, domain=DOMAIN):
                     CONF_MASTER_TOKEN: self._master_token,
                     CONF_OPERATION_MODE: mode,
                     CONF_IGNORE_HA_SYNCED_DEVICES: ignore_ha,
+                    CONF_SELECTED_HOMES: selected_homes,
                     CONF_ADDON_HOST: self._addon_host,
                     CONF_ADDON_PORT: self._addon_port,
                 },
             )
 
-        data_schema = vol.Schema(
-            {
-                vol.Required(CONF_OPERATION_MODE, default=MODE_HYBRID): SelectSelector(
+        # Query available Google Homes for multi-select
+        homes_options: list[SelectOptionDict] = []
+        if self._master_token:
+            try:
+                client = GlocaltokensApiClient(
+                    hass=self.hass,
+                    session=async_get_clientsession(self.hass),
+                    username=self._username,
+                    master_token=self._master_token,
+                )
+                homes_dict = await client.async_get_available_homes()
+                for hid, hname in homes_dict.items():
+                    homes_options.append(SelectOptionDict(value=hid, label=hname))
+            except Exception as err:
+                _LOGGER.debug("Could not query homes during config flow: %s", err)
+
+        schema_dict: dict[Any, Any] = {
+            vol.Required(CONF_OPERATION_MODE, default=MODE_HYBRID): SelectSelector(
+                SelectSelectorConfig(
+                    options=[MODE_HYBRID, MODE_LOCAL, MODE_CLOUD],
+                    translation_key="operation_mode",
+                    mode=SelectSelectorMode.DROPDOWN,
+                )
+            ),
+        }
+
+        if homes_options:
+            all_home_ids = [opt["value"] for opt in homes_options]
+            schema_dict[vol.Optional(CONF_SELECTED_HOMES, default=all_home_ids)] = (
+                SelectSelector(
                     SelectSelectorConfig(
-                        options=[MODE_HYBRID, MODE_LOCAL, MODE_CLOUD],
-                        translation_key="operation_mode",
-                        mode=SelectSelectorMode.DROPDOWN,
+                        options=homes_options,
+                        multiple=True,
+                        mode=SelectSelectorMode.LIST,
                     )
-                ),
-                vol.Required(
-                    CONF_IGNORE_HA_SYNCED_DEVICES,
-                    default=DEFAULT_IGNORE_HA_SYNCED_DEVICES,
-                ): BooleanSelector(),
-            }
-        )
+                )
+            )
+
+        schema_dict[
+            vol.Required(
+                CONF_IGNORE_HA_SYNCED_DEVICES,
+                default=DEFAULT_IGNORE_HA_SYNCED_DEVICES,
+            )
+        ] = BooleanSelector()
 
         return self.async_show_form(
             step_id="mode",
-            data_schema=data_schema,
+            data_schema=vol.Schema(schema_dict),
         )
 
     async def async_step_app_password(
@@ -411,9 +447,36 @@ class GoogleHomeOptionsFlowHandler(OptionsFlow):
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Manage Google Home options."""
-        if user_input is not None:
-            return self.async_create_entry(title="", data=user_input)
+        errors: dict[str, str] = {}
 
+        if user_input is not None:
+            new_token = user_input.get(CONF_MASTER_TOKEN, "").strip()
+            username = self.config_entry.data.get(CONF_USERNAME, "")
+            session = async_get_clientsession(self.hass)
+
+            # If user entered an oauth2_4 web token, exchange it automatically
+            if new_token and (
+                new_token.startswith("oauth2_4/") or new_token.startswith("1//")
+            ):
+                try:
+                    client = GlocaltokensApiClient(
+                        hass=self.hass,
+                        session=session,
+                        username=username,
+                    )
+                    exchanged = await client.exchange_web_token(new_token)
+                    user_input[CONF_MASTER_TOKEN] = exchanged
+                except Exception as err:
+                    _LOGGER.error("Failed to exchange new web token: %s", err)
+                    errors["base"] = "invalid_token"
+
+            if not errors:
+                return self.async_create_entry(title="", data=user_input)
+
+        current_token = self.config_entry.options.get(
+            CONF_MASTER_TOKEN,
+            self.config_entry.data.get(CONF_MASTER_TOKEN, ""),
+        )
         current_interval = self.config_entry.options.get(
             CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL
         )
@@ -428,15 +491,52 @@ class GoogleHomeOptionsFlowHandler(OptionsFlow):
             ),
         )
 
-        data_schema = vol.Schema(
+        current_homes = self.config_entry.options.get(
+            CONF_SELECTED_HOMES,
+            self.config_entry.data.get(CONF_SELECTED_HOMES),
+        )
+
+        # Query available homes for multi-selection
+        homes_options: list[SelectOptionDict] = []
+        if current_token:
+            try:
+                client = GlocaltokensApiClient(
+                    hass=self.hass,
+                    session=session,
+                    username=username,
+                    master_token=current_token,
+                )
+                homes_dict = await client.async_get_available_homes()
+                for hid, hname in homes_dict.items():
+                    homes_options.append(SelectOptionDict(value=hid, label=hname))
+            except Exception as err:
+                _LOGGER.debug("Could not query homes in options flow: %s", err)
+
+        schema_dict: dict[Any, Any] = {
+            vol.Required(CONF_OPERATION_MODE, default=current_mode): SelectSelector(
+                SelectSelectorConfig(
+                    options=[MODE_HYBRID, MODE_LOCAL, MODE_CLOUD],
+                    translation_key="operation_mode",
+                    mode=SelectSelectorMode.DROPDOWN,
+                )
+            ),
+        }
+
+        if homes_options:
+            all_hids = [opt["value"] for opt in homes_options]
+            default_selection = current_homes if current_homes is not None else all_hids
+            schema_dict[
+                vol.Optional(CONF_SELECTED_HOMES, default=default_selection)
+            ] = SelectSelector(
+                SelectSelectorConfig(
+                    options=homes_options,
+                    multiple=True,
+                    mode=SelectSelectorMode.LIST,
+                )
+            )
+
+        schema_dict.update(
             {
-                vol.Required(CONF_OPERATION_MODE, default=current_mode): SelectSelector(
-                    SelectSelectorConfig(
-                        options=[MODE_HYBRID, MODE_LOCAL, MODE_CLOUD],
-                        translation_key="operation_mode",
-                        mode=SelectSelectorMode.DROPDOWN,
-                    )
-                ),
                 vol.Required(
                     CONF_IGNORE_HA_SYNCED_DEVICES, default=current_ignore_ha
                 ): BooleanSelector(),
@@ -451,10 +551,17 @@ class GoogleHomeOptionsFlowHandler(OptionsFlow):
                         unit_of_measurement="seconds",
                     )
                 ),
+                vol.Optional(CONF_MASTER_TOKEN, default=current_token): TextSelector(
+                    TextSelectorConfig(
+                        type=TextSelectorType.PASSWORD,
+                        autocomplete="current-password",
+                    )
+                ),
             }
         )
 
         return self.async_show_form(
             step_id="init",
-            data_schema=data_schema,
+            data_schema=vol.Schema(schema_dict),
+            errors=errors,
         )

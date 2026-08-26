@@ -49,6 +49,7 @@ MODE_CLOUD: Final = "cloud"
 
 CONF_IGNORE_HA_SYNCED_DEVICES: Final = "ignore_ha_synced_devices"
 DEFAULT_IGNORE_HA_SYNCED_DEVICES: Final = True
+CONF_SELECTED_HOMES: Final = "selected_homes"
 
 DATA_CLIENT: Final = "client"
 DATA_COORDINATOR: Final = "coordinator"
@@ -84,6 +85,9 @@ PLATFORMS: Final = [
     "number",
     "button",
     "light",
+    "fan",
+    "device_tracker",
+    "media_player",
     "camera",
     "vacuum",
     "climate",

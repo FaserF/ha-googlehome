@@ -14,7 +14,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .cloud_coordinator import GoogleHomeCloudDataUpdateCoordinator
 from .cloud_models import CloudHomeDevice
-from .const import DATA_CLOUD_COORDINATOR, DOMAIN, MANUFACTURER
+from .const import DATA_CLOUD_COORDINATOR, DOMAIN
 
 _LOGGER: logging.Logger = logging.getLogger(__package__)
 
@@ -45,7 +45,9 @@ async def async_setup_entry(
                 registered_ids.add(dev.device_id)
                 new_ents.append(
                     GoogleHomeCloudScene(
-                        coordinator=coordinator, device_id=dev.device_id
+                        coordinator=coordinator,
+                        entry_id=entry.entry_id,
+                        device_id=dev.device_id,
                     )
                 )
         return new_ents
@@ -72,10 +74,12 @@ class GoogleHomeCloudScene(
     def __init__(
         self,
         coordinator: GoogleHomeCloudDataUpdateCoordinator,
+        entry_id: str,
         device_id: str,
     ) -> None:
         """Initialize scene entity."""
         super().__init__(coordinator)
+        self.entry_id = entry_id
         self.device_id = device_id
         self._attr_unique_id = f"{device_id}_cloud_scene"
         self._attr_icon = "mdi:play-circle-outline"
@@ -98,13 +102,18 @@ class GoogleHomeCloudScene(
 
     @property
     def device_info(self) -> DeviceInfo:
-        """Return device registry info."""
+        """Return unified device registry info for all Google Home Automations, Routines, and Presence."""
         device = self.get_device()
+        struct_name = (
+            device.structure_name if device and device.structure_name else "Zuhause"
+        )
         return DeviceInfo(
-            identifiers={(DOMAIN, self.device_id)},
-            name=self.name,
-            manufacturer=device.manufacturer if device else MANUFACTURER,
-            model="Google Home Automation / Routine",
+            identifiers={(DOMAIN, f"{self.entry_id}_hub")},
+            name=f"Google Home ({struct_name})",
+            manufacturer="Google",
+            model="Google Home Hub & Household",
+            sw_version="Cloud HomeGraph",
+            configuration_url="https://home.google.com/automations",
         )
 
     async def async_activate(self, **kwargs: Any) -> None:

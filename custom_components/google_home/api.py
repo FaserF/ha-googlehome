@@ -72,6 +72,7 @@ class GlocaltokensApiClient:
         master_token: str | None = None,
         android_id: str | None = None,
         zeroconf_instance: Zeroconf | None = None,
+        selected_homes: list[str] | None = None,
     ):
         """Initialize the API client."""
         self.hass = hass
@@ -81,6 +82,7 @@ class GlocaltokensApiClient:
         self.master_token = master_token
         self.android_id = android_id
         self.zeroconf_instance = zeroconf_instance
+        self.selected_homes = selected_homes
         self.google_devices: list[GoogleHomeDevice] = []
 
         self._client = GLocalAuthenticationTokens(
@@ -90,6 +92,54 @@ class GlocaltokensApiClient:
             android_id=android_id,
             verbose=False,
         )
+
+    async def async_get_available_homes(self) -> dict[str, str]:
+        """Fetch dictionary of available home_id -> home_name from HomeGraph."""
+
+        def _get_homes() -> dict[str, str]:
+            homes: dict[str, str] = {}
+            try:
+                hg = self._client.get_homegraph()
+                if hg and hasattr(hg, "home") and hg.home:
+                    hid = getattr(hg.home, "home_id", "") or "default_home"
+                    hname = getattr(hg.home, "home_name", "") or "My Google Home"
+                    homes[hid] = hname
+
+                    # Dynamically scan raw protobuf payload for all StructureTrait definitions
+                    raw = hg.SerializeToString()
+                    import re
+
+                    for match in re.finditer(
+                        b"StructureTrait[^\x00-\x1f]*\x12[\x01-\x20]\n\x04name\x12[\x01-\x20]\x1a[\x01-\x20]([^\x00-\x1f]+)",
+                        raw,
+                    ):
+                        struct_name = match.group(1).decode("utf-8", errors="ignore")
+                        start_pos = max(0, match.start() - 1500)
+                        chunk = raw[start_pos : match.start()]
+                        uuid_matches = re.findall(
+                            b"([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})",
+                            chunk,
+                        )
+                        if uuid_matches:
+                            struct_id = uuid_matches[-1].decode()
+                            homes[struct_id] = struct_name
+
+                    # Also correlate any rooms that belong to other structure UUIDs
+                    for r in getattr(hg.home, "rooms", []):
+                        rid = getattr(r, "room_id", "")
+                        if "." in rid:
+                            prefix_uuid = rid.split(".")[0]
+                            if prefix_uuid not in homes:
+                                homes[prefix_uuid] = prefix_uuid
+
+                    return homes
+            except Exception as exc:
+                _LOGGER.debug(
+                    "Could not fetch available homes in local client: %s", exc
+                )
+            return homes
+
+        return await self.hass.async_add_executor_job(_get_homes)
 
     async def get_master_token(self) -> str:
         """Get master token (short-circuit if already available, PR #1042)."""
@@ -223,6 +273,7 @@ class GlocaltokensApiClient:
             google_devices = await self.hass.async_add_executor_job(_get_google_devices)
 
             # Update or create device list while preserving existing states
+            available_homes = await self.async_get_available_homes()
             existing_by_id = {d.device_id: d for d in self.google_devices}
             new_devices: list[GoogleHomeDevice] = []
             for device in google_devices:
@@ -231,6 +282,34 @@ class GlocaltokensApiClient:
                     _LOGGER.debug(
                         "Skipping device %s (no local auth token available)",
                         getattr(device, "device_name", "Unknown"),
+                    )
+                    continue
+
+                # Determine structure ID and name for this device
+                dev_structure_id = None
+                dev_structure_name = None
+                raw_dev_bytes = str(getattr(device, "device_name", "")).encode()
+
+                for hid, hname in available_homes.items():
+                    if hid.encode() in raw_dev_bytes or hname.encode() in raw_dev_bytes:
+                        dev_structure_id = hid
+                        dev_structure_name = hname
+                        break
+
+                if not dev_structure_id and available_homes:
+                    # Default to the first available home if not specifically matched
+                    first_hid = next(iter(available_homes))
+                    dev_structure_id = first_hid
+                    dev_structure_name = available_homes[first_hid]
+
+                # Filter by selected_homes if specified
+                if self.selected_homes and dev_structure_id not in self.selected_homes:
+                    _LOGGER.debug(
+                        "Skipping local speaker %s because its home %s (%s) is not in selected_homes: %s",
+                        getattr(device, "device_name", ""),
+                        dev_structure_name,
+                        dev_structure_id,
+                        self.selected_homes,
                     )
                     continue
 
@@ -247,6 +326,8 @@ class GlocaltokensApiClient:
                     if dev_ip:
                         dev.ip_address = dev_ip
                     dev.hardware = device.hardware
+                    dev.structure_id = dev_structure_id
+                    dev.structure_name = dev_structure_name
                     new_devices.append(dev)
                 else:
                     new_devices.append(
@@ -256,6 +337,8 @@ class GlocaltokensApiClient:
                             auth_token=device.local_auth_token,
                             ip_address=dev_ip,
                             hardware=device.hardware,
+                            structure_id=dev_structure_id,
+                            structure_name=dev_structure_name,
                         )
                     )
             self.google_devices = new_devices

@@ -17,11 +17,12 @@
         }
       },
       "mode": {
-        "title": "Integrations-Modus & Filterung",
-        "description": "### ⚙️ Wähle den gewünschten Funktionsumfang:\n- **Lokal & Cloud (Hybrid)**: Schnelle lokale Lautsprecher-Steuerung + alle Cloud-Geräte aus Google Home.\n- **Nur Lokal**: 100% autark im LAN für Lautsprecher, Timer und Alarme.\n- **Nur Cloud**: Google Home Web/HomeGraph ohne lokale Netzwerk-Abfragen.",
+        "title": "Betriebsmodus & Filter",
+        "description": "### ⚙️ Wähle, wie Google Home in Home Assistant eingebunden werden soll:\n- **Lokal & Cloud (Hybrid)**: Schnelle lokale Lautsprecher-Steuerung + Cloud-Erkennung aller Google Home Geräte.\n- **Nur Lokal**: Reine LAN-Steuerung für Lautsprecher (Wecker, Timer, Lautstärke, DND).\n- **Nur Cloud**: Google HomeGraph ohne lokales Polling.",
         "data": {
           "operation_mode": "Betriebsmodus",
-          "ignore_ha_synced_devices": "Von Home Assistant synchronisierte Geräte ignorieren (verhindert Entity-Duplikate & Regelschleifen)"
+          "selected_homes": "Zu synchronisierende Google Homes",
+          "ignore_ha_synced_devices": "Von Home Assistant synchronisierte Geräte ignorieren (verhindert Duplikate & Schleifen)"
         }
       },
       "addon": {
@@ -95,11 +96,13 @@
     "step": {
       "init": {
         "title": "Google Home Einstellungen",
-        "description": "Betriebsmodus, Filter für synchronisierte Geräte und Aktualisierungsintervall konfigurieren.",
+        "description": "Betriebsmodus, Filter für synchronisierte Geräte, Aktualisierungsintervall konfigurieren sowie Master Token anzeigen/aktualisieren.",
         "data": {
           "operation_mode": "Betriebsmodus",
+          "selected_homes": "Zu synchronisierende Google Homes",
           "ignore_ha_synced_devices": "Von Home Assistant synchronisierte Geräte ignorieren",
-          "update_interval": "Aktualisierungsintervall (Sekunden)"
+          "update_interval": "Aktualisierungsintervall (Sekunden)",
+          "master_token": "Master Token (versteckt - neuen aas_et/... oder oauth2_4/... Token einfügen zum Aktualisieren)"
         }
       }
     }

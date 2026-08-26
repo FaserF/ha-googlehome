@@ -39,6 +39,8 @@ class GoogleHomeDevice:
         auth_token: str | None,
         ip_address: str | None = None,
         hardware: str | None = None,
+        structure_id: str | None = None,
+        structure_name: str | None = None,
     ):
         """Create Google Home device object."""
         self.device_id = device_id
@@ -46,6 +48,8 @@ class GoogleHomeDevice:
         self.auth_token = auth_token
         self.ip_address = ip_address
         self.hardware = hardware
+        self.structure_id = structure_id
+        self.structure_name = structure_name
         self.firmware_version: str | None = None
         self.mac_address: str | None = None
         self.available = True

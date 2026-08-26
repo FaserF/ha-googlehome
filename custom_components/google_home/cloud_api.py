@@ -32,6 +32,7 @@ class GoogleHomeCloudClient:
         username: str | None = None,
         android_id: str | None = None,
         ignore_ha_synced: bool = True,
+        selected_homes: list[str] | None = None,
     ) -> None:
         """Initialize cloud client."""
         self.hass = hass
@@ -39,6 +40,7 @@ class GoogleHomeCloudClient:
         self.username = username
         self.android_id = android_id
         self.ignore_ha_synced = ignore_ha_synced
+        self.selected_homes = selected_homes
         self._auth_client = GLocalAuthenticationTokens(
             username=username,
             master_token=master_token,
@@ -46,12 +48,58 @@ class GoogleHomeCloudClient:
             verbose=False,
         )
 
+    async def async_get_available_homes(self) -> dict[str, str]:
+        """Fetch dictionary of available home_id -> home_name from HomeGraph."""
+        return await self.hass.async_add_executor_job(self._get_available_homes_sync)
+
+    def _get_available_homes_sync(self) -> dict[str, str]:
+        """Synchronously get available structures/homes from HomeGraph payload."""
+        homes: dict[str, str] = {}
+        try:
+            homegraph = self._auth_client.get_homegraph()
+            if homegraph and hasattr(homegraph, "home") and homegraph.home:
+                hid = getattr(homegraph.home, "home_id", "") or "default_home"
+                hname = getattr(homegraph.home, "home_name", "") or "My Google Home"
+                homes[hid] = hname
+
+                # Dynamically scan raw protobuf payload for all StructureTrait definitions
+                raw = homegraph.SerializeToString()
+                import re
+
+                for match in re.finditer(
+                    b"StructureTrait[^\x00-\x1f]*\x12[\x01-\x20]\n\x04name\x12[\x01-\x20]\x1a[\x01-\x20]([^\x00-\x1f]+)",
+                    raw,
+                ):
+                    struct_name = match.group(1).decode("utf-8", errors="ignore")
+                    start_pos = max(0, match.start() - 1500)
+                    chunk = raw[start_pos : match.start()]
+                    uuid_matches = re.findall(
+                        b"([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})",
+                        chunk,
+                    )
+                    if uuid_matches:
+                        struct_id = uuid_matches[-1].decode()
+                        homes[struct_id] = struct_name
+
+                # Also correlate any rooms that belong to other structure UUIDs
+                for r in getattr(homegraph.home, "rooms", []):
+                    rid = getattr(r, "room_id", "")
+                    if "." in rid:
+                        prefix_uuid = rid.split(".")[0]
+                        if prefix_uuid not in homes:
+                            homes[prefix_uuid] = prefix_uuid
+
+                return homes
+        except Exception as exc:
+            _LOGGER.debug("Could not fetch available homes: %s", exc)
+        return homes
+
     async def async_get_cloud_devices(self) -> list[CloudHomeDevice]:
         """Fetch all structures, rooms and devices from Google Home Foyer API."""
         return await self.hass.async_add_executor_job(self._get_cloud_devices_sync)
 
     def _get_cloud_devices_sync(self) -> list[CloudHomeDevice]:
-        """Synchronously request HomeGraph over gRPC."""
+        """Synchronously request HomeGraph over gRPC and filter per device structure."""
         try:
             homegraph = self._auth_client.get_homegraph()
         except Exception as exc:
@@ -61,6 +109,10 @@ class GoogleHomeCloudClient:
         if not homegraph or not hasattr(homegraph, "home") or not homegraph.home:
             _LOGGER.debug("HomeGraph returned empty or invalid response")
             return []
+
+        available_homes = self._get_available_homes_sync()
+        default_home_id = getattr(homegraph.home, "home_id", "") or "default_home"
+        default_home_name = getattr(homegraph.home, "home_name", "") or "Google Home"
 
         devices: list[CloudHomeDevice] = []
         raw_devices = getattr(homegraph.home, "devices", [])
@@ -74,6 +126,27 @@ class GoogleHomeCloudClient:
                 project_name_map[code] = pname
 
         for item in raw_devices:
+            # Determine specific structure for this device
+            raw_item = item.SerializeToString()
+            item_structure_id = default_home_id
+            item_structure_name = default_home_name
+
+            for hid, hname in available_homes.items():
+                if hid.encode() in raw_item or hname.encode() in raw_item:
+                    item_structure_id = hid
+                    item_structure_name = hname
+                    break
+
+            # Filter by selected_homes if set
+            if self.selected_homes and item_structure_id not in self.selected_homes:
+                _LOGGER.debug(
+                    "Skipping device %s because its home %s (%s) is not in selected_homes: %s",
+                    getattr(item, "device_name", ""),
+                    item_structure_name,
+                    item_structure_id,
+                    self.selected_homes,
+                )
+                continue
             dev_info = getattr(item, "device_info", None)
             dev_id = getattr(dev_info, "device_id", "") or getattr(
                 item, "device_name", ""
@@ -144,6 +217,8 @@ class GoogleHomeCloudClient:
                 hardware_version=hardware_version if hardware_version else None,
                 firmware_version=firmware_version if firmware_version else None,
                 mac_address=mac_address if mac_address else None,
+                structure_id=item_structure_id if item_structure_id else None,
+                structure_name=item_structure_name if item_structure_name else None,
                 agent_id=agent_id,
                 agent_name=agent_name,
                 is_home_assistant_synced=is_ha,
