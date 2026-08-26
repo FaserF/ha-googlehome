@@ -22,6 +22,7 @@ from .const import (
     API_ENDPOINT_DO_NOT_DISTURB,
     API_ENDPOINT_NIGHT_MODE_SETTINGS,
     API_ENDPOINT_REBOOT,
+    API_ENDPOINT_SET_VOLUME,
     DEFAULT_TIMEOUT,
     HEADER_CAST_LOCAL_AUTH,
     HEADER_CONTENT_TYPE,
@@ -681,13 +682,20 @@ class GlocaltokensApiClient:
         self, device: GoogleHomeDevice, volume: float
     ) -> JsonDict | None:
         """Set normal speaker volume on device (0.0 - 1.0)."""
-        payload = {"level": volume, "volume": volume}
+        payload = {"volume": volume, "level": volume}
         res = await self._request(
             "POST",
             device,
-            API_ENDPOINT_CURRENT_VOLUME,
+            API_ENDPOINT_SET_VOLUME,
             json_data=payload,
         )
+        if res is None:
+            res = await self._request(
+                "POST",
+                device,
+                API_ENDPOINT_CURRENT_VOLUME,
+                json_data=payload,
+            )
         return res
 
     async def update_device_volume(self, device: GoogleHomeDevice, volume: int) -> None:
@@ -715,14 +723,21 @@ class GlocaltokensApiClient:
         return res
 
     async def delete_alarm_or_timer(
-        self, device: GoogleHomeDevice, item_to_delete: str
+        self, device: GoogleHomeDevice, item_to_delete: str | list[str]
     ) -> JsonDict | None:
-        """Delete an alarm or timer from device."""
+        """Delete an alarm or timer (or list of alarms/timers) from device."""
+        ids = (
+            [item_to_delete]
+            if isinstance(item_to_delete, str)
+            else list(item_to_delete)
+        )
+        if not ids:
+            return None
         return await self._request(
             "POST",
             device,
             API_ENDPOINT_ALARM_DELETE,
-            json_data={"ids": [item_to_delete]},
+            json_data={"ids": ids},
         )
 
     async def get_night_mode_settings(

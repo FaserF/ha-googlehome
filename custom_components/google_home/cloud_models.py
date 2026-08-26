@@ -128,21 +128,7 @@ class CloudHomeDevice:
         """Return True if device acts as a light."""
         if self.is_automation_routine:
             return False
-        # If device specifically has NightLight trait (e.g. Lenovo Smart Clock), it IS a light entity
-        if "action.devices.traits.NightLight" in self.traits:
-            return True
         if "action.devices.types.SPEAKER" in self.device_type:
-            # Check if device is a Smart Clock with OnOff + Brightness (nightlight)
-            if (
-                "action.devices.traits.OnOff" in self.traits
-                and "action.devices.traits.Brightness" in self.traits
-                and any(
-                    k in (self.hardware_model or "").lower()
-                    or k in (self.name or "").lower()
-                    for k in ("clock", "uhr", "lenovo", "cd-")
-                )
-            ):
-                return True
             return False
         return (
             "action.devices.types.LIGHT" in self.device_type

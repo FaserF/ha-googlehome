@@ -121,18 +121,21 @@ class GoogleHomeCloudClient:
         default_home_id = getattr(homegraph.home, "home_id", "") or "default_home"
         default_home_name = getattr(homegraph.home, "home_name", "") or "Google Home"
 
-        # Build room_id -> room_name lookup from HomeGraph
-        room_name_map: dict[str, str] = {}
+        # Build device_id -> (structure_id, room_name) lookup directly from HomeGraph rooms
+        device_structure_map: dict[str, str] = {}
+        device_room_map: dict[str, str] = {}
+
         for room in getattr(homegraph.home, "rooms", []):
             rid = getattr(room, "room_id", "") or getattr(room, "id", "")
             rname = getattr(room, "name", "") or getattr(room, "room_name", "")
-            if rid and rname:
-                room_name_map[rid] = rname
-            # Also store by short suffix (some device room_ids are just suffixes)
-            if rid and "." in rid:
-                short = rid.split(".")[-1]
-                if short and rname:
-                    room_name_map[short] = rname
+            struct_id = rid.split(".")[0] if "." in rid else default_home_id
+            r_bytes = room.SerializeToString()
+            for r_dev in getattr(homegraph.home, "devices", []):
+                r_dev_id = getattr(getattr(r_dev, "device_info", None), "device_id", "")
+                if r_dev_id and r_dev_id.encode() in r_bytes:
+                    device_structure_map[r_dev_id] = struct_id
+                    if rname:
+                        device_room_map[r_dev_id] = rname
 
         devices: list[CloudHomeDevice] = []
         raw_devices = getattr(homegraph.home, "devices", [])
@@ -146,16 +149,25 @@ class GoogleHomeCloudClient:
                 project_name_map[code] = pname
 
         for item in raw_devices:
-            # Determine specific structure for this device
-            raw_item = item.SerializeToString()
-            item_structure_id = default_home_id
-            item_structure_name = default_home_name
+            dev_info = getattr(item, "device_info", None)
+            dev_id = getattr(dev_info, "device_id", "") or getattr(
+                item, "device_name", ""
+            )
 
-            for hid, hname in available_homes.items():
-                if hid.encode() in raw_item or hname.encode() in raw_item:
-                    item_structure_id = hid
-                    item_structure_name = hname
-                    break
+            # Determine specific structure for this device (via room mapping first, then raw fallback)
+            item_structure_id = device_structure_map.get(dev_id)
+            if not item_structure_id:
+                raw_item = item.SerializeToString()
+                for hid in available_homes:
+                    if hid.encode() in raw_item:
+                        item_structure_id = hid
+                        break
+            if not item_structure_id:
+                item_structure_id = default_home_id
+
+            item_structure_name = available_homes.get(
+                item_structure_id, default_home_name
+            )
 
             # Filter by selected_homes if set
             if self.selected_homes and item_structure_id not in self.selected_homes:
@@ -168,43 +180,24 @@ class GoogleHomeCloudClient:
                 )
                 continue
 
-            # Resolve room_name from device's room_id field
-            dev_room_id = (
-                getattr(item, "room_id", "")
-                or getattr(item, "device_room_id", "")
-                or getattr(getattr(item, "device_info", None), "room_id", "")
-                or ""
-            )
-            room_name: str | None = None
-            if dev_room_id:
-                room_name = room_name_map.get(dev_room_id)
-                if not room_name and "." in dev_room_id:
-                    # Try matching by suffix
-                    suffix = dev_room_id.split(".")[-1]
-                    room_name = room_name_map.get(suffix)
-                if not room_name:
-                    # Scan raw bytes for any room name match
-                    for rid, rname in room_name_map.items():
-                        if rid.encode() in raw_item:
-                            room_name = rname
-                            break
-            # Fallback: scan raw bytes for any room name match
+            room_name = device_room_map.get(dev_id)
+
+            # Fallback if not mapped via room
             if not room_name:
-                for rid, rname in room_name_map.items():
-                    if rid.encode() in raw_item:
-                        room_name = rname
+                raw_item = item.SerializeToString()
+                for r in getattr(homegraph.home, "rooms", []):
+                    r_name = getattr(r, "name", "") or getattr(r, "room_name", "")
+                    if r_name and r_name.encode() in raw_item:
+                        room_name = r_name
                         break
 
-            dev_info = getattr(item, "device_info", None)
-            dev_id = getattr(dev_info, "device_id", "") or getattr(
-                item, "device_name", ""
-            )
             name = getattr(item, "device_name", "Unknown Google Device")
             device_type = (
                 getattr(dev_info, "device_type", "")
                 or getattr(item, "device_type", "")
                 or "action.devices.types.GENERIC"
             )
+
             hardware_model = getattr(getattr(item, "hardware", None), "model", "")
 
             # Agent / Manufacturer info
@@ -283,8 +276,18 @@ class GoogleHomeCloudClient:
             m30 = getattr(item, "message30", None)
             if m30:
                 m30_str = str(m30)
+                # Specific onOff parsing: match onOff { message2 { bool4: true/false } } or on: true
                 if "onOff" in m30_str:
-                    state_dict["on"] = "bool4: true" in m30_str or "true" in m30_str
+                    # If string1 is 'online', the bool4 is whether the device is online/connected, NOT the light state!
+                    if 'string1: "online"' in m30_str and "bool4" in m30_str:
+                        # For speaker/display devices, 'online' is connectivity.
+                        state_dict["online_status"] = True
+                    elif "bool4: false" in m30_str or "false" in m30_str:
+                        state_dict["on"] = False
+                    else:
+                        # If key: "onOff" is present in message30, the device's OnOff state is active (on)
+                        state_dict["on"] = True
+
                 if "transportControl" in m30_str:
                     state_dict["activityState"] = "active"
 

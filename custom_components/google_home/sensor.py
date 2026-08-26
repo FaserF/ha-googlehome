@@ -162,6 +162,18 @@ async def async_setup_entry(
                             as_diagnostic=not is_primary,
                         )
                     )
+                    # For smart clocks with secondary nightlight trait, also create a dedicated Nightlight status sensor
+                    if any(
+                        k in (dev.hardware_model or "").lower()
+                        or k in (dev.name or "").lower()
+                        for k in ("clock", "uhr", "cd-")
+                    ) or "action.devices.traits.NightLight" in (dev.traits or []):
+                        new_ents.append(
+                            GoogleHomeClockNightlightSensor(
+                                coordinator=cloud_coordinator,
+                                device_id=dev.device_id,
+                            )
+                        )
 
             # Structure-level sensors: Home Briefs (Gemini activity summaries) and Face Library (Nest Aware)
             for sid, sname in homes.items():
@@ -583,49 +595,65 @@ class GoogleHomeCloudStatusSensor(
 
         state = device.state
         dtype = device.device_type.upper()
+        traits = device.traits or []
 
-        # OnOff trait: most common
+        # 1. Lights: if on and brightness is known, show "on (X%)", if on without brightness show "on", if off show "off"
+        if (
+            "LIGHT" in dtype
+            or "action.devices.types.LIGHT" in device.device_type
+            or "action.devices.traits.Brightness" in traits
+        ):
+            is_on = state.get("on") if "on" in state else state.get("is_on")
+            if is_on is False:
+                return "off"
+            if "brightness" in state:
+                bri = state["brightness"]
+                return f"on ({bri}%)" if is_on else "off"
+            if is_on is True:
+                return "on"
+
+        # 2. OnOff trait (switches, plugs, outlets, generic toggles)
         if "on" in state:
-            return "an" if state["on"] else "aus"
+            return "on" if state["on"] else "off"
         if "is_on" in state:
-            return "an" if state["is_on"] else "aus"
+            return "on" if state["is_on"] else "off"
 
-        # OpenClose trait (covers, doors, blinds, valves, garages)
+        # 3. OpenClose trait (covers, doors, blinds, valves, garages)
         if "openPercent" in state:
             pct = state["openPercent"]
             if pct == 0:
-                return "geschlossen"
+                return "closed"
             if pct == 100:
-                return "offen"
-            return f"offen ({pct}%)"
+                return "open"
+            return f"open ({pct}%)"
 
-        # Lock
+        # 4. Lock
         if "isLocked" in state:
-            return "gesperrt" if state["isLocked"] else "entsperrt"
+            return "locked" if state["isLocked"] else "unlocked"
         if "isJammed" in state:
-            return "blockiert" if state["isJammed"] else "frei"
+            return "jammed" if state["isJammed"] else "clear"
 
-        # Vacuum / mower
+        # 5. Vacuum / mower
         if "VACUUM" in dtype or "MOWER" in dtype:
             vac_status = (
                 state.get("currentMode") or state.get("vacuumMode") or state.get("on")
             )
             if vac_status in (True, "cleaning", "CLEANING", "running"):
-                return "saugt"
+                return "cleaning"
             if vac_status in ("docking", "DOCKING", "returning"):
-                return "kehrt zurück"
+                return "docking"
             if vac_status in ("docked", "DOCKED", False):
-                return "angedockt"
+                return "docked"
 
-        # StartStop trait (robot, mowers)
+        # 6. StartStop trait (robot, mowers)
         if "isRunning" in state:
             if state["isRunning"]:
-                return "läuft"
+                return "running"
             if state.get("isPaused"):
-                return "pausiert"
-            return "gestoppt"
+                return "paused"
+            return "stopped"
 
-        # Thermostat / climate
+        # 7. Thermostat / climate
         if "thermostatMode" in state:
             mode = str(state["thermostatMode"]).lower()
             temp = state.get("thermostatTemperatureSetpoint")
@@ -633,30 +661,30 @@ class GoogleHomeCloudStatusSensor(
                 return f"{mode} ({temp}°C)"
             return mode
 
-        # ArmDisarm (security)
+        # 8. ArmDisarm (security)
         if "isArmed" in state:
-            return "gesichert" if state["isArmed"] else "nicht gesichert"
+            return "armed" if state["isArmed"] else "disarmed"
 
-        # Fan speed
+        # 9. Fan speed
         if "currentFanSpeedSetting" in state:
             return str(state["currentFanSpeedSetting"])
         if "fanSpeed" in state:
             return str(state["fanSpeed"])
 
-        # Media / volume state
+        # 10. Media / volume / speaker state
         if "activityState" in state:
             activity = str(state["activityState"]).lower()
             if activity in ("playing", "active"):
-                return "spielt"
+                return "playing"
             if activity in ("paused", "standby"):
-                return "pausiert"
+                return "paused"
             return activity
 
-        # Brightness
+        # Brightness standalone
         if "brightness" in state:
             bri = state["brightness"]
             on_state = state.get("on", True)
-            return f"an ({bri}%)" if on_state else "aus"
+            return f"on ({bri}%)" if on_state else "off"
 
         # Sensor state data
         if "currentSensorStateData" in state:
@@ -672,7 +700,7 @@ class GoogleHomeCloudStatusSensor(
                     return ", ".join(parts)
 
         # Fallback for devices without explicit state payload in HomeGraph:
-        # Never return "erreichbar" or "online" — return real domain status
+        # Return standard domain default states
         traits = device.traits or []
         if (
             "action.devices.traits.OpenClose" in traits
@@ -680,55 +708,75 @@ class GoogleHomeCloudStatusSensor(
             or "BLINDS" in dtype
             or "GARAGE" in dtype
         ):
-            return "geschlossen"
+            return "closed"
         if "action.devices.traits.LockUnlock" in traits or "LOCK" in dtype:
-            return "gesperrt"
+            return "locked"
         if (
             "action.devices.traits.Dock" in traits
             or "VACUUM" in dtype
             or "MOWER" in dtype
         ):
-            return "angedockt"
+            return "docked"
         if "SCENE" in dtype or "action.devices.traits.Scene" in traits:
-            return "bereit"
+            return "ready"
 
         # Default for all switchable/controllable entities (Fans, Lights, Switches, TVs, Speakers)
-        return "aus"
+        return "off"
 
     @property
     def icon(self) -> str:
-        """Return icon based on device type."""
+        """Return dynamic icon based on device type and live state."""
         device = self.get_device()
         if not device:
             return "mdi:cloud-outline"
+        val = str(self.native_value).lower()
+        is_active = (
+            val.startswith("on")
+            or val
+            in (
+                "open",
+                "playing",
+                "cleaning",
+                "running",
+                "unlocked",
+                "heat",
+                "cool",
+                "auto",
+            )
+            or "open (" in val
+        )
         dtype = device.device_type.upper()
-        if "FAN" in dtype or "AIRPURIFIER" in dtype:
-            return "mdi:fan"
+
         if "LIGHT" in dtype:
-            return "mdi:lightbulb"
+            return "mdi:lightbulb-on" if is_active else "mdi:lightbulb-outline"
         if "SWITCH" in dtype or "OUTLET" in dtype or "PLUG" in dtype:
-            return "mdi:power-socket-eu"
-        if "FRYER" in dtype or "COOKER" in dtype:
-            return "mdi:pot"
+            return "mdi:power-socket-eu" if is_active else "mdi:power-socket-eu"
+        if "FAN" in dtype or "AIRPURIFIER" in dtype:
+            return "mdi:fan" if is_active else "mdi:fan-off"
         if "VACUUM" in dtype or "MOWER" in dtype:
-            return "mdi:robot-vacuum"
+            return (
+                "mdi:robot-vacuum" if val == "cleaning" else "mdi:robot-vacuum-variant"
+            )
         if "SHUTTER" in dtype or "BLINDS" in dtype or "CURTAIN" in dtype:
-            return "mdi:window-shutter"
-        if "TV" in dtype or "SETTOP" in dtype:
-            return "mdi:television"
+            return "mdi:window-shutter-open" if is_active else "mdi:window-shutter"
         if "LOCK" in dtype:
-            return "mdi:lock"
+            return "mdi:lock-open-variant" if val == "unlocked" else "mdi:lock"
+        if "TV" in dtype or "SETTOP" in dtype:
+            return "mdi:television" if is_active else "mdi:television-off"
+        if "SPEAKER" in dtype or "SOUNDBAR" in dtype:
+            return "mdi:speaker-play" if val == "playing" else "mdi:speaker"
         if "THERMOSTAT" in dtype or "AC_UNIT" in dtype or "HEATER" in dtype:
             return "mdi:thermostat"
         if "CAMERA" in dtype or "DOORBELL" in dtype:
             return "mdi:camera"
-        if "SPEAKER" in dtype or "SOUNDBAR" in dtype:
-            return "mdi:speaker"
         if "VALVE" in dtype or "SPRINKLER" in dtype or "FAUCET" in dtype:
             return "mdi:pipe-valve"
         if "GARAGE" in dtype:
-            return "mdi:garage"
-        return "mdi:cloud-check"
+            return "mdi:garage-open" if is_active else "mdi:garage"
+        if "FRYER" in dtype or "COOKER" in dtype:
+            return "mdi:pot-steam" if is_active else "mdi:pot"
+
+        return "mdi:cloud-check" if is_active else "mdi:cloud-outline"
 
     @property
     def available(self) -> bool:
@@ -738,21 +786,61 @@ class GoogleHomeCloudStatusSensor(
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        """Return all state and trait diagnostic attributes."""
+        """Return all state, network and diagnostic attributes."""
         device = self.get_device()
         if not device:
             return {}
-        return {
+
+        # Look up local speaker counterpart for network and Wi-Fi diagnostics if present
+        local_ip: str | None = None
+        wifi_ssid: str | None = None
+        wifi_rssi: int | None = None
+        bt_mac: str | None = None
+        activity: str | None = None
+
+        config_entry = getattr(self.coordinator, "config_entry", None)
+        entry_id = getattr(config_entry, "entry_id", None) if config_entry else None
+        if entry_id and entry_id in self.hass.data.get(DOMAIN, {}):
+            local_coord = self.hass.data[DOMAIN][entry_id].get("coordinator")
+            if local_coord:
+                for ldev in local_coord.data or []:
+                    if ldev.name.lower() == device.name.lower() or (
+                        ldev.device_id and ldev.device_id == device.device_id
+                    ):
+                        local_ip = ldev.ip_address
+                        wifi_ssid = ldev.get_wifi_ssid()
+                        wifi_rssi = ldev.get_wifi_rssi()
+                        bt_mac = ldev.get_bluetooth_mac()
+                        activity = "idle" if ldev.available else "offline"
+                        break
+
+        attrs: dict[str, Any] = {
             "online": device.online,
             "device_type": device.device_type,
             "traits": device.traits,
             "agent_id": device.agent_id,
             "agent_name": device.agent_name,
             "hardware_model": device.hardware_model,
+            "hardware_version": device.hardware_version,
+            "firmware_version": device.firmware_version,
+            "mac_address": device.mac_address,
+            "bluetooth_mac": bt_mac,
+            "device_ip": local_ip,
+            "wifi_network": wifi_ssid,
+            "wifi_signal_level": wifi_rssi,
+            "activity": activity,
+            "brightness": device.state.get("brightness"),
+            "open_percent": device.state.get("openPercent"),
+            "is_locked": device.state.get("isLocked"),
             "structure": device.structure_name,
             "room": device.room_name,
             "state_data": device.state,
             "attributes_data": device.attributes,
+        }
+        return {
+            k: v
+            for k, v in attrs.items()
+            if v is not None and v != "" and v != [] and v != {}
         }
 
     @property
@@ -778,6 +866,90 @@ class GoogleHomeCloudStatusSensor(
             suggested_area=device.room_name if device else None,
             connections=connections,
             configuration_url="https://home.google.com/",
+        )
+
+
+class GoogleHomeClockNightlightSensor(
+    CoordinatorEntity[GoogleHomeCloudDataUpdateCoordinator], SensorEntity
+):
+    """Google Home Smart Clock Nightlight Status sensor."""
+
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(
+        self,
+        coordinator: GoogleHomeCloudDataUpdateCoordinator,
+        device_id: str,
+    ) -> None:
+        """Initialize."""
+        super().__init__(coordinator)
+        self.device_id = device_id
+        self._attr_unique_id = f"{device_id}_cloud_nightlight_status"
+
+    def get_device(self) -> CloudHomeDevice | None:
+        """Get device from coordinator."""
+        return self.coordinator.get_device(self.device_id)
+
+    @property
+    def name(self) -> str:
+        """Return name."""
+        device = self.get_device()
+        return f"{device.name} Nightlight Status" if device else "Nightlight Status"
+
+    @property
+    def native_value(self) -> str:
+        """Return nightlight state (on (X%), on, off)."""
+        device = self.get_device()
+        if not device or not device.online:
+            return "unavailable" if not device else "offline"
+        state = device.state
+        is_on = state.get("on") if "on" in state else state.get("is_on")
+        if is_on is False:
+            return "off"
+        if "brightness" in state:
+            bri = state["brightness"]
+            return f"on ({bri}%)" if is_on else "off"
+        return "on" if is_on else "off"
+
+    @property
+    def icon(self) -> str:
+        """Return dynamic MDI lightbulb icon."""
+        val = str(self.native_value).lower()
+        is_active = val.startswith("on")
+        return "mdi:lightbulb-on" if is_active else "mdi:lightbulb-outline"
+
+    @property
+    def available(self) -> bool:
+        """Return availability."""
+        device = self.get_device()
+        return device is not None and device.online
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return nightlight attributes."""
+        device = self.get_device()
+        if not device:
+            return {}
+        attrs: dict[str, Any] = {
+            "brightness": device.state.get("brightness"),
+            "traits": device.traits,
+            "state_data": device.state,
+        }
+        return {
+            k: v
+            for k, v in attrs.items()
+            if v is not None and v != "" and v != [] and v != {}
+        }
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        """Return device registry info."""
+        device = self.get_device()
+        return DeviceInfo(
+            identifiers={(DOMAIN, self.device_id)},
+            name=device.name if device else "Device",
+            manufacturer=device.manufacturer if device else MANUFACTURER,
+            model=device.model_name if device else "Cloud Device",
         )
 
 
@@ -838,7 +1010,7 @@ class GoogleHomeBriefsSensor(
         """Return brief status."""
         data = self._extract_briefs_data()
         briefs = data.get("briefs", [])
-        return str(briefs[0]) if briefs else "Keine neuen Zusammenfassungen"
+        return str(briefs[0]) if briefs else "No recent summaries"
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -889,7 +1061,7 @@ class GoogleHomeFaceLibrarySensor(
     @property
     def name(self) -> str:
         """Return name."""
-        return f"{self.structure_name} Bekannte Gesichter"
+        return f"{self.structure_name} Familiar Faces"
 
     def _extract_face_library(self) -> list[str]:
         """Extract FaceLibraryTrait names from raw HomeGraph payload."""

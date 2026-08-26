@@ -237,9 +237,17 @@ class GoogleHomeCloudMediaPlayer(
             self.async_write_ha_state()
 
     async def async_set_volume_level(self, volume: float) -> None:
-        """Set volume level."""
+        """Set volume level (expected float 0.0 - 1.0)."""
+        try:
+            vol_float = float(volume)
+        except (ValueError, TypeError):
+            vol_float = 0.5
+
+        if vol_float > 1.0:
+            vol_float = vol_float / 100.0
+
+        pct = int(round(vol_float * 100))
         cdev = self.get_cloud_device()
-        pct = int(round(volume * 100))
         if cdev:
             cdev.state["currentVolume"] = pct
 

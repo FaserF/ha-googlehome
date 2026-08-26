@@ -223,7 +223,9 @@ class GoogleHomeSoundSensingBinarySensor(
     def name(self) -> str:
         """Return name."""
         device = self.get_device()
-        return f"{device.name} Rauch/CO-Alarmton" if device else "Rauch/CO-Alarmton"
+        return (
+            f"{device.name} Smoke/CO Alarm Sound" if device else "Smoke/CO Alarm Sound"
+        )
 
     @property
     def is_on(self) -> bool:

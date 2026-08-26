@@ -160,6 +160,14 @@ class GoogleHomeDevice:
             )
         self._timers = new_timers
 
+    def clear_alarms(self) -> None:
+        """Clear all local alarms."""
+        self._alarms = []
+
+    def clear_timers(self) -> None:
+        """Clear all local timers."""
+        self._timers = []
+
     def get_sorted_alarms(self) -> list[GoogleHomeAlarm]:
         """Return alarms in a sorted order."""
         return sorted(

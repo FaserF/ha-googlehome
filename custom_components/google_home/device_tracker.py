@@ -116,7 +116,7 @@ class GoogleHomePresenceTracker(
     @property
     def name(self) -> str:
         """Return the presence tracker friendly name."""
-        return f"{self._structure_name} Anwesenheit"
+        return f"{self._structure_name} Presence"
 
     @property
     def source_type(self) -> SourceType:
@@ -156,7 +156,7 @@ class GoogleHomePresenceTracker(
         return presence, attendance
 
     @property
-    def location_name(self) -> str:
+    def state(self) -> str:
         """Return state: home or not_home based on live Google HomeGraph presence state."""
         pres, _ = self._get_structure_presence_and_attendance()
         if "VACANT" in pres or "UNOCCUPIED" in pres or "AWAY" in pres:

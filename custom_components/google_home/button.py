@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 from homeassistant.components.button import ButtonDeviceClass, ButtonEntity
 from homeassistant.config_entries import ConfigEntry
@@ -119,35 +118,6 @@ class GoogleHomeRefreshButton(GoogleHomeBaseEntity, ButtonEntity):
         """Label to use for unique_id and name."""
         return "refresh"
 
-    @property
-    def extra_state_attributes(self) -> dict[str, Any]:
-        """Return diagnostic device attributes (IP, Wi-Fi, activity, MACs)."""
-        device = self.get_device()
-        if not device:
-            return {}
-
-        primary_mac = device.mac_address or device.get_bluetooth_mac()
-        attrs: dict[str, Any] = {
-            "device_ip": device.ip_address,
-            "wifi_network": device.get_wifi_ssid(),
-            "wifi_signal_level": device.get_wifi_rssi(),
-            "mac_address": primary_mac,
-            "activity": "idle" if device.available else "offline",
-            "hardware": device.hardware,
-            "firmware_version": device.firmware_version,
-        }
-
-        # Only expose separate bluetooth_mac if it exists and actually differs from mac_address
-        bt_mac = device.get_bluetooth_mac()
-        if (
-            bt_mac
-            and primary_mac
-            and bt_mac.strip().upper() != primary_mac.strip().upper()
-        ):
-            attrs["bluetooth_mac"] = bt_mac
-
-        return attrs
-
     async def async_press(self) -> None:
         """Press the button to refresh data."""
         await self.coordinator.async_request_refresh()
@@ -177,10 +147,12 @@ class GoogleHomeDeleteAllAlarmsButton(GoogleHomeBaseEntity, ButtonEntity):
             _LOGGER.info("No active alarms to delete on %s", self.device_name)
             return
 
-        for alarm in alarms:
+        alarm_ids = [alarm.alarm_id for alarm in alarms if alarm.alarm_id]
+        if alarm_ids:
             await self.client.delete_alarm_or_timer(
-                device=device, item_to_delete=alarm.alarm_id
+                device=device, item_to_delete=alarm_ids
             )
+            device.clear_alarms()
 
         await self.coordinator.async_request_refresh()
 
@@ -209,10 +181,11 @@ class GoogleHomeDeleteAllTimersButton(GoogleHomeBaseEntity, ButtonEntity):
             _LOGGER.info("No active timers to delete on %s", self.device_name)
             return
 
-        for timer in timers:
-            if timer.timer_id:
-                await self.client.delete_alarm_or_timer(
-                    device=device, item_to_delete=timer.timer_id
-                )
+        timer_ids = [timer.timer_id for timer in timers if timer.timer_id]
+        if timer_ids:
+            await self.client.delete_alarm_or_timer(
+                device=device, item_to_delete=timer_ids
+            )
+            device.clear_timers()
 
         await self.coordinator.async_request_refresh()

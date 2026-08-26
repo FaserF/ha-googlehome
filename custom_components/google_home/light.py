@@ -113,12 +113,12 @@ class GoogleHomeCloudLight(
         device = self.get_device()
         if not device:
             return "Google Light"
-        # For Smart Clocks (Lenovo Smart Clock / Uhren), append 'Nachtlicht' for clarity
+        # For Smart Clocks (Lenovo Smart Clock / Clocks), append 'Nightlight (State)' for clarity
         if any(
             k in (device.hardware_model or "").lower() or k in device.name.lower()
             for k in ("clock", "uhr", "cd-")
         ):
-            return f"{device.name} Nachtlicht"
+            return f"{device.name} Nightlight (State)"
         return device.name
 
     @property
@@ -162,6 +162,28 @@ class GoogleHomeCloudLight(
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn on light."""
         device = self.get_device()
+        if device:
+            device.state["on"] = True
+
+        # 1. Check local speaker/clock API
+        config_entry = getattr(self.coordinator, "config_entry", None)
+        entry_id = getattr(config_entry, "entry_id", None) if config_entry else None
+        if entry_id and entry_id in self.hass.data.get(DOMAIN, {}):
+            entry_data = self.hass.data[DOMAIN][entry_id]
+            local_client = entry_data.get("client")
+            local_coord = entry_data.get("coordinator")
+            if local_coord and local_client and device:
+                for ldev in local_coord.data or []:
+                    if ldev.name.lower() == device.name.lower() or (
+                        ldev.device_id and ldev.device_id == device.device_id
+                    ):
+                        # Trigger local nightlight
+                        await local_client.broadcast_message(
+                            ldev, "Turn on night light"
+                        )
+                        break
+
+        # 2. Cloud execute fallback
         if device and "action.devices.traits.NightLight" in (device.traits or []):
             await self.coordinator.client.async_execute_command(
                 device_id=self.device_id,
@@ -174,11 +196,33 @@ class GoogleHomeCloudLight(
                 command="action.devices.commands.OnOff",
                 params={"on": True},
             )
-        await self.coordinator.async_request_refresh()
+        self.async_write_ha_state()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn off light."""
         device = self.get_device()
+        if device:
+            device.state["on"] = False
+
+        # 1. Check local speaker/clock API
+        config_entry = getattr(self.coordinator, "config_entry", None)
+        entry_id = getattr(config_entry, "entry_id", None) if config_entry else None
+        if entry_id and entry_id in self.hass.data.get(DOMAIN, {}):
+            entry_data = self.hass.data[DOMAIN][entry_id]
+            local_client = entry_data.get("client")
+            local_coord = entry_data.get("coordinator")
+            if local_coord and local_client and device:
+                for ldev in local_coord.data or []:
+                    if ldev.name.lower() == device.name.lower() or (
+                        ldev.device_id and ldev.device_id == device.device_id
+                    ):
+                        # Trigger local nightlight
+                        await local_client.broadcast_message(
+                            ldev, "Turn off night light"
+                        )
+                        break
+
+        # 2. Cloud execute fallback
         if device and "action.devices.traits.NightLight" in (device.traits or []):
             await self.coordinator.client.async_execute_command(
                 device_id=self.device_id,
@@ -191,4 +235,4 @@ class GoogleHomeCloudLight(
                 command="action.devices.commands.OnOff",
                 params={"on": False},
             )
-        await self.coordinator.async_request_refresh()
+        self.async_write_ha_state()
