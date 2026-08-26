@@ -11,7 +11,7 @@
   <img src="custom_components/google_home/brand/logo.png" alt="Google Home Logo" height="100">
 </p>
 
-A modern, fast, and reliable Home Assistant custom integration for 100% local control of **Google Home**, **Google Nest Audio**, **Nest Mini**, and **Nest Hub** devices.
+A modern, fast, and reliable Home Assistant custom integration offering **Hybrid Local & Google Home Cloud HomeGraph control** for all Google Home, Nest Audio, Nest Mini, Nest Hub, Nest Cams, and smart home devices.
 
 ---
 
@@ -26,29 +26,37 @@ A modern, fast, and reliable Home Assistant custom integration for 100% local co
 
 ## ✨ Features
 
-- **100% Local Polling & Instant Control**:
-  - Direct local HTTPS/REST communication with speakers on your local network (no cloud latency).
-  - Auto-refresh and recovery for local authorization tokens upon expiry (prevents 401 connection loss).
+- **🌐 Full Google Home Ecosystem Support (Local & Cloud HomeGraph)**:
+  - **Google Home & Nest Speakers**: Timers, Alarms, Next Alarm/Timer timestamps, Volume, Do Not Disturb, Night Mode, Reboot, Wi-Fi & Bluetooth MAC diagnostics.
+  - **Lights & Dimmers**: On/Off, Brightness, Color control for all Google Home synced lights (`light`).
+  - **Switches & Smart Plugs**: Control power and inspect real-time state (`switch`).
+  - **Robot Vacuum Cleaners**: Start, stop, dock, and status tracking for connected vacuums (`vacuum`).
+  - **Thermostats & Climate**: Nest Thermostats and AC units with temperature control and HVAC modes (`climate`).
+  - **Smart Locks**: Lock/unlock Google Home and Nest x Yale locks (`lock`).
+  - **Covers, Blinds & Garage Doors**: Open, close, and set position (0-100%) (`cover`).
+  - **Cameras & Video Doorbells**: Live streams for Nest Cam, Nest Doorbell, and partner cameras (`camera`).
+  - **Automations & Household Routines**: Trigger and execute any Google Home script, automation, or routine directly from Home Assistant (`scene`).
+  - **Security Systems**: Arm home, arm away, disarm Nest Secure and security alarms (`alarm_control_panel`).
+  - **Sensors & Doorbells**: Motion, occupancy, contact, and doorbell press binary sensors (`binary_sensor`).
+- **🔄 Intelligent Home Assistant Loop Prevention & Mapping**:
+  - Automatically identifies devices that originated from Home Assistant (e.g., via Nabu Casa / Cloud Sync).
+  - Configurable toggle: **"Ignore devices synced from Home Assistant"** (default: `True`) to prevent duplicate entities and infinite automation loops.
+- **⚡ Direct Local Speaker Communication**:
+  - Direct local HTTPS/REST polling and control for speakers within your local network (no cloud delay for alarms/timers).
+  - Automatic token management and background recovery when local authorization tokens expire.
   - Zeroconf local IP resolution with intelligent caching & dynamic discovery.
   - Concurrently polled endpoints to minimize latency and eliminate timeout freezes.
-  - Filtering for non-speaker cast devices (e.g., Google Wifi routers).
 - **Native User-Friendly Configuration**:
   - Clear multi-step Config Flow:
     - **Token Authentication (Recommended)**: 100% reliable 30-second setup using a browser token from Google setup page, automatically exchanged for a permanent Master Token.
     - **[Google Home Token Hub Add-on](https://github.com/FaserF/hassio-addons/tree/master/googlehome)**: Automatic setup via Add-on (auto-detected, edge & stable).
     - **App Password Authentication**: Automatic token extraction via Google App Password.
-  - Integrated Options Flow to dynamically customize polling intervals (10s to 600s).
+  - Integrated Options Flow to dynamically customize operation modes and polling intervals (10s to 600s).
 - **Alarm & Timer Management**:
-  - **Next Alarm Sensor**: ISO timestamp (fallback to `2000-01-01T00:00:00+00:00` when no alarm active) with full alarm list, repeat days, and status in state attributes.
-  - **Next Timer Sensor**: ISO timestamp with duration, remaining time, and state details.
+  - **Next Alarm Sensor**: Native timestamp sensor (`datetime | None`) with full alarm list, repeat days, and status in state attributes.
+  - **Next Timer Sensor**: Native timestamp sensor with duration, remaining time, and state details.
   - **Native Bus Events**: Automatically fires `google_home_timer_finished` and `google_home_alarm_triggered` on the Home Assistant event bus for easy automations.
   - Dedicated entity services to delete alarms, delete timers, and set alarm volume via automations or dashboard buttons.
-- **Controls & Adjustments**:
-  - **Do Not Disturb**: Switch entity to toggle notification / DND mode per speaker.
-  - **Night Mode**: Switch entity to toggle Google Home Night Mode (dimmed LEDs, capped night volume).
-  - **Alarm Volume**: Number slider entity to inspect and change alarm volume (0-100%).
-  - **Reboot Button**: Native button entity to reboot Google Home speakers directly from HA.
-  - **Manual Refresh Button**: Force an immediate update of all device states.
 - **Diagnostics & Network Info**:
   - **Device IP Sensor**: Diagnostic sensor exposing speaker IP, hardware model, availability, and tokens.
   - **Wi-Fi Network Sensor**: Shows connected Wi-Fi SSID with signal strength (RSSI in dBm) and IP in attributes.

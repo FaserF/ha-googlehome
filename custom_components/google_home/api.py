@@ -56,7 +56,7 @@ def _safe_get_master_token(self: GLocalAuthenticationTokens) -> str | None:
     return _orig_get_master_token(self)
 
 
-GLocalAuthenticationTokens.get_master_token = _safe_get_master_token
+GLocalAuthenticationTokens.get_master_token = _safe_get_master_token  # type: ignore[method-assign]
 
 
 class GlocaltokensApiClient:
@@ -323,13 +323,31 @@ class GlocaltokensApiClient:
             # Poll Eureka Info (Wi-Fi SSID, RSSI, Bluetooth MAC)
             eureka_data = await self.get_eureka_info(device)
             if eureka_data:
-                wlan_data = eureka_data.get("wlan", {})
+                wifi_data = eureka_data.get("wifi") or eureka_data.get("wlan") or {}
+                net_data = eureka_data.get("net") or {}
                 device.set_wifi_info(
-                    ssid=wlan_data.get("ssid"),
-                    rssi=wlan_data.get("signal_level"),
+                    ssid=wifi_data.get("ssid") or net_data.get("ssid"),
+                    rssi=wifi_data.get("signal_level") or wifi_data.get("rssi"),
                 )
-                bt_data = eureka_data.get("bluetooth", {})
-                device.set_bluetooth_mac(bt_data.get("mac_address"))
+
+                bt_data = eureka_data.get("bluetooth") or {}
+                device_info = eureka_data.get("device_info") or {}
+                bt_mac = (
+                    bt_data.get("mac_address")
+                    or bt_data.get("device_address")
+                    or device_info.get("mac_address")
+                    or eureka_data.get("mac_address")
+                )
+                if not bt_mac:
+                    try:
+                        bt_status = await self.get_bluetooth_status(device)
+                        if bt_status:
+                            bt_mac = bt_status.get("mac_address") or bt_status.get(
+                                "device_address"
+                            )
+                    except Exception:
+                        pass
+                device.set_bluetooth_mac(bt_mac)
 
             device.available = True
         except Exception as err:

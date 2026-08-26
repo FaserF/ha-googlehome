@@ -23,21 +23,26 @@ from .const import (
     ADDON_CONTAINER_HOSTS,
     AUTH_METHOD_ADDON,
     AUTH_METHOD_APP_PASSWORD,
-    AUTH_METHOD_CREDENTIALS,
     AUTH_METHOD_TOKEN,
     CONF_ADDON_ACTION,
     CONF_ADDON_HOST,
     CONF_ADDON_PORT,
     CONF_AUTH_METHOD,
+    CONF_IGNORE_HA_SYNCED_DEVICES,
     CONF_MASTER_TOKEN,
+    CONF_OPERATION_MODE,
     CONF_PASSWORD,
     CONF_UPDATE_INTERVAL,
     CONF_USERNAME,
     DEFAULT_ADDON_HOST,
     DEFAULT_ADDON_PORT,
+    DEFAULT_IGNORE_HA_SYNCED_DEVICES,
     DEFAULT_UPDATE_INTERVAL,
     DOMAIN,
     MAX_PASSWORD_LENGTH,
+    MODE_CLOUD,
+    MODE_HYBRID,
+    MODE_LOCAL,
 )
 from .exceptions import (
     AdvancedProtectionActive,
@@ -369,21 +374,62 @@ class GoogleHomeFlowHandler(ConfigFlow, domain=DOMAIN):
                 _LOGGER.exception("Unexpected error validating token: %s", err)
                 self._errors["base"] = "unknown"
             else:
-                await self.async_set_unique_id(DOMAIN)
-                self._abort_if_unique_id_configured()
-                return self.async_create_entry(
-                    title="Google Home",
-                    data={
-                        CONF_AUTH_METHOD: AUTH_METHOD_TOKEN,
-                        CONF_USERNAME: username,
-                        CONF_MASTER_TOKEN: master_token,
-                    },
-                )
+                self._master_token = master_token
+                self._username = username
+                return await self.async_step_mode()
 
         return self.async_show_form(
             step_id="token",
             data_schema=data_schema,
             errors=self._errors,
+        )
+
+    async def async_step_mode(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Step to select operation mode (Local & Cloud, Local only, Cloud only) and HA entity filtering."""
+        if user_input is not None:
+            mode = user_input.get(CONF_OPERATION_MODE, MODE_HYBRID)
+            ignore_ha = user_input.get(
+                CONF_IGNORE_HA_SYNCED_DEVICES, DEFAULT_IGNORE_HA_SYNCED_DEVICES
+            )
+
+            await self.async_set_unique_id(DOMAIN)
+            self._abort_if_unique_id_configured()
+            return self.async_create_entry(
+                title=f"Google Home ({self._username})"
+                if self._username
+                else "Google Home",
+                data={
+                    CONF_AUTH_METHOD: AUTH_METHOD_TOKEN,
+                    CONF_USERNAME: self._username,
+                    CONF_MASTER_TOKEN: self._master_token,
+                    CONF_OPERATION_MODE: mode,
+                    CONF_IGNORE_HA_SYNCED_DEVICES: ignore_ha,
+                    CONF_ADDON_HOST: self._addon_host,
+                    CONF_ADDON_PORT: self._addon_port,
+                },
+            )
+
+        data_schema = vol.Schema(
+            {
+                vol.Required(CONF_OPERATION_MODE, default=MODE_HYBRID): vol.In(
+                    {
+                        MODE_HYBRID: "Lokal & Cloud (Empfohlen - Schnelle Speaker-Timer + alle Google Home Geräte)",
+                        MODE_LOCAL: "Nur Lokal (100% autark im LAN - Timer, Alarme, DND, Lautstärke)",
+                        MODE_CLOUD: "Nur Cloud (Google Home Web/HomeGraph - Kameras, Smart Home Geräte)",
+                    }
+                ),
+                vol.Required(
+                    CONF_IGNORE_HA_SYNCED_DEVICES,
+                    default=DEFAULT_IGNORE_HA_SYNCED_DEVICES,
+                ): bool,
+            }
+        )
+
+        return self.async_show_form(
+            step_id="mode",
+            data_schema=data_schema,
         )
 
     async def async_step_app_password(
@@ -426,17 +472,9 @@ class GoogleHomeFlowHandler(ConfigFlow, domain=DOMAIN):
                     )
                     self._errors["base"] = "unknown"
                 else:
-                    await self.async_set_unique_id(DOMAIN)
-                    self._abort_if_unique_id_configured()
-                    return self.async_create_entry(
-                        title="Google Home",
-                        data={
-                            CONF_AUTH_METHOD: AUTH_METHOD_CREDENTIALS,
-                            CONF_USERNAME: username,
-                            CONF_PASSWORD: password,
-                            CONF_MASTER_TOKEN: extracted_token,
-                        },
-                    )
+                    self._master_token = extracted_token
+                    self._username = username
+                    return await self.async_step_mode()
 
         return self.async_show_form(
             step_id="app_password",
@@ -464,9 +502,29 @@ class GoogleHomeOptionsFlowHandler(OptionsFlow):
         current_interval = self.config_entry.options.get(
             CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL
         )
+        current_mode = self.config_entry.options.get(
+            CONF_OPERATION_MODE,
+            self.config_entry.data.get(CONF_OPERATION_MODE, MODE_HYBRID),
+        )
+        current_ignore_ha = self.config_entry.options.get(
+            CONF_IGNORE_HA_SYNCED_DEVICES,
+            self.config_entry.data.get(
+                CONF_IGNORE_HA_SYNCED_DEVICES, DEFAULT_IGNORE_HA_SYNCED_DEVICES
+            ),
+        )
 
         data_schema = vol.Schema(
             {
+                vol.Required(CONF_OPERATION_MODE, default=current_mode): vol.In(
+                    {
+                        MODE_HYBRID: "Lokal & Cloud (Empfohlen)",
+                        MODE_LOCAL: "Nur Lokal (LAN)",
+                        MODE_CLOUD: "Nur Cloud (HomeGraph)",
+                    }
+                ),
+                vol.Required(
+                    CONF_IGNORE_HA_SYNCED_DEVICES, default=current_ignore_ha
+                ): bool,
                 vol.Required(CONF_UPDATE_INTERVAL, default=current_interval): vol.All(
                     vol.Coerce(int), vol.Clamp(min=10, max=600)
                 ),

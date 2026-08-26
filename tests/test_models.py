@@ -36,8 +36,12 @@ def test_google_home_device_creation():
     dev.set_do_not_disturb(True)
     assert dev.get_do_not_disturb() is True
 
-    dev.set_alarm_volume(75)
-    assert dev.get_alarm_volume() == 75.0
+    dev.set_wifi_info("MyHomeWiFi", -60)
+    assert dev.get_wifi_ssid() == "MyHomeWiFi"
+    assert dev.get_wifi_rssi() == -60
+
+    dev.set_bluetooth_mac("AA:BB:CC:DD:EE:FF")
+    assert dev.get_bluetooth_mac() == "AA:BB:CC:DD:EE:FF"
 
 
 def test_google_home_timer_parsing():
@@ -53,6 +57,8 @@ def test_google_home_timer_parsing():
     assert timer.status == GoogleHomeTimerStatus.SET
     assert timer.label == "Pizza"
     assert timer.fire_time == 1700000000
+    assert timer.date_time is not None
+    assert timer.date_time.tzinfo is not None
 
     data = timer.as_dict()
     assert data["timer_id"] == "timer/test_123"
@@ -74,6 +80,8 @@ def test_google_home_alarm_parsing():
     assert alarm.label == "Wakeup"
     assert alarm.recurrence == "[1,2,3,4,5]"
     assert alarm.fire_time == 1700000000
+    assert alarm.date_time is not None
+    assert alarm.date_time.tzinfo is not None
 
     data = alarm.as_dict()
     assert data["alarm_id"] == "alarm/test_456"

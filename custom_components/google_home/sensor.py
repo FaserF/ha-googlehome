@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 import voluptuous as vol
@@ -17,7 +18,6 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .const import (
     ALARM_AND_TIMER_ID_LENGTH,
     DATA_COORDINATOR,
-    DEFAULT_TIMESTAMP_NONE,
     DOMAIN,
     GOOGLE_HOME_ALARM_DEFAULT_VALUE,
     ICON_ALARMS,
@@ -61,62 +61,65 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> bool:
     """Set up the Google Home sensors from a config entry."""
-    coordinator: GoogleHomeDataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id][
+    entry_data = hass.data[DOMAIN].get(entry.entry_id, {})
+    coordinator: GoogleHomeDataUpdateCoordinator | None = entry_data.get(
         DATA_COORDINATOR
-    ]
+    )
 
     entities: list[GoogleHomeBaseEntity] = []
     registered_device_ids: set[str] = set()
 
-    def _create_entities_for_device(
-        device: GoogleHomeDevice,
-    ) -> list[GoogleHomeBaseEntity]:
-        registered_device_ids.add(device.device_id)
-        return [
-            GoogleHomeDeviceSensor(
-                coordinator=coordinator,
-                device_id=device.device_id,
-                device_name=device.name,
-            ),
-            GoogleHomeAlarmsSensor(
-                coordinator=coordinator,
-                device_id=device.device_id,
-                device_name=device.name,
-            ),
-            GoogleHomeTimersSensor(
-                coordinator=coordinator,
-                device_id=device.device_id,
-                device_name=device.name,
-            ),
-            GoogleHomeWifiSensor(
-                coordinator=coordinator,
-                device_id=device.device_id,
-                device_name=device.name,
-            ),
-            GoogleHomeBluetoothSensor(
-                coordinator=coordinator,
-                device_id=device.device_id,
-                device_name=device.name,
-            ),
-        ]
+    if coordinator is not None:
 
-    for device in coordinator.data or []:
-        entities.extend(_create_entities_for_device(device))
+        def _create_entities_for_device(
+            device: GoogleHomeDevice,
+        ) -> list[GoogleHomeBaseEntity]:
+            registered_device_ids.add(device.device_id)
+            return [
+                GoogleHomeDeviceSensor(
+                    coordinator=coordinator,
+                    device_id=device.device_id,
+                    device_name=device.name,
+                ),
+                GoogleHomeAlarmsSensor(
+                    coordinator=coordinator,
+                    device_id=device.device_id,
+                    device_name=device.name,
+                ),
+                GoogleHomeTimersSensor(
+                    coordinator=coordinator,
+                    device_id=device.device_id,
+                    device_name=device.name,
+                ),
+                GoogleHomeWifiSensor(
+                    coordinator=coordinator,
+                    device_id=device.device_id,
+                    device_name=device.name,
+                ),
+                GoogleHomeBluetoothSensor(
+                    coordinator=coordinator,
+                    device_id=device.device_id,
+                    device_name=device.name,
+                ),
+            ]
+
+        for device in coordinator.data or []:
+            entities.extend(_create_entities_for_device(device))
+
+        @callback
+        def _async_add_new_devices() -> None:
+            """Add entities for devices discovered in subsequent coordinator updates."""
+            new_entities: list[GoogleHomeBaseEntity] = []
+            for dev in coordinator.data or []:
+                if dev.device_id not in registered_device_ids:
+                    new_entities.extend(_create_entities_for_device(dev))
+            if new_entities:
+                async_add_entities(new_entities)
+
+        entry.async_on_unload(coordinator.async_add_listener(_async_add_new_devices))
 
     if entities:
         async_add_entities(entities)
-
-    @callback
-    def _async_add_new_devices() -> None:
-        """Add entities for devices discovered in subsequent coordinator updates."""
-        new_entities: list[GoogleHomeBaseEntity] = []
-        for dev in coordinator.data or []:
-            if dev.device_id not in registered_device_ids:
-                new_entities.extend(_create_entities_for_device(dev))
-        if new_entities:
-            async_add_entities(new_entities)
-
-    entry.async_on_unload(coordinator.async_add_listener(_async_add_new_devices))
 
     # Register entity services
     platform = entity_platform.async_get_current_platform()
@@ -167,6 +170,7 @@ class GoogleHomeDeviceSensor(GoogleHomeBaseEntity, SensorEntity):
 
     _attr_icon = ICON_TOKEN
     _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_entity_registry_enabled_default = False
 
     @property
     def label(self) -> str:
@@ -217,18 +221,18 @@ class GoogleHomeAlarmsSensor(GoogleHomeBaseEntity, SensorEntity):
         return "alarms"
 
     @property
-    def native_value(self) -> str:
-        """Return next alarm ISO timestamp (or fallback timestamp 2000-01-01 if none set)."""
+    def native_value(self) -> datetime | None:
+        """Return next alarm datetime (or None if none set)."""
         device = self.get_device()
         if not device:
-            return DEFAULT_TIMESTAMP_NONE
+            return None
         next_alarm = device.get_next_alarm()
         return (
-            next_alarm.local_time_iso
+            next_alarm.date_time
             if next_alarm
             and next_alarm.status
             not in (GoogleHomeAlarmStatus.INACTIVE, GoogleHomeAlarmStatus.MISSED)
-            else DEFAULT_TIMESTAMP_NONE
+            else None
         )
 
     @property
@@ -311,19 +315,19 @@ class GoogleHomeTimersSensor(GoogleHomeBaseEntity, SensorEntity):
         return "timers"
 
     @property
-    def native_value(self) -> str:
-        """Return next timer ISO timestamp (or fallback timestamp 2000-01-01 if none set)."""
+    def native_value(self) -> datetime | None:
+        """Return next timer datetime (or None if none set)."""
         device = self.get_device()
         if not device:
-            return DEFAULT_TIMESTAMP_NONE
+            return None
         next_timer = device.get_next_timer()
         if (
             next_timer
             and next_timer.status != GoogleHomeTimerStatus.NONE
-            and next_timer.local_time_iso
+            and next_timer.date_time
         ):
-            return next_timer.local_time_iso
-        return DEFAULT_TIMESTAMP_NONE
+            return next_timer.date_time
+        return None
 
     @property
     def extra_state_attributes(self) -> TimersAttributes:
@@ -380,6 +384,7 @@ class GoogleHomeWifiSensor(GoogleHomeBaseEntity, SensorEntity):
 
     _attr_icon = ICON_WIFI
     _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_entity_registry_enabled_default = False
 
     @property
     def label(self) -> str:
@@ -408,6 +413,7 @@ class GoogleHomeBluetoothSensor(GoogleHomeBaseEntity, SensorEntity):
 
     _attr_icon = ICON_BLUETOOTH
     _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_entity_registry_enabled_default = False
 
     @property
     def label(self) -> str:

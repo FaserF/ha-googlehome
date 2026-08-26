@@ -3,22 +3,30 @@
     "step": {
       "user": {
         "title": "Google Home Einrichtung",
-        "description": "Google verlangt eine Authentifizierung, um deine Google Home & Nest Lautsprecher lokal im Netzwerk abzufragen.\n\n### 🔐 Wähle deine Anmeldemethode:\n- **Token (Master-Token / Web-OAuth-Token)**: 100% zuverlässig, von der Community empfohlen.\n- **[Google Home Token Hub Add-on](https://github.com/FaserF/hassio-addons/tree/master/googlehome)**: Automatische Einrichtung über das Add-on (Erkennung für Edge & Stable).\n- **App-Passwort**: Automatische Token-Generierung (erfordert ein App-Passwort von Google).",
+        "description": "Google verlangt eine Authentifizierung, um deine Google Home & Nest Lautsprecher und Cloud-Geräte abzufragen.\n\n### 🔐 Wähle deine Anmeldemethode:\n- **Token (Master-Token / Web-OAuth-Token)**: 100% zuverlässig, von der Community empfohlen.\n- **Google Home Token Hub Add-on**: Automatische Einrichtung über das Add-on (Erkennung für Edge & Stable).\n- **App-Passwort**: Automatische Token-Generierung (erfordert ein App-Passwort von Google).",
         "data": {
           "auth_method": "Anmeldemethode"
         }
       },
       "token": {
         "title": "Token-Anmeldung",
-        "description": "### 🔑 30-Sekunden Token-Anleitung (Empfohlen):\n1. Öffne [accounts.google.com/EmbeddedSetup](https://accounts.google.com/EmbeddedSetup) im Browser und melde dich mit deinem Google-Konto an.\n2. **Wichtig**: Die Seite bleibt am Ende beim Ladebalken/weiß stehen (das ist völlig normal und bedeutet, dass der Token erfolgreich erzeugt wurde!).\n3. Drücke **F12** (Entwicklertools) -> **Anwendung** (oder Speicher) -> **Cookies** (https://accounts.google.com).\n4. Kopiere den Wert des Cookies **`oauth_token`** (beginnt mit `oauth2_4/...`).\n5. Gib unten deine Google E-Mail-Adresse ein und füge den Token ein.\n\n*(Falls du bereits direkt einen `aas_et/...` Master-Token besitzt, kannst du ihn ebenfalls direkt einfügen)*.",
+        "description": "### 🔑 30-Sekunden Token-Anleitung (Empfohlen):\n1. Öffne [accounts.google.com/EmbeddedSetup](https://accounts.google.com/EmbeddedSetup) im Browser und melde dich mit deinem Google-Konto an.\n2. **Wichtig**: Die Seite bleibt am Ende beim Ladebalken/weiß stehen (das ist völlig normal und bedeutet, dass der Token erfolgreich erzeugt wurde!).\n3. Drücke **F12** (Entwicklertools) -> **Anwendung** (oder Speicher) -> **Cookies** (https://accounts.google.com).\n4. Kopiere den Wert des Cookies **oauth_token** (beginnt mit oauth2_4/...).\n5. Gib unten deine Google E-Mail-Adresse ein und füge den Token ein.\n\n*(Falls du bereits direkt einen \u0007as_et/... Master-Token besitzt, kannst du ihn ebenfalls direkt einfügen)*.",
         "data": {
           "username": "Google-Konto E-Mail-Adresse",
           "master_token": "Token (oauth2_4/... oder aas_et/...)"
         }
       },
+      "mode": {
+        "title": "Integrations-Modus & Filterung",
+        "description": "### ⚙️ Wähle den gewünschten Funktionsumfang:\n- **Lokal & Cloud (Hybrid)**: Schnelle lokale Lautsprecher-Steuerung + alle Cloud-Geräte aus Google Home.\n- **Nur Lokal**: 100% autark im LAN für Lautsprecher, Timer und Alarme.\n- **Nur Cloud**: Google Home Web/HomeGraph ohne lokale Netzwerk-Abfragen.",
+        "data": {
+          "operation_mode": "Betriebsmodus",
+          "ignore_ha_synced_devices": "Von Home Assistant synchronisierte Geräte ignorieren (verhindert Entity-Duplikate & Regelschleifen)"
+        }
+      },
       "addon": {
         "title": "Mit Google Home Add-on verbinden",
-        "description": "Stelle sicher, dass das **[Google Home Token Hub](https://github.com/FaserF/hassio-addons/tree/master/googlehome)** Add-on installiert ist und läuft.",
+        "description": "Stelle sicher, dass das **Google Home Token Hub** Add-on installiert ist und läuft.",
         "data": {
           "addon_host": "Add-on Host",
           "addon_port": "Add-on Port"
@@ -35,7 +43,7 @@
       },
       "addon_action": {
         "title": "Einrichtung abgeschlossen - Add-on Status",
-        "description": "✅ **Master-Token für {email} erfolgreich gespeichert!**\n\nDie Integration kommuniziert nun 100% lokal mit deinen Google Home Lautsprechern und benötigt das Add-on im Dauerbetrieb nicht mehr.\n\nWas möchtest du mit dem Add-on tun?",
+        "description": "✅ **Master-Token für {email} erfolgreich gespeichert!**\n\nDie Integration ist eingerichtet und benötigt das Add-on im Dauerbetrieb nicht mehr.\n\nWas möchtest du mit dem Add-on tun?",
         "data": {
           "addon_action": "Aktion für Add-on"
         }
@@ -69,8 +77,10 @@
     "step": {
       "init": {
         "title": "Google Home Einstellungen",
-        "description": "Aktualisierungsintervall für Gerätestatus, Timer und Alarme konfigurieren.",
+        "description": "Betriebsmodus, Filter für synchronisierte Geräte und Aktualisierungsintervall konfigurieren.",
         "data": {
+          "operation_mode": "Betriebsmodus",
+          "ignore_ha_synced_devices": "Von Home Assistant synchronisierte Geräte ignorieren",
           "update_interval": "Aktualisierungsintervall (Sekunden)"
         }
       }

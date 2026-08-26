@@ -42,8 +42,18 @@ ADDON_CONTAINER_HOSTS: Final = [
     "127.0.0.1",
 ]
 
+CONF_OPERATION_MODE: Final = "operation_mode"
+MODE_HYBRID: Final = "hybrid"
+MODE_LOCAL: Final = "local"
+MODE_CLOUD: Final = "cloud"
+
+CONF_IGNORE_HA_SYNCED_DEVICES: Final = "ignore_ha_synced_devices"
+DEFAULT_IGNORE_HA_SYNCED_DEVICES: Final = True
+
 DATA_CLIENT: Final = "client"
 DATA_COORDINATOR: Final = "coordinator"
+DATA_CLOUD_CLIENT: Final = "cloud_client"
+DATA_CLOUD_COORDINATOR: Final = "cloud_coordinator"
 
 ALARM_AND_TIMER_ID_LENGTH: Final = 42
 MAX_PASSWORD_LENGTH: Final = 100
@@ -67,7 +77,21 @@ ICON_REFRESH: Final = "mdi:refresh"
 EVENT_TIMER_FINISHED: Final = "google_home_timer_finished"
 EVENT_ALARM_TRIGGERED: Final = "google_home_alarm_triggered"
 
-PLATFORMS: Final = ["sensor", "switch", "number", "button"]
+PLATFORMS: Final = [
+    "sensor",
+    "binary_sensor",
+    "switch",
+    "number",
+    "button",
+    "light",
+    "camera",
+    "vacuum",
+    "climate",
+    "lock",
+    "cover",
+    "alarm_control_panel",
+    "scene",
+]
 
 SERVICE_REBOOT: Final = "reboot_device"
 SERVICE_DELETE_ALARM: Final = "delete_alarm"
@@ -87,7 +111,7 @@ API_ENDPOINT_ALARM_DELETE: Final = "setup/assistant/alarms/delete"
 API_ENDPOINT_DO_NOT_DISTURB: Final = "setup/assistant/notifications"
 API_ENDPOINT_NIGHT_MODE: Final = "setup/assistant/alarms/volume"
 API_ENDPOINT_NIGHT_MODE_SETTINGS: Final = "setup/night_mode_params"
-API_ENDPOINT_DEVICE_INFO: Final = "setup/eureka_info"
+API_ENDPOINT_DEVICE_INFO: Final = "setup/eureka_info?params=version,name,build_info,device_info,net,wifi,wlan,bluetooth,setup,settings,opt_in"
 API_ENDPOINT_BLUETOOTH_STATUS: Final = "setup/bluetooth/status"
 API_ENDPOINT_REBOOT: Final = "setup/reboot"
 

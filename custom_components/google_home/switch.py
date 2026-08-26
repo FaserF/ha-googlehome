@@ -8,8 +8,12 @@ from typing import Any
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
+from .cloud_coordinator import GoogleHomeCloudDataUpdateCoordinator
+from .cloud_models import CloudHomeDevice
 from .const import DATA_COORDINATOR, DOMAIN, ICON_DO_NOT_DISTURB, ICON_NIGHT_MODE
 from .coordinator import GoogleHomeDataUpdateCoordinator
 from .entity import GoogleHomeBaseEntity
@@ -24,48 +28,135 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> bool:
     """Set up the Google Home switch platform."""
-    coordinator: GoogleHomeDataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id][
+    entry_data = hass.data[DOMAIN].get(entry.entry_id, {})
+    coordinator: GoogleHomeDataUpdateCoordinator | None = entry_data.get(
         DATA_COORDINATOR
-    ]
+    )
+    cloud_coordinator = entry_data.get("cloud_coordinator")
 
-    entities: list[GoogleHomeBaseEntity] = []
+    entities: list[Any] = []
     registered_device_ids: set[str] = set()
 
-    def _create_entities_for_device(
-        device: GoogleHomeDevice,
-    ) -> list[GoogleHomeBaseEntity]:
-        registered_device_ids.add(device.device_id)
-        return [
-            GoogleHomeDoNotDisturbSwitch(
-                coordinator=coordinator,
-                device_id=device.device_id,
-                device_name=device.name,
-            ),
-            GoogleHomeNightModeSwitch(
-                coordinator=coordinator,
-                device_id=device.device_id,
-                device_name=device.name,
-            ),
-        ]
+    if coordinator is not None:
 
-    for device in coordinator.data or []:
-        entities.extend(_create_entities_for_device(device))
+        def _create_entities_for_device(
+            device: GoogleHomeDevice,
+        ) -> list[GoogleHomeBaseEntity]:
+            registered_device_ids.add(device.device_id)
+            return [
+                GoogleHomeDoNotDisturbSwitch(
+                    coordinator=coordinator,
+                    device_id=device.device_id,
+                    device_name=device.name,
+                ),
+                GoogleHomeNightModeSwitch(
+                    coordinator=coordinator,
+                    device_id=device.device_id,
+                    device_name=device.name,
+                ),
+            ]
+
+        for device in coordinator.data or []:
+            entities.extend(_create_entities_for_device(device))
+
+        @callback
+        def _async_add_new_devices() -> None:
+            """Add entities for devices discovered in subsequent coordinator updates."""
+            new_entities: list[GoogleHomeBaseEntity] = []
+            for dev in coordinator.data or []:
+                if dev.device_id not in registered_device_ids:
+                    new_entities.extend(_create_entities_for_device(dev))
+            if new_entities:
+                async_add_entities(new_entities)
+
+        entry.async_on_unload(coordinator.async_add_listener(_async_add_new_devices))
+
+    if cloud_coordinator is not None:
+        for cdev in cloud_coordinator.data or []:
+            if cdev.is_switch:
+                entities.append(
+                    GoogleHomeCloudSwitch(
+                        coordinator=cloud_coordinator,
+                        device_id=cdev.device_id,
+                    )
+                )
 
     if entities:
         async_add_entities(entities)
 
-    @callback
-    def _async_add_new_devices() -> None:
-        """Add entities for devices discovered in subsequent coordinator updates."""
-        new_entities: list[GoogleHomeBaseEntity] = []
-        for dev in coordinator.data or []:
-            if dev.device_id not in registered_device_ids:
-                new_entities.extend(_create_entities_for_device(dev))
-        if new_entities:
-            async_add_entities(new_entities)
-
-    entry.async_on_unload(coordinator.async_add_listener(_async_add_new_devices))
     return True
+
+
+class GoogleHomeCloudSwitch(
+    CoordinatorEntity[GoogleHomeCloudDataUpdateCoordinator], SwitchEntity
+):
+    """Google Home Cloud Switch entity."""
+
+    def __init__(
+        self,
+        coordinator: GoogleHomeCloudDataUpdateCoordinator,
+        device_id: str,
+    ) -> None:
+        """Initialize."""
+        super().__init__(coordinator)
+        self.device_id = device_id
+        self._attr_unique_id = f"{device_id}_cloud_switch"
+
+    def get_device(self) -> CloudHomeDevice | None:
+        """Get device from coordinator."""
+        return self.coordinator.get_device(self.device_id)
+
+    @property
+    def name(self) -> str:
+        """Return name."""
+        device = self.get_device()
+        return device.name if device else "Google Switch"
+
+    @property
+    def is_on(self) -> bool:
+        """Return True if on."""
+        device = self.get_device()
+        return bool(device.state.get("on", False)) if device else False
+
+    @property
+    def available(self) -> bool:
+        """Return True if available."""
+        device = self.get_device()
+        return device.online if device else False
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        """Return device registry info."""
+        device = self.get_device()
+        return DeviceInfo(
+            identifiers={(DOMAIN, self.device_id)},
+            name=self.name,
+            manufacturer=device.agent_name
+            if device and device.agent_name
+            else "Google",
+            model=device.hardware_model
+            if device and device.hardware_model
+            else "Google Cloud Device",
+            configuration_url="https://home.google.com/",
+        )
+
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        """Turn on switch."""
+        await self.coordinator.client.async_execute_command(
+            device_id=self.device_id,
+            command="action.devices.commands.OnOff",
+            params={"on": True},
+        )
+        await self.coordinator.async_request_refresh()
+
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        """Turn off switch."""
+        await self.coordinator.client.async_execute_command(
+            device_id=self.device_id,
+            command="action.devices.commands.OnOff",
+            params={"on": False},
+        )
+        await self.coordinator.async_request_refresh()
 
 
 class GoogleHomeDoNotDisturbSwitch(GoogleHomeBaseEntity, SwitchEntity):
@@ -109,6 +200,7 @@ class GoogleHomeNightModeSwitch(GoogleHomeBaseEntity, SwitchEntity):
     """Google Home Night Mode switch entity."""
 
     _attr_icon = ICON_NIGHT_MODE
+    _attr_entity_registry_enabled_default = False
 
     @property
     def label(self) -> str:

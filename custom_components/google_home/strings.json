@@ -3,17 +3,25 @@
     "step": {
       "user": {
         "title": "Google Home Setup",
-        "description": "Google requires authentication to communicate with your Google Home and Nest speakers locally.\n\n### 🔐 Choose an authentication method:\n- **Token (Master Token / Web OAuth Token)**: 100% reliable, recommended by Google Home community.\n- **[Google Home Token Hub Add-on](https://github.com/FaserF/hassio-addons/tree/master/googlehome)**: Automatic setup via Add-on (auto-detected, edge & stable).\n- **App Password**: Automatic token generation (requires App Password from Google Account).",
+        "description": "Google requires authentication to communicate with your Google Home speakers and HomeGraph devices.\n\n### 🔐 Choose an authentication method:\n- **Token (Master Token / Web OAuth Token)**: 100% reliable, recommended by Google Home community.\n- **Google Home Token Hub Add-on**: Automatic setup via Add-on (auto-detected, edge & stable).\n- **App Password**: Automatic token generation (requires App Password from Google Account).",
         "data": {
           "auth_method": "Authentication Method"
         }
       },
       "token": {
         "title": "Token Authentication",
-        "description": "### 🔑 30-Second Token Guide (Recommended):\n1. Open [accounts.google.com/EmbeddedSetup](https://accounts.google.com/EmbeddedSetup) in your browser and log in with your Google account.\n2. **Important**: The final page will remain on a loading/blank screen (this is normal and indicates the token was created!).\n3. Press **F12** (Developer Tools) -> **Application** (or Storage) -> **Cookies** (https://accounts.google.com).\n4. Copy the value of the **`oauth_token`** cookie (starts with `oauth2_4/...`).\n5. Enter your Google Email and paste the token below.\n\n*(If you already have a Master Token `aas_et/...`, you can also paste it directly below)*.",
+        "description": "### 🔑 30-Second Token Guide (Recommended):\n1. Open [accounts.google.com/EmbeddedSetup](https://accounts.google.com/EmbeddedSetup) in your browser and log in with your Google account.\n2. **Important**: The final page will remain on a loading/blank screen (this is normal and indicates the token was created!).\n3. Press **F12** (Developer Tools) -> **Application** (or Storage) -> **Cookies** (https://accounts.google.com).\n4. Copy the value of the **oauth_token** cookie (starts with oauth2_4/...).\n5. Enter your Google Email and paste the token below.\n\n*(If you already have a Master Token \u0007as_et/..., you can also paste it directly below)*.",
         "data": {
           "username": "Google Account Email",
           "master_token": "Token (oauth2_4/... or aas_et/...)"
+        }
+      },
+      "mode": {
+        "title": "Integration Mode & Device Filtering",
+        "description": "### ⚙️ Choose how Google Home should integrate with Home Assistant:\n- **Local & Cloud (Hybrid)**: Fast local control for alarms/timers + cloud discovery for all Google Home devices.\n- **Local Only**: Pure local network communication for speakers.\n- **Cloud Only**: Cloud HomeGraph without local speaker polling.",
+        "data": {
+          "operation_mode": "Operation Mode",
+          "ignore_ha_synced_devices": "Ignore devices already synced from Home Assistant (prevents duplicate entities & automation loops)"
         }
       },
       "addon": {
@@ -35,7 +43,7 @@
       },
       "addon_action": {
         "title": "Setup Complete - Add-on Status",
-        "description": "✅ **Master Token successfully acquired for {email}!**\n\nThe Google Home integration runs 100% locally and does not require the Add-on to keep running.\n\nWhat would you like to do with the Add-on?",
+        "description": "✅ **Master Token successfully acquired for {email}!**\n\nThe Google Home integration runs locally/cloud and does not require the Add-on to keep running.\n\nWhat would you like to do with the Add-on?",
         "data": {
           "addon_action": "Action for Add-on"
         }
@@ -69,8 +77,10 @@
     "step": {
       "init": {
         "title": "Google Home Options",
-        "description": "Configure polling interval for device status, timers, and alarms.",
+        "description": "Configure operation mode, Home Assistant device filtering, and polling interval.",
         "data": {
+          "operation_mode": "Operation Mode",
+          "ignore_ha_synced_devices": "Ignore devices synced from Home Assistant",
           "update_interval": "Update Interval (seconds)"
         }
       }

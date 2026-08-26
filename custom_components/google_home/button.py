@@ -24,9 +24,13 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> bool:
     """Set up the Google Home button platform."""
-    coordinator: GoogleHomeDataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id][
+    entry_data = hass.data[DOMAIN].get(entry.entry_id, {})
+    coordinator: GoogleHomeDataUpdateCoordinator | None = entry_data.get(
         DATA_COORDINATOR
-    ]
+    )
+
+    if coordinator is None:
+        return True
 
     entities: list[GoogleHomeBaseEntity] = []
     registered_device_ids: set[str] = set()
@@ -74,6 +78,7 @@ class GoogleHomeRebootButton(GoogleHomeBaseEntity, ButtonEntity):
     _attr_device_class = ButtonDeviceClass.RESTART
     _attr_entity_category = EntityCategory.CONFIG
     _attr_icon = ICON_REBOOT
+    _attr_entity_registry_enabled_default = False
 
     @property
     def label(self) -> str:
@@ -96,6 +101,7 @@ class GoogleHomeRefreshButton(GoogleHomeBaseEntity, ButtonEntity):
     _attr_device_class = ButtonDeviceClass.UPDATE
     _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_icon = ICON_REFRESH
+    _attr_entity_registry_enabled_default = False
 
     @property
     def label(self) -> str:

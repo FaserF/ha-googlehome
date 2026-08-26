@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import sys
-from datetime import timedelta
+from datetime import datetime, timedelta
 from enum import Enum
 from typing import TYPE_CHECKING
 
@@ -177,12 +177,14 @@ class GoogleHomeTimer:
 
         if fire_time is None:
             self.fire_time = None
+            self.date_time: datetime | None = None
             self.local_time = None
             self.local_time_iso = None
         else:
             self.fire_time = convert_from_ms_to_s(fire_time)
             dt_utc = utc_from_timestamp(self.fire_time)
             dt_local = as_local(dt_utc)
+            self.date_time = dt_local
             self.local_time = dt_local.strftime(DATETIME_STR_FORMAT)
             self.local_time_iso = dt_local.isoformat()
 
@@ -223,6 +225,7 @@ class GoogleHomeAlarm:
 
         dt_utc = utc_from_timestamp(self.fire_time)
         dt_local = as_local(dt_utc)
+        self.date_time: datetime = dt_local
         self.local_time = dt_local.strftime(DATETIME_STR_FORMAT)
         self.local_time_iso = dt_local.isoformat()
 

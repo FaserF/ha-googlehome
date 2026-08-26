@@ -30,9 +30,13 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> bool:
     """Set up the Google Home number platform."""
-    coordinator: GoogleHomeDataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id][
+    entry_data = hass.data[DOMAIN].get(entry.entry_id, {})
+    coordinator: GoogleHomeDataUpdateCoordinator | None = entry_data.get(
         DATA_COORDINATOR
-    ]
+    )
+
+    if coordinator is None:
+        return True
 
     entities: list[GoogleHomeBaseEntity] = []
     registered_device_ids: set[str] = set()

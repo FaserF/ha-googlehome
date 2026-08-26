@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import cast
+from typing import Any, cast
 
 from homeassistant.components import zeroconf
 from homeassistant.config_entries import ConfigEntry
@@ -13,14 +13,22 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from .api import GlocaltokensApiClient
 from .const import (
     CONF_ANDROID_ID,
+    CONF_IGNORE_HA_SYNCED_DEVICES,
     CONF_MASTER_TOKEN,
+    CONF_OPERATION_MODE,
     CONF_PASSWORD,
     CONF_UPDATE_INTERVAL,
     CONF_USERNAME,
     DATA_CLIENT,
+    DATA_CLOUD_CLIENT,
+    DATA_CLOUD_COORDINATOR,
     DATA_COORDINATOR,
+    DEFAULT_IGNORE_HA_SYNCED_DEVICES,
     DEFAULT_UPDATE_INTERVAL,
     DOMAIN,
+    MODE_CLOUD,
+    MODE_HYBRID,
+    MODE_LOCAL,
     PLATFORMS,
 )
 from .coordinator import GoogleHomeDataUpdateCoordinator
@@ -37,33 +45,69 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     master_token = cast("str | None", entry.data.get(CONF_MASTER_TOKEN))
     android_id = cast("str | None", entry.data.get(CONF_ANDROID_ID))
 
+    mode = entry.options.get(
+        CONF_OPERATION_MODE,
+        entry.data.get(CONF_OPERATION_MODE, MODE_HYBRID),
+    )
+    ignore_ha_synced = entry.options.get(
+        CONF_IGNORE_HA_SYNCED_DEVICES,
+        entry.data.get(CONF_IGNORE_HA_SYNCED_DEVICES, DEFAULT_IGNORE_HA_SYNCED_DEVICES),
+    )
+
     update_interval = entry.options.get(CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL)
-
     session = async_get_clientsession(hass)
-    zeroconf_instance = await zeroconf.async_get_instance(hass)
 
-    client = GlocaltokensApiClient(
-        hass=hass,
-        session=session,
-        username=username,
-        password=password,
-        master_token=master_token,
-        android_id=android_id,
-        zeroconf_instance=zeroconf_instance,
-    )
+    entry_data: dict[str, Any] = {}
 
-    coordinator = GoogleHomeDataUpdateCoordinator(
-        hass=hass,
-        client=client,
-        update_interval=update_interval,
-    )
+    # 1. Setup Local Subsystem
+    if mode in (MODE_HYBRID, MODE_LOCAL):
+        zeroconf_instance = await zeroconf.async_get_instance(hass)
+        client = GlocaltokensApiClient(
+            hass=hass,
+            session=session,
+            username=username,
+            password=password,
+            master_token=master_token,
+            android_id=android_id,
+            zeroconf_instance=zeroconf_instance,
+        )
+        coordinator = GoogleHomeDataUpdateCoordinator(
+            hass=hass,
+            client=client,
+            update_interval=update_interval,
+        )
+        try:
+            await coordinator.async_config_entry_first_refresh()
+        except Exception as err:
+            _LOGGER.warning("Initial local refresh warning: %s", err)
 
-    await coordinator.async_config_entry_first_refresh()
+        entry_data[DATA_CLIENT] = client
+        entry_data[DATA_COORDINATOR] = coordinator
 
-    hass.data[DOMAIN][entry.entry_id] = {
-        DATA_CLIENT: client,
-        DATA_COORDINATOR: coordinator,
-    }
+    # 2. Setup Cloud Subsystem
+    if mode in (MODE_HYBRID, MODE_CLOUD) and master_token:
+        from .cloud_api import GoogleHomeCloudClient
+        from .cloud_coordinator import GoogleHomeCloudDataUpdateCoordinator
+
+        cloud_client = GoogleHomeCloudClient(
+            hass=hass,
+            master_token=master_token,
+            ignore_ha_synced=ignore_ha_synced,
+        )
+        cloud_coordinator = GoogleHomeCloudDataUpdateCoordinator(
+            hass=hass,
+            client=cloud_client,
+            update_interval=update_interval,
+        )
+        try:
+            await cloud_coordinator.async_config_entry_first_refresh()
+        except Exception as err:
+            _LOGGER.warning("Initial cloud refresh warning: %s", err)
+
+        entry_data[DATA_CLOUD_CLIENT] = cloud_client
+        entry_data[DATA_CLOUD_COORDINATOR] = cloud_coordinator
+
+    hass.data[DOMAIN][entry.entry_id] = entry_data
 
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)

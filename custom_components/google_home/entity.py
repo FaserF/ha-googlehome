@@ -71,4 +71,5 @@ class GoogleHomeBaseEntity(CoordinatorEntity[GoogleHomeDataUpdateCoordinator]):
             name=self.device_name,
             manufacturer=MANUFACTURER,
             model=model,
+            configuration_url="https://home.google.com/",
         )
