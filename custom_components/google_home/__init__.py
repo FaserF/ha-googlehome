@@ -147,7 +147,38 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             _LOGGER.warning("Initial cloud refresh warning: %s", err)
 
         entry_data[DATA_CLOUD_CLIENT] = cloud_client
-        entry_data[DATA_CLOUD_COORDINATOR] = cloud_coordinator
+    # 0. Migrate legacy leikoilja entity unique_ids before setting up platforms
+    # This ensures new platform entities match the existing registry entries and keep entity_ids & names
+    ent_reg = er.async_get(hass)
+    for ent_entry in er.async_entries_for_config_entry(ent_reg, entry.entry_id):
+        uid = ent_entry.unique_id or ""
+        if "/" in uid:
+            new_uid = uid.replace("/", "_")
+            existing_new_ent = ent_reg.async_get_entity_id(
+                ent_entry.domain, DOMAIN, new_uid
+            )
+            if existing_new_ent and existing_new_ent != ent_entry.entity_id:
+                _LOGGER.info(
+                    "Removing duplicate newer entity %s to restore migrated entity %s",
+                    existing_new_ent,
+                    ent_entry.entity_id,
+                )
+                ent_reg.async_remove(existing_new_ent)
+
+            _LOGGER.info(
+                "Migrating entity unique_id '%s' -> '%s' for %s",
+                uid,
+                new_uid,
+                ent_entry.entity_id,
+            )
+            try:
+                ent_reg.async_update_entity(ent_entry.entity_id, new_unique_id=new_uid)
+            except Exception as err:
+                _LOGGER.warning(
+                    "Could not migrate entity unique_id for %s: %s",
+                    ent_entry.entity_id,
+                    err,
+                )
 
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -451,8 +482,8 @@ async def async_migrate_entry(hass: HomeAssistant, config_entry: ConfigEntry) ->
         )
         local_update_interval = max(60, legacy_update_interval)
 
-        # Default auth_method to token
-        auth_method = AUTH_METHOD_TOKEN
+        # Determine best auth_method based on what credentials are present
+        auth_method = AUTH_METHOD_TOKEN if master_token else AUTH_METHOD_APP_PASSWORD
 
         new_data: dict[str, Any] = {
             CONF_AUTH_METHOD: auth_method,
