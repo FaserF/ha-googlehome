@@ -3,6 +3,6 @@ revision = 3
 requires-python = ">=3.14"
 
 [[package]]
-name = "ha-openwrt"
-version = "2.4.8.dev0"
+name = "ha-googlehome"
+version = "1.0.0"
 source = { virtual = "." }

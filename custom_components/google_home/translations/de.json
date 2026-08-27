@@ -10,7 +10,7 @@
       },
       "token": {
         "title": "Token-Anmeldung",
-        "description": "### 🔑 30-Sekunden Token-Anleitung (Empfohlen):\n1. Öffne [accounts.google.com/EmbeddedSetup](https://accounts.google.com/EmbeddedSetup) im Browser und melde dich mit deinem Google-Konto an.\n2. **Wichtig**: Die Seite bleibt am Ende beim Ladebalken/weiß stehen (das ist völlig normal und bedeutet, dass der Token erfolgreich erzeugt wurde!).\n3. Drücke **F12** (Entwicklertools) -> **Anwendung** (oder Speicher) -> **Cookies** (https://accounts.google.com).\n4. Kopiere den Wert des Cookies **oauth_token** (beginnt mit oauth2_4/...).\n5. Gib unten deine Google E-Mail-Adresse ein und füge den Token ein.\n\n*(Falls du bereits direkt einen \u0007as_et/... Master-Token besitzt, kannst du ihn ebenfalls direkt einfügen)*.",
+        "description": "### 🔑 30-Sekunden Token-Anleitung (Empfohlen):\n1. Öffne [{setup_url}]({setup_url}) im Browser und melde dich mit deinem Google-Konto an.\n2. **Wichtig**: Die Seite bleibt am Ende beim Ladebalken/weiß stehen (das ist völlig normal und bedeutet, dass der Token erfolgreich erzeugt wurde!).\n3. Drücke **F12** (Entwicklertools) -> **Anwendung** (oder Speicher) -> **Cookies** ({cookies_url}).\n4. Kopiere den Wert des Cookies **oauth_token** (beginnt mit oauth2_4/...).\n5. Gib unten deine Google E-Mail-Adresse ein und füge den Token ein.\n\n*(Falls du bereits direkt einen aas_et/... Master-Token besitzt, kannst du ihn ebenfalls direkt einfügen)*.",
         "data": {
           "username": "Google-Konto E-Mail-Adresse",
           "master_token": "Token (oauth2_4/... oder aas_et/...)"
@@ -65,7 +65,7 @@
       },
       "app_password": {
         "title": "App-Passwort Anmeldung",
-        "description": "Gib deine Google-Konto E-Mail-Adresse und ein 16-stelliges [Google App-Passwort](https://myaccount.google.com/apppasswords) ein.\n\nDie Integration verbindet sich im Hintergrund automatisch mit Google und generiert deinen dauerhaften Master-Token.",
+        "description": "Gib deine Google-Konto E-Mail-Adresse und ein 16-stelliges [Google App-Passwort]({app_passwords_url}) ein.\n\nDie Integration verbindet sich im Hintergrund automatisch mit Google und generiert deinen dauerhaften Master-Token.",
         "data": {
           "username": "Google-Konto E-Mail-Adresse",
           "password": "16-stelliges App-Passwort"
@@ -76,9 +76,9 @@
       "invalid_email": "Bitte gib eine gültige Google-Mailadresse ein (z. B. name@gmail.com).",
       "invalid_token_format": "Ungültiges Token-Format. Der Token muss mit 'aas_et/' (Master-Token) oder 'oauth2_4/' (OAuth-Token) beginnen.",
       "invalid_app_password_format": "Ungültiges App-Passwort. Google App-Passwörter bestehen aus 16 Zeichen (z. B. abcd efgh ijkl mnop).",
-      "invalid_master_token": "Der angegebene Token ist ungültig oder abgelaufen. Bitte erstelle einen neuen Token unter https://accounts.google.com/EmbeddedSetup.",
+      "invalid_master_token": "Der angegebene Token ist ungültig oder abgelaufen. Bitte erstelle einen neuen Token unter {setup_url}.",
       "advanced_protection": "Für dieses Google-Konto ist das 'Erweiterte Sicherheitsprogramm' aktiv. Google erlaubt keine App-Passwörter für dieses Konto. Bitte nutze die Token-Methode.",
-      "two_factor_required": "Google hat die Passwort-Anmeldung abgewiesen (2FA aktiv). Bitte erstelle ein 16-stelliges App-Passwort unter https://myaccount.google.com/apppasswords oder verwende die Token-Methode.",
+      "two_factor_required": "Google hat die Passwort-Anmeldung abgewiesen (2FA aktiv). Bitte erstelle ein 16-stelliges App-Passwort unter {app_passwords_url} oder verwende die Token-Methode.",
       "missing_email_for_oauth": "Bitte gib oben deine Google-Konto E-Mail-Adresse ein.",
       "missing_credentials": "Bitte gib entweder ein Passwort oder einen Token ein.",
       "addon_not_logged_in": "Das Google Home Add-on läuft, es wurde jedoch noch kein Token hinterlegt.",
@@ -88,12 +88,12 @@
       "assistant_sdk_missing": "Die offizielle Google Assistant SDK Integration ist in Home Assistant nicht konfiguriert. Bitte richte zuerst das Google Assistant SDK ein, bevor du diesen Modus aktivierst.",
       "unknown": "Ein unerwarteter Fehler ist aufgetreten. Bitte prüfe die Home Assistant Logs."
     },
-
-
     "abort": {
       "single_instance_allowed": "Es ist nur eine einzige Instanz der Google Home Integration erlaubt.",
       "already_configured": "Google Home ist bereits eingerichtet.",
-      "already_in_progress": "Eine Google Home Einrichtung ist bereits im Gange."
+      "already_in_progress": "Eine Google Home Einrichtung ist bereits im Gange. Bitte zuerst abschließen oder abbrechen.",
+      "cannot_connect": "Verbindung zum Google Home Token Hub Add-on fehlgeschlagen. Bitte sicherstellen, dass das Add-on läuft.",
+      "no_devices_found": "Keine Google Home Geräte im lokalen Netzwerk gefunden."
     }
   },
   "options": {
@@ -110,7 +110,6 @@
           "cloud_update_interval": "Cloud HomeGraph-Abfrageintervall (Sekunden, min. 60s)",
           "master_token": "Master Token (versteckt - neuen aas_et/... oder oauth2_4/... Token einfügen zum Aktualisieren)"
         }
-
       }
     }
   },
@@ -122,7 +121,6 @@
       "alarms": {
         "name": "Nächster Wecker"
       },
-
       "timers": {
         "name": "Nächster Timer"
       },
@@ -142,7 +140,6 @@
       }
     },
     "switch": {
-
       "do_not_disturb": {
         "name": "Nicht stören"
       },
@@ -172,14 +169,13 @@
         "name": "Alle Timer löschen"
       }
     }
-
   },
   "selector": {
     "auth_method": {
       "options": {
         "token": "Token (Master-Token / Web-OAuth-Token) [Empfohlen]",
         "addon": "Google Home Token Hub Add-on (Ingress Hub)",
-        "password": "App-Passwort (E-Mail + App-Passwort)"
+        "app_password": "App-Passwort (E-Mail + App-Passwort)"
       }
     },
     "addon_action": {
@@ -209,40 +205,5 @@
         "assistant_sdk_control": "Steuerungs-Entitäten mit Google Assistant SDK Ausführung (Universelle Sprachbefehl-Weiterleitung via offiziellem Google Assistant SDK)"
       }
     }
-  },
-  "assistant_commands": {
-    "turn_on": "Schalte {device_name} ein",
-    "turn_off": "Schalte {device_name} aus",
-    "set_brightness": "Setze die Helligkeit von {device_name} auf {brightness} Prozent",
-    "set_color": "Stelle die Farbe von {device_name} auf {color}",
-    "set_color_temp": "Stelle die Farbtemperatur von {device_name} auf {kelvin} Kelvin",
-    "turn_on_nightlight": "Schalte das Nachtlicht ein",
-    "turn_on_nightlight_named": "Schalte das Nachtlicht auf {device_name} ein",
-    "turn_off_nightlight": "Schalte das Nachtlicht aus",
-    "turn_off_nightlight_named": "Schalte das Nachtlicht auf {device_name} aus",
-    "set_nightlight": "Setze das Nachtlicht auf {brightness} Prozent",
-    "set_nightlight_named": "Setze das Nachtlicht von {device_name} auf {brightness} Prozent",
-    "set_fan_speed": "Setze die Lüftergeschwindigkeit von {device_name} auf {percentage} Prozent",
-    "turn_on_fan_oscillation": "Schalte die Oszillation für {device_name} ein",
-    "turn_off_fan_oscillation": "Schalte die Oszillation für {device_name} aus",
-    "set_fan_direction": "Setze die Drehrichtung von {device_name} auf {direction}",
-    "set_fan_preset": "Setze {device_name} auf {preset}",
-    "open_cover": "Öffne {device_name}",
-    "close_cover": "Schließe {device_name}",
-    "set_cover_position": "Setze {device_name} Position auf {position} Prozent",
-    "start_vacuum": "Starte {device_name}",
-    "stop_vacuum": "Stoppe {device_name}",
-    "dock_vacuum": "Schicke {device_name} zur Ladestation",
-    "set_temperature": "Setze die Temperatur von {device_name} auf {temperature} Grad",
-    "set_hvac_mode": "Schalte {device_name} in den {mode} Modus",
-    "lock": "Sperre {device_name} zu",
-    "unlock": "Entsperre {device_name}",
-    "set_volume": "Setze die Lautstärke von {device_name} auf {volume} Prozent",
-    "mute": "Schalte {device_name} stumm",
-    "unmute": "Hebe die Stummschaltung für {device_name} auf",
-    "play": "Wiedergabe auf {device_name} fortsetzen",
-    "pause": "Pausiere {device_name}"
   }
 }
-
-

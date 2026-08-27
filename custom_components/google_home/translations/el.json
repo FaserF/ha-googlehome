@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Ρύθμιση Google Home",
-        "description": "Συνδεθείτε με τον λογαριασμό σας Google. Εάν έχετε 2FA, δημιουργήστε έναν κωδικό πρόσβασης εφαρμογής (https://myaccount.google.com/apppasswords).",
+        "description": "Συνδεθείτε με τον λογαριασμό σας Google. Εάν έχετε 2FA, δημιουργήστε έναν κωδικό πρόσβασης εφαρμογής ({app_passwords_url}).",
         "data": {
           "username": "Διεύθυνση Email λογαριασμού Google",
           "password": "Κωδικός πρόσβασης / Κωδικός εφαρμογής",
@@ -13,7 +13,7 @@
     },
     "error": {
       "invalid_master_token": "Το master token δεν είναι έγκυρο ή έχει λήξει.",
-      "two_factor_required": "Απαιτείται κωδικός πρόσβασης εφαρμογής (2FA): https://myaccount.google.com/apppasswords.",
+      "two_factor_required": "Απαιτείται κωδικός πρόσβασης εφαρμογής (2FA): {app_passwords_url}.",
       "invalid_auth": "Μη έγκυρα στοιχεία σύνδεσης.",
       "password_too_long": "Ο κωδικός πρόσβασης υπερβαίνει το μέγιστο όριο χαρακτήρων.",
       "missing_credentials": "Παρακαλώ εισαγάγετε Email και κωδικό πρόσβασης ή Master Token.",

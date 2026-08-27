@@ -116,6 +116,9 @@ class GoogleHomeFlowHandler(AddonFlowMixin, ConfigFlow, domain=DOMAIN):
         _LOGGER.info(
             "Supervisor auto-discovered Google Home Add-on: %s", discovery_info
         )
+        await self.async_set_unique_id(DOMAIN)
+        self._abort_if_unique_id_configured()
+
         self._discovery_source = "hassio"
         host = discovery_info.config.get("host", DEFAULT_ADDON_HOST)
         port = int(discovery_info.config.get("port", DEFAULT_ADDON_PORT))
@@ -123,6 +126,15 @@ class GoogleHomeFlowHandler(AddonFlowMixin, ConfigFlow, domain=DOMAIN):
 
     async def async_step_zeroconf(self, discovery_info: Any) -> ConfigFlowResult:
         """Handle zeroconf discovery of Google Cast / Home devices."""
+        # Ensure only a single discovery flow / card is presented for the domain
+        await self.async_set_unique_id(DOMAIN)
+        self._abort_if_unique_id_configured()
+
+        # Abort if another discovery flow for google_home is already pending
+        for progress in self._async_in_progress(include_uninitialized=True):
+            if progress.get("flow_id") != self.flow_id:
+                return self.async_abort(reason="already_in_progress")
+
         # Extract device friendly name from mDNS properties ('fn') if available
         device_name = "Google Home"
         properties = getattr(discovery_info, "properties", {})
@@ -220,6 +232,9 @@ class GoogleHomeFlowHandler(AddonFlowMixin, ConfigFlow, domain=DOMAIN):
             errors=self._errors,
             description_placeholders={
                 "discovery_intro": discovery_intro,
+                "setup_url": "https://accounts.google.com/EmbeddedSetup",
+                "cookies_url": "https://accounts.google.com",
+                "app_passwords_url": "https://myaccount.google.com/apppasswords",
             },
         )
 
@@ -278,6 +293,11 @@ class GoogleHomeFlowHandler(AddonFlowMixin, ConfigFlow, domain=DOMAIN):
             step_id="token",
             data_schema=data_schema,
             errors=self._errors,
+            description_placeholders={
+                "setup_url": "https://accounts.google.com/EmbeddedSetup",
+                "cookies_url": "https://accounts.google.com",
+                "app_passwords_url": "https://myaccount.google.com/apppasswords",
+            },
         )
 
     async def async_step_mode(
@@ -339,6 +359,11 @@ class GoogleHomeFlowHandler(AddonFlowMixin, ConfigFlow, domain=DOMAIN):
         has_assistant_sdk = self.hass.services.has_service(
             "google_assistant_sdk", "send_text_command"
         )
+        default_third_party_mode = (
+            THIRD_PARTY_MODE_ASSISTANT_SDK
+            if has_assistant_sdk
+            else THIRD_PARTY_MODE_READONLY
+        )
         initial_third_party_options = [
             THIRD_PARTY_MODE_READONLY,
             THIRD_PARTY_MODE_DIRECT_CLOUD,
@@ -355,7 +380,7 @@ class GoogleHomeFlowHandler(AddonFlowMixin, ConfigFlow, domain=DOMAIN):
                 )
             ),
             vol.Required(
-                CONF_THIRD_PARTY_ENTITY_MODE, default=DEFAULT_THIRD_PARTY_ENTITY_MODE
+                CONF_THIRD_PARTY_ENTITY_MODE, default=default_third_party_mode
             ): SelectSelector(
                 SelectSelectorConfig(
                     options=initial_third_party_options,
@@ -446,6 +471,10 @@ class GoogleHomeFlowHandler(AddonFlowMixin, ConfigFlow, domain=DOMAIN):
             step_id="app_password",
             data_schema=data_schema,
             errors=self._errors,
+            description_placeholders={
+                "app_passwords_url": "https://myaccount.google.com/apppasswords",
+                "setup_url": "https://accounts.google.com/EmbeddedSetup",
+            },
         )
 
     @staticmethod
@@ -570,10 +599,18 @@ class GoogleHomeOptionsFlowHandler(OptionsFlow):
                 if ch not in existing_values:
                     homes_options.append(SelectOptionDict(value=ch, label=ch))
 
+        has_assistant_sdk = self.hass.services.has_service(
+            "google_assistant_sdk", "send_text_command"
+        )
+        default_fallback_mode = (
+            THIRD_PARTY_MODE_ASSISTANT_SDK
+            if has_assistant_sdk
+            else THIRD_PARTY_MODE_READONLY
+        )
         current_third_party_mode = self.config_entry.options.get(
             CONF_THIRD_PARTY_ENTITY_MODE,
             self.config_entry.data.get(
-                CONF_THIRD_PARTY_ENTITY_MODE, DEFAULT_THIRD_PARTY_ENTITY_MODE
+                CONF_THIRD_PARTY_ENTITY_MODE, default_fallback_mode
             ),
         )
 

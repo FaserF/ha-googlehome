@@ -33,23 +33,18 @@ Choose the best mode during setup or change it anytime in the Options Flow:
 | **Internet Dependency** | ❌ None (local network) | 🌐 Internet required | 🌐 Internet for cloud sync, local fallback |
 | **Speaker Alarms & Timers** | ✅ Yes (zero latency) | ❌ No | ✅ Yes (zero latency via local API) |
 | **Next Alarm / Timer Timestamps** | ✅ Yes | ❌ No | ✅ Yes |
-| **Speaker Volume & Alarm Volume** | ✅ Yes | ❌ No | ✅ Yes |
+| **Speaker Volume & Alarm Volume** | ✅ Yes (Local & Restored) | ❌ No | ✅ Yes (Local & Restored) |
 | **Do Not Disturb & Night Mode** | ✅ Yes | ❌ No | ✅ Yes |
+| **Smart Clock Nightlight (`light` & Brightness)** | ❌ No | 🗣️ Via [Assistant SDK](https://www.home-assistant.io/integrations/google_assistant_sdk/) | 🗣️ Via [Assistant SDK](https://www.home-assistant.io/integrations/google_assistant_sdk/) |
 | **Reboot Speaker & Diagnostics** | ✅ Yes (IP, Wi-Fi RSSI, Bluetooth) | ❌ No | ✅ Yes |
-| **Lights & Dimmers** (Hue, Tuya, etc.) | ❌ No | ✅ Yes (On/Off, Brightness, Color) | ✅ Yes |
-| **Fans & Air Purifiers** | ❌ No | ✅ Yes (On/Off, Speed %) | ✅ Yes |
-| **Media Players & Smart TVs** | ❌ No | ✅ Yes (State, Play/Pause, Volume) | ✅ Yes |
-| **Thermostats & AC (`climate`)** | ❌ No | ✅ Yes (Temp setpoints, HVAC modes) | ✅ Yes |
-| **Smart Plugs & Switches** | ❌ No | ✅ Yes | ✅ Yes |
-| **Robot Vacuums & Mowers** | ❌ No | ✅ Yes (Start, Stop, Dock) | ✅ Yes |
-| **Smart Locks** | ❌ No | ✅ Yes (Lock/Unlock) | ✅ Yes |
-| **Covers, Blinds & Garage Doors** | ❌ No | ✅ Yes (Open, Close, Position %) | ✅ Yes |
-| **Cameras & Video Doorbells** | ❌ No | ✅ Yes | ✅ Yes |
-| **Security Systems & Alarm Panels** | ❌ No | ✅ Yes (Arm Home/Away, Disarm) | ✅ Yes |
-| **Sensors** (Motion, Presence, Doorbell) | ❌ No | ✅ Yes | ✅ Yes |
+
+| **Cloud Device Live Telemetry & Status Sensors** | ❌ No | ✅ Yes (State, Brightness, Fan Speed %, Covers, etc.) | ✅ Yes |
+| **Cloud Device Control (Lights, Switches, Fans, etc.)** | ❌ No | 🗣️ Via [Assistant SDK](https://www.home-assistant.io/integrations/google_assistant_sdk/) | 🗣️ Via [Assistant SDK](https://www.home-assistant.io/integrations/google_assistant_sdk/) |
 | **Google Routines & Scenes (`scene`)** | ❌ No | ✅ Yes (Trigger any routine/scene) | ✅ Yes |
+| **Household Presence & Attendance Tracker** | ❌ No | ✅ Yes | ✅ Yes |
 | **Multi-Home Structure Filtering** | ❌ No | ✅ Yes | ✅ Yes |
 | **HA-Loop Prevention Filter** | ❌ No | ✅ Yes | ✅ Yes |
+
 
 ---
 
@@ -182,8 +177,10 @@ You can customize your integration settings at any time without reinstalling:
 3. Available options:
    - **Operation Mode**: Switch between *Hybrid (Local & Cloud)*, *Local Only*, or *Cloud Only*.
    - **Third-Party Devices Representation**:
-     - **Read-Only Status Entities & Attributes (Default & Recommended)**: Third-party partner devices (Xiaomi/Tuya/Hue/Smart Life) are represented as clean diagnostic status sensors with live state and attributes, clearly communicating read-only nature without broken control switches.
-     - **Control Entities**: Third-party devices are mapped as native HA control domains (`fan`, `light`, `switch`, `cover`, `vacuum`, `climate`) reflecting live state from Google Cloud (with outbound partner execution restricted by Google Foyer API).
+     - **Read-Only Status Entities & Attributes**: Third-party partner devices (Xiaomi/Tuya/Hue/Smart Life) are represented as clean diagnostic status sensors (`sensor.xxx_status`) with live state, brightness, fan speed, and attributes without duplicate control entities. (Default when Google Assistant SDK is not configured).
+     - **Control Entities with Google Assistant SDK Execution**: Third-party devices are mapped as native HA control domains (`fan`, `light`, `switch`, `cover`, `vacuum`, `climate`) that automatically dispatch voice commands through the official [Google Assistant SDK](https://www.home-assistant.io/integrations/google_assistant_sdk/) while synchronizing live state from Google Cloud. (Automatically preselected when Assistant SDK is installed!).
+     - **Control Entities without Execution**: Exposes native control entities tracking live HomeGraph state without sending outbound voice commands.
+
    - **Google Homes to synchronize**: Select or deselect individual homes/structures.
    - **Ignore devices synced from Home Assistant**: Toggle loop prevention on/off.
    - **Local Speaker Polling Interval**: Adjust local LAN speaker polling frequency (min: 60s, default: 60s / 1 min).

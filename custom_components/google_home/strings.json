@@ -1,205 +1,166 @@
 {
-  "config": {
-    "step": {
-      "user": {
-        "title": "Google Home Setup",
-        "description": "{discovery_intro}Google requires authentication to communicate with your Google Home speakers and HomeGraph devices.\n\n### 🔐 Choose an authentication method:\n- **Token (Master Token / Web OAuth Token)**: 100% reliable, recommended by Google Home community.\n- **Google Home Token Hub Add-on**: Automatic setup via Add-on (auto-detected, edge & stable).\n- **App Password**: Automatic token generation (requires App Password from Google Account).",
-        "data": {
-          "auth_method": "Authentication Method"
-        }
-      },
-      "token": {
-        "title": "Token Authentication",
-        "description": "### 🔑 30-Second Token Guide (Recommended):\n1. Open [accounts.google.com/EmbeddedSetup](https://accounts.google.com/EmbeddedSetup) in your browser and log in with your Google account.\n2. **Important**: The final page will remain on a loading/blank screen (this is normal and indicates the token was created!).\n3. Press **F12** (Developer Tools) -> **Application** (or Storage) -> **Cookies** (https://accounts.google.com).\n4. Copy the value of the **oauth_token** cookie (starts with oauth2_4/...).\n5. Enter your Google Email and paste the token below.\n\n*(If you already have a Master Token aas_et/..., you can also paste it directly below)*.",
-        "data": {
-
-          "username": "Google Account Email",
-          "master_token": "Token (oauth2_4/... or aas_et/...)"
-        }
-      },
-      "mode": {
-        "title": "Integration Mode & Device Filtering",
-        "description": "### ⚙️ Choose how Google Home should integrate with Home Assistant:\n- **Local & Cloud (Hybrid)**: Fast local control for alarms/timers + cloud discovery for all Google Home devices.\n- **Local Only**: Pure local network communication for speakers.\n- **Cloud Only**: Cloud HomeGraph without local speaker polling.",
-        "data": {
-          "operation_mode": "Operation Mode",
-          "third_party_entity_mode": "Third-Party Devices Representation",
-          "selected_homes": "Google Homes to synchronize",
-          "ignore_ha_synced_devices": "Ignore devices already synced from Home Assistant (prevents duplicate entities & automation loops)"
-        }
-      },
-      "addon": {
-        "title": "Connect with Google Home Add-on",
-        "description": "Ensure the **Google Home Token Hub** Add-on is installed and running.",
-        "data": {
-          "addon_host": "Add-on Host",
-          "addon_port": "Add-on Port"
-        }
-      },
-      "addon_login": {
-        "title": "Add-on Login",
-        "description": "{discovery_intro}Enter your Google account email and password (or App Password). The Add-on will automatically authenticate and acquire your Master Token in the background.",
-        "data": {
-          "username": "Google Account Email",
-          "password": "Password / App-Password"
-        }
-      },
-      "addon_existing": {
-        "title": "Existing Master Token Found",
-        "description": "An active Master Token for **{email}** was detected in the Google Home Token Hub Add-on.\n\nWould you like to use this existing token or generate a new one?",
-        "data": {
-          "existing_action": "Action"
-        }
-      },
-      "addon_2fa": {
-        "title": "Google Authentication in Progress",
-        "description": "{two_factor_instruction}",
-        "data": {
-          "two_factor_code": "Verification Code (SMS / Authenticator App)"
-        }
-      },
-      "addon_action": {
-        "title": "Setup Complete - Add-on Status",
-        "description": "✅ **Master Token successfully acquired for {email}!**\n\nThe Google Home integration runs locally/cloud and does not require the Add-on to keep running.\n\nWhat would you like to do with the Add-on?",
-        "data": {
-          "addon_action": "Action for Add-on"
-        }
-      },
-      "app_password": {
-        "title": "App Password Login",
-        "description": "Enter your Google Account Email and a 16-character [Google App Password](https://myaccount.google.com/apppasswords).\n\nThe integration will automatically connect to Google and extract your permanent Master Token in the background.",
-        "data": {
-          "username": "Google Account Email",
-          "password": "16-character App Password"
-        }
-      }
+    "config": {
+        "step": {
+            "user": {
+                "title": "Google Home Setup",
+                "description": "{discovery_intro}Google requires authentication to communicate with your Google Home speakers and HomeGraph devices.\n\n### 🔐 Choose an authentication method:\n- **Token (Master Token / Web OAuth Token)**: 100% reliable, recommended by Google Home community.\n- **Google Home Token Hub Add-on**: Automatic setup via Add-on (auto-detected, edge & stable).\n- **App Password**: Automatic token generation (requires App Password from Google Account).",
+                "data": {"auth_method": "Authentication Method"},
+            },
+            "token": {
+                "title": "Token Authentication",
+                "description": "### 🔑 30-Second Token Guide (Recommended):\n1. Open [{setup_url}]({setup_url}) in your browser and log in with your Google account.\n2. **Important**: The final page will remain on a loading/blank screen (this is normal and indicates the token was created!).\n3. Press **F12** (Developer Tools) -> **Application** (or Storage) -> **Cookies** ({cookies_url}).\n4. Copy the value of the **oauth_token** cookie (starts with oauth2_4/...).\n5. Enter your Google Email and paste the token below.\n\n*(If you already have a Master Token aas_et/..., you can also paste it directly below)*.",
+                "data": {
+                    "username": "Google Account Email",
+                    "master_token": "Token (oauth2_4/... or aas_et/...)",
+                },
+            },
+            "mode": {
+                "title": "Integration Mode & Device Filtering",
+                "description": "### ⚙️ Choose how Google Home should integrate with Home Assistant:\n- **Local & Cloud (Hybrid)**: Fast local control for alarms/timers + cloud discovery for all Google Home devices.\n- **Local Only**: Pure local network communication for speakers.\n- **Cloud Only**: Cloud HomeGraph without local speaker polling.",
+                "data": {
+                    "operation_mode": "Operation Mode",
+                    "third_party_entity_mode": "Third-Party Devices Representation",
+                    "selected_homes": "Google Homes to synchronize",
+                    "ignore_ha_synced_devices": "Ignore devices already synced from Home Assistant (prevents duplicate entities & automation loops)",
+                },
+            },
+            "addon": {
+                "title": "Connect with Google Home Add-on",
+                "description": "Ensure the **Google Home Token Hub** Add-on is installed and running.",
+                "data": {"addon_host": "Add-on Host", "addon_port": "Add-on Port"},
+            },
+            "addon_login": {
+                "title": "Add-on Login",
+                "description": "{discovery_intro}Enter your Google account email and password (or App Password). The Add-on will automatically authenticate and acquire your Master Token in the background.",
+                "data": {
+                    "username": "Google Account Email",
+                    "password": "Password / App-Password",
+                },
+            },
+            "addon_existing": {
+                "title": "Existing Master Token Found",
+                "description": "An active Master Token for **{email}** was detected in the Google Home Token Hub Add-on.\n\nWould you like to use this existing token or generate a new one?",
+                "data": {"existing_action": "Action"},
+            },
+            "addon_2fa": {
+                "title": "Google Authentication in Progress",
+                "description": "{two_factor_instruction}",
+                "data": {
+                    "two_factor_code": "Verification Code (SMS / Authenticator App)"
+                },
+            },
+            "addon_action": {
+                "title": "Setup Complete - Add-on Status",
+                "description": "✅ **Master Token successfully acquired for {email}!**\n\nThe Google Home integration runs locally/cloud and does not require the Add-on to keep running.\n\nWhat would you like to do with the Add-on?",
+                "data": {"addon_action": "Action for Add-on"},
+            },
+            "app_password": {
+                "title": "App Password Login",
+                "description": "Enter your Google Account Email and a 16-character [Google App Password]({app_passwords_url}).\n\nThe integration will automatically connect to Google and extract your permanent Master Token in the background.",
+                "data": {
+                    "username": "Google Account Email",
+                    "password": "16-character App Password",
+                },
+            },
+        },
+        "error": {
+            "invalid_email": "Please enter a valid Google email address (e.g. name@gmail.com).",
+            "invalid_token_format": "Invalid token format. Token must start with 'aas_et/' (Master Token) or 'oauth2_4/' (Web OAuth Token).",
+            "invalid_app_password_format": "Invalid App Password format. Google App Passwords must consist of 16 letters (e.g. abcd efgh ijkl mnop).",
+            "invalid_master_token": "The token provided is invalid or expired. Please generate a fresh token from {setup_url}.",
+            "advanced_protection": "Your Google account has the Advanced Protection Program enabled. Google strictly prohibits App Passwords for this account. Please use the Token method instead.",
+            "two_factor_required": "Google rejected password login (BadAuthentication / 2FA). Please enter an App Password at {app_passwords_url} or provide a web OAuth token.",
+            "missing_email_for_oauth": "Please enter your Google Account Email above.",
+            "missing_credentials": "Please enter either a password or a token.",
+            "addon_not_logged_in": "The Google Home Add-on is running, but no token has been entered yet.",
+            "cannot_connect_addon": "Could not connect to Google Home Add-on. Make sure it is installed and running.",
+            "invalid_auth": "Invalid email address or credentials. Please verify your data.",
+            "password_too_long": "Password exceeds maximum length (100 characters).",
+            "assistant_sdk_missing": "The official Google Assistant SDK integration is not installed or configured in Home Assistant. Please set up the Google Assistant SDK integration before enabling Assistant SDK control mode.",
+            "unknown": "An unexpected error occurred. Please check Home Assistant logs.",
+        },
+        "abort": {
+            "single_instance_allowed": "Only a single Google Home integration instance is allowed.",
+            "already_configured": "Google Home is already configured.",
+            "already_in_progress": "A Google Home setup is already in progress. Please complete or cancel it first.",
+            "cannot_connect": "Cannot connect to the Google Home Token Hub Add-on. Make sure the Add-on is running.",
+            "no_devices_found": "No Google Home devices found on the local network.",
+        },
     },
-    "error": {
-      "invalid_email": "Please enter a valid Google email address (e.g. name@gmail.com).",
-      "invalid_token_format": "Invalid token format. Token must start with 'aas_et/' (Master Token) or 'oauth2_4/' (Web OAuth Token).",
-      "invalid_app_password_format": "Invalid App Password format. Google App Passwords must consist of 16 letters (e.g. abcd efgh ijkl mnop).",
-      "invalid_master_token": "The token provided is invalid or expired. Please generate a fresh token from https://accounts.google.com/EmbeddedSetup.",
-      "advanced_protection": "Your Google account has the Advanced Protection Program enabled. Google strictly prohibits App Passwords for this account. Please use the Token method instead.",
-      "two_factor_required": "Google rejected password login (BadAuthentication / 2FA). Please enter an App Password at https://myaccount.google.com/apppasswords or provide a web OAuth token.",
-      "missing_email_for_oauth": "Please enter your Google Account Email above.",
-      "missing_credentials": "Please enter either a password or a token.",
-      "addon_not_logged_in": "The Google Home Add-on is running, but no token has been entered yet.",
-      "cannot_connect_addon": "Could not connect to Google Home Add-on. Make sure it is installed and running.",
-      "invalid_auth": "Invalid email address or credentials. Please verify your data.",
-      "password_too_long": "Password exceeds maximum length (100 characters).",
-      "assistant_sdk_missing": "The official Google Assistant SDK integration is not installed or configured in Home Assistant. Please set up the Google Assistant SDK integration before enabling Assistant SDK control mode.",
-      "unknown": "An unexpected error occurred. Please check Home Assistant logs."
-    },
-
-
-    "abort": {
-      "single_instance_allowed": "Only a single Google Home integration instance is allowed.",
-      "already_configured": "Google Home is already configured.",
-      "already_in_progress": "A Google Home setup is already in progress."
-    }
-  },
-  "options": {
-    "step": {
-      "init": {
-        "title": "Google Home Options",
-        "description": "Configure operation mode, Home Assistant device filtering, polling interval, and view/update your Master Token.",
-        "data": {
-          "operation_mode": "Operation Mode",
-          "third_party_entity_mode": "Third-Party Devices Representation",
-          "selected_homes": "Google Homes to synchronize",
-          "ignore_ha_synced_devices": "Ignore devices synced from Home Assistant",
-          "local_update_interval": "Local Speaker Polling Interval (seconds, min 60s)",
-          "cloud_update_interval": "Cloud HomeGraph Polling Interval (seconds, min 60s)",
-          "master_token": "Master Token (hidden - paste new aas_et/... or oauth2_4/... token to update)"
+    "options": {
+        "step": {
+            "init": {
+                "title": "Google Home Options",
+                "description": "Configure operation mode, Home Assistant device filtering, polling interval, and view/update your Master Token.",
+                "data": {
+                    "operation_mode": "Operation Mode",
+                    "third_party_entity_mode": "Third-Party Devices Representation",
+                    "selected_homes": "Google Homes to synchronize",
+                    "ignore_ha_synced_devices": "Ignore devices synced from Home Assistant",
+                    "local_update_interval": "Local Speaker Polling Interval (seconds, min 60s)",
+                    "cloud_update_interval": "Cloud HomeGraph Polling Interval (seconds, min 60s)",
+                    "master_token": "Master Token (hidden - paste new aas_et/... or oauth2_4/... token to update)",
+                },
+            }
         }
-
-      }
-    }
-  },
-  "entity": {
-    "sensor": {
-      "device": {
-        "name": "Device IP"
-      },
-      "alarms": {
-        "name": "Next Alarm"
-      },
-      "timers": {
-        "name": "Next Timer"
-      },
-      "wifi": {
-        "name": "Wi-Fi Network"
-      },
-      "bluetooth": {
-        "name": "Bluetooth MAC"
-      }
     },
-    "switch": {
-      "do_not_disturb": {
-        "name": "Do Not Disturb"
-      },
-      "night_mode": {
-        "name": "Night Mode"
-      }
+    "entity": {
+        "sensor": {
+            "device": {"name": "Device IP"},
+            "alarms": {"name": "Next Alarm"},
+            "timers": {"name": "Next Timer"},
+            "wifi": {"name": "Wi-Fi Network"},
+            "bluetooth": {"name": "Bluetooth MAC"},
+        },
+        "switch": {
+            "do_not_disturb": {"name": "Do Not Disturb"},
+            "night_mode": {"name": "Night Mode"},
+        },
+        "number": {
+            "alarm_volume": {"name": "Alarm Volume"},
+            "volume": {"name": "Speaker Volume"},
+        },
+        "button": {
+            "reboot": {"name": "Reboot"},
+            "refresh": {"name": "Refresh"},
+            "delete_all_alarms": {"name": "Delete All Alarms"},
+            "delete_all_timers": {"name": "Delete All Timers"},
+        },
     },
-    "number": {
-      "alarm_volume": {
-        "name": "Alarm Volume"
-      },
-      "volume": {
-        "name": "Speaker Volume"
-      }
+    "selector": {
+        "auth_method": {
+            "options": {
+                "token": "Token (Master Token / Web OAuth Token) [Recommended]",
+                "addon": "Google Home Token Hub Add-on (Ingress Hub)",
+                "app_password": "App Password (Username + App Password)",
+            }
+        },
+        "addon_action": {
+            "options": {
+                "stop": "Stop Add-on (Recommended - saves RAM/CPU, token is saved)",
+                "uninstall": "Uninstall Add-on (No longer needed)",
+                "keep_running": "Keep Add-on running",
+            }
+        },
+        "existing_action": {
+            "options": {
+                "use_existing": "Use existing Master Token (Recommended)",
+                "generate_new": "Generate new Master Token / Login with different account",
+            }
+        },
+        "operation_mode": {
+            "options": {
+                "hybrid": "Local & Cloud (Recommended - Fast speaker timers + all Google Home devices)",
+                "local": "Local Only (100% LAN - timers, alarms, DND, volume)",
+                "cloud": "Cloud Only (Google Home Web / HomeGraph)",
+            }
+        },
+        "third_party_entity_mode": {
+            "options": {
+                "readonly_sensors": "Read-Only Sensors (Default - Live telemetry without duplicate control entities)",
+                "control_entities": "Control Entities without Execution (Light/Fan/Switch/Nightlight entities, direct cloud sync)",
+                "assistant_sdk_control": "Control Entities with Google Assistant SDK Execution (Universal text command forwarding via official Google Assistant SDK)",
+            }
+        },
     },
-    "button": {
-      "reboot": {
-        "name": "Reboot"
-      },
-      "refresh": {
-        "name": "Refresh"
-      },
-      "delete_all_alarms": {
-        "name": "Delete All Alarms"
-      },
-      "delete_all_timers": {
-        "name": "Delete All Timers"
-      }
-    }
-
-  },
-  "selector": {
-    "auth_method": {
-      "options": {
-        "token": "Token (Master Token / Web OAuth Token) [Recommended]",
-        "addon": "Google Home Token Hub Add-on (Ingress Hub)",
-        "password": "App Password (Username + App Password)"
-      }
-    },
-    "addon_action": {
-      "options": {
-        "stop": "Stop Add-on (Recommended - saves RAM/CPU, token is saved)",
-        "uninstall": "Uninstall Add-on (No longer needed)",
-        "keep_running": "Keep Add-on running"
-      }
-    },
-    "existing_action": {
-      "options": {
-        "use_existing": "Use existing Master Token (Recommended)",
-        "generate_new": "Generate new Master Token / Login with different account"
-      }
-    },
-    "operation_mode": {
-      "options": {
-        "hybrid": "Local & Cloud (Recommended - Fast speaker timers + all Google Home devices)",
-        "local": "Local Only (100% LAN - timers, alarms, DND, volume)",
-        "cloud": "Cloud Only (Google Home Web / HomeGraph)"
-      }
-    },
-    "third_party_entity_mode": {
-      "options": {
-        "readonly_sensors": "Read-Only Sensors (Default - Live telemetry without duplicate control entities)",
-        "control_entities": "Control Entities without Execution (Light/Fan/Switch/Nightlight entities, direct cloud sync)",
-        "assistant_sdk_control": "Control Entities with Google Assistant SDK Execution (Universal text command forwarding via official Google Assistant SDK)"
-      }
-    }
-  }
 }
-

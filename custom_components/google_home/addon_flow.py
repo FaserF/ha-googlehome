@@ -169,6 +169,8 @@ class AddonFlowMixin:
             errors=self._errors,
             description_placeholders={
                 "discovery_intro": discovery_intro,
+                "setup_url": "https://accounts.google.com/EmbeddedSetup",
+                "app_passwords_url": "https://myaccount.google.com/apppasswords",
             },
         )
 
@@ -214,16 +216,29 @@ class AddonFlowMixin:
                     self._errors["base"] = "invalid_auth"
                     break
 
+        # Poll and wait up to 45 seconds while the add-on is performing automatic steps
+        # (navigating, filling email, filling password, exchanging token).
+        # Only stop waiting if:
+        # 1. Login succeeded with master token
+        # 2. An error occurred
+        # 3. 2FA interaction is actually required from the user
         if user_input is None:
-            for _ in range(20):
+            for _ in range(45):  # up to 45s (0.5s interval)
                 data = await get_status()
                 step = data.get("step", "starting")
+
                 if data.get("is_logged_in") and data.get("master_token"):
                     self._master_token = data["master_token"]
                     return await self.async_step_addon_action()
-                if step not in ("starting", ""):
+
+                if data.get("error"):
                     break
-                await asyncio.sleep(0.5)
+
+                # Stop waiting and show form immediately if user input/interaction is needed
+                if step.startswith("2fa"):
+                    break
+
+                await asyncio.sleep(1.0)
 
         data = await get_status()
         if data.get("is_logged_in") and data.get("master_token"):

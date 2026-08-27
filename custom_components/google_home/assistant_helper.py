@@ -15,24 +15,23 @@ _TRANSLATIONS_CACHE: dict[str, dict[str, str]] = {}
 
 
 def _load_translations(lang: str) -> dict[str, str]:
-    """Load assistant_commands from de.json or en.json with cache."""
+    """Load assistant commands from assistant_commands/{lang}.json with cache."""
     if lang in _TRANSLATIONS_CACHE:
         return _TRANSLATIONS_CACHE[lang]
 
-    translations_dir = Path(__file__).parent / "translations"
-    file_path = translations_dir / f"{lang}.json"
+    commands_dir = Path(__file__).parent / "assistant_commands"
+    file_path = commands_dir / f"{lang}.json"
 
     if not file_path.exists():
-        file_path = translations_dir / "en.json"
+        file_path = commands_dir / "en.json"
 
     commands: dict[str, str] = {}
     try:
         if file_path.exists():
             with open(file_path, encoding="utf-8") as f:
-                data = json.load(f)
-                commands = data.get("assistant_commands", {})
+                commands = json.load(f)
     except Exception as err:
-        _LOGGER.warning("Could not load translation file %s: %s", file_path, err)
+        _LOGGER.warning("Could not load assistant commands file %s: %s", file_path, err)
 
     _TRANSLATIONS_CACHE[lang] = commands
     return commands

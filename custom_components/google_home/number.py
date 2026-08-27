@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from homeassistant.components.number import NumberEntity, NumberMode
+from homeassistant.components.number import NumberMode, RestoreNumber
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -12,6 +12,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .assistant_helper import format_command
 from .const import (
     CONF_THIRD_PARTY_ENTITY_MODE,
+    DATA_CLOUD_COORDINATOR,
     DATA_COORDINATOR,
     DEFAULT_THIRD_PARTY_ENTITY_MODE,
     DOMAIN,
@@ -82,7 +83,7 @@ async def async_setup_entry(
     return True
 
 
-class GoogleHomeAlarmVolumeNumber(GoogleHomeBaseEntity, NumberEntity):
+class GoogleHomeAlarmVolumeNumber(GoogleHomeBaseEntity, RestoreNumber):
     """Google Home Alarm Volume slider entity."""
 
     _attr_mode = NumberMode.SLIDER
@@ -90,6 +91,32 @@ class GoogleHomeAlarmVolumeNumber(GoogleHomeBaseEntity, NumberEntity):
     _attr_native_max_value = 100.0
     _attr_native_step = 1.0
     _attr_native_unit_of_measurement = "%"
+
+    def __init__(
+        self,
+        coordinator: GoogleHomeDataUpdateCoordinator,
+        device_id: str,
+        device_name: str,
+    ) -> None:
+        """Initialize."""
+        super().__init__(coordinator, device_id, device_name)
+        self._restored_value: float | None = None
+
+    async def async_added_to_hass(self) -> None:
+        """Handle entity which will be added to Home Assistant."""
+        await super().async_added_to_hass()
+        last_state = await self.async_get_last_state()
+        if last_state is not None and last_state.state not in (
+            "unknown",
+            "unavailable",
+        ):
+            try:
+                self._restored_value = float(last_state.state)
+                device = self.get_device()
+                if device and device.get_alarm_volume() is None:
+                    device.set_alarm_volume(self._restored_value)
+            except (ValueError, TypeError):
+                pass
 
     @property
     def label(self) -> str:
@@ -113,15 +140,39 @@ class GoogleHomeAlarmVolumeNumber(GoogleHomeBaseEntity, NumberEntity):
         """Return current alarm volume percentage (0-100)."""
         device = self.get_device()
         if not device:
-            return None
+            return self._restored_value
+
         vol = device.get_alarm_volume()
         if vol is not None:
             return vol
-        # Fallback to general device volume if alarm volume not polled yet
+
         dev_vol = device.get_device_volume()
         if dev_vol is not None:
             return dev_vol
-        return 50.0
+
+        # Check corresponding CloudHomeDevice in cloud coordinator if available
+        entry_data = self.hass.data.get(DOMAIN, {}).get(
+            getattr(self.coordinator.config_entry, "entry_id", ""), {}
+        )
+        cloud_coord = entry_data.get(DATA_CLOUD_COORDINATOR)
+        if cloud_coord and cloud_coord.data:
+            for cdev in cloud_coord.data:
+                if (
+                    cdev.device_id == self.device_id
+                    or cdev.name.lower() == self.device_name.lower()
+                ):
+                    cloud_v = cdev.state.get("currentVolume", cdev.state.get("volume"))
+                    if cloud_v is not None:
+                        try:
+                            cfv = float(cloud_v)
+                            return cfv if cfv > 1.0 else cfv * 100
+                        except (ValueError, TypeError):
+                            pass
+
+        if self._restored_value is not None:
+            return self._restored_value
+
+        return None
 
     async def async_set_native_value(self, value: float) -> None:
         """Set alarm volume percentage on the device."""
@@ -131,12 +182,13 @@ class GoogleHomeAlarmVolumeNumber(GoogleHomeBaseEntity, NumberEntity):
             return
 
         vol_int = int(round(value))
+        self._restored_value = float(vol_int)
         device.set_alarm_volume(vol_int)
         await self.client.update_alarm_volume(device=device, volume=vol_int)
         self.async_write_ha_state()
 
 
-class GoogleHomeDeviceVolumeNumber(GoogleHomeBaseEntity, NumberEntity):
+class GoogleHomeDeviceVolumeNumber(GoogleHomeBaseEntity, RestoreNumber):
     """Google Home Media/Speaker Volume slider entity."""
 
     _attr_mode = NumberMode.SLIDER
@@ -144,6 +196,32 @@ class GoogleHomeDeviceVolumeNumber(GoogleHomeBaseEntity, NumberEntity):
     _attr_native_max_value = 100.0
     _attr_native_step = 1.0
     _attr_native_unit_of_measurement = "%"
+
+    def __init__(
+        self,
+        coordinator: GoogleHomeDataUpdateCoordinator,
+        device_id: str,
+        device_name: str,
+    ) -> None:
+        """Initialize."""
+        super().__init__(coordinator, device_id, device_name)
+        self._restored_value: float | None = None
+
+    async def async_added_to_hass(self) -> None:
+        """Handle entity which will be added to Home Assistant."""
+        await super().async_added_to_hass()
+        last_state = await self.async_get_last_state()
+        if last_state is not None and last_state.state not in (
+            "unknown",
+            "unavailable",
+        ):
+            try:
+                self._restored_value = float(last_state.state)
+                device = self.get_device()
+                if device and device.get_device_volume() is None:
+                    device.set_device_volume(self._restored_value)
+            except (ValueError, TypeError):
+                pass
 
     @property
     def label(self) -> str:
@@ -167,14 +245,39 @@ class GoogleHomeDeviceVolumeNumber(GoogleHomeBaseEntity, NumberEntity):
         """Return current media volume percentage (0-100)."""
         device = self.get_device()
         if not device:
-            return None
+            return self._restored_value
+
         vol = device.get_device_volume()
         if vol is not None:
             return vol
+
         alarm_vol = device.get_alarm_volume()
         if alarm_vol is not None:
             return alarm_vol
-        return 50.0
+
+        # Check corresponding CloudHomeDevice in cloud coordinator if available
+        entry_data = self.hass.data.get(DOMAIN, {}).get(
+            getattr(self.coordinator.config_entry, "entry_id", ""), {}
+        )
+        cloud_coord = entry_data.get(DATA_CLOUD_COORDINATOR)
+        if cloud_coord and cloud_coord.data:
+            for cdev in cloud_coord.data:
+                if (
+                    cdev.device_id == self.device_id
+                    or cdev.name.lower() == self.device_name.lower()
+                ):
+                    cloud_v = cdev.state.get("currentVolume", cdev.state.get("volume"))
+                    if cloud_v is not None:
+                        try:
+                            cfv = float(cloud_v)
+                            return cfv if cfv > 1.0 else cfv * 100
+                        except (ValueError, TypeError):
+                            pass
+
+        if self._restored_value is not None:
+            return self._restored_value
+
+        return None
 
     async def async_set_native_value(self, value: float) -> None:
         """Set media/speaker volume percentage on the device."""
