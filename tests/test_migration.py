@@ -6,6 +6,7 @@ import pytest
 
 from custom_components.google_home import async_migrate_entry
 from custom_components.google_home.const import (
+    AUTH_METHOD_APP_PASSWORD,
     AUTH_METHOD_TOKEN,
     CONF_ANDROID_ID,
     CONF_AUTH_METHOD,
@@ -81,7 +82,7 @@ async def test_migration_from_leikoilja_without_master_token():
     assert kwargs["unique_id"] == "user@domain.com"
 
     migrated_data = kwargs["data"]
-    assert migrated_data[CONF_AUTH_METHOD] == AUTH_METHOD_TOKEN
+    assert migrated_data[CONF_AUTH_METHOD] == AUTH_METHOD_APP_PASSWORD
     assert migrated_data[CONF_USERNAME] == "user@domain.com"
     assert migrated_data[CONF_PASSWORD] == "my_password"
     assert migrated_data[CONF_LOCAL_UPDATE_INTERVAL] == 120
