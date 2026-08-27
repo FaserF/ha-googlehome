@@ -147,6 +147,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             _LOGGER.warning("Initial cloud refresh warning: %s", err)
 
         entry_data[DATA_CLOUD_CLIENT] = cloud_client
+        entry_data[DATA_CLOUD_COORDINATOR] = cloud_coordinator
     # 0. Migrate legacy leikoilja entity unique_ids before setting up platforms
     # This ensures new platform entities match the existing registry entries and keep entity_ids & names
     ent_reg = er.async_get(hass)
