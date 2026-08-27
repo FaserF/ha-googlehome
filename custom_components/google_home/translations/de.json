@@ -85,8 +85,11 @@
       "cannot_connect_addon": "Verbindung zum Google Home Add-on fehlgeschlagen. Bitte stelle sicher, dass das Add-on läuft.",
       "invalid_auth": "Ungültige E-Mail-Adresse oder Zugangsdaten. Bitte überprüfe deine Eingabe.",
       "password_too_long": "Das Passwort ist zu lang (maximal 100 Zeichen).",
+      "assistant_sdk_missing": "Die offizielle Google Assistant SDK Integration ist in Home Assistant nicht konfiguriert. Bitte richte zuerst das Google Assistant SDK ein, bevor du diesen Modus aktivierst.",
       "unknown": "Ein unerwarteter Fehler ist aufgetreten. Bitte prüfe die Home Assistant Logs."
     },
+
+
     "abort": {
       "single_instance_allowed": "Es ist nur eine einzige Instanz der Google Home Integration erlaubt.",
       "already_configured": "Google Home ist bereits eingerichtet.",
@@ -191,9 +194,45 @@
     },
     "third_party_entity_mode": {
       "options": {
-        "readonly_sensors": "Reine Status-Entitäten & Attribute (Standard & Empfohlen)",
-        "control_entities": "Steuerungs-Entitäten (Ventilator/Licht/Schalter/etc. - Live-Statusanzeige, Befehlsausführung durch Google Cloud beschränkt)"
+        "readonly_sensors": "Nur-Lese-Sensoren (Standard - Live-Statusanzeige ohne doppelte Steuerungs-Entitäten)",
+        "control_entities": "Steuerungs-Entitäten ohne Ausführung (Licht/Ventilator/Nachtlicht-Entitäten, direkter Cloud-Sync)",
+        "assistant_sdk_control": "Steuerungs-Entitäten mit Google Assistant SDK Ausführung (Universelle Sprachbefehl-Weiterleitung via offiziellem Google Assistant SDK)"
       }
     }
+  },
+  "assistant_commands": {
+    "turn_on": "Schalte {device_name} ein",
+    "turn_off": "Schalte {device_name} aus",
+    "set_brightness": "Setze die Helligkeit von {device_name} auf {brightness} Prozent",
+    "set_color": "Stelle die Farbe von {device_name} auf {color}",
+    "set_color_temp": "Stelle die Farbtemperatur von {device_name} auf {kelvin} Kelvin",
+    "turn_on_nightlight": "Schalte das Nachtlicht ein",
+    "turn_on_nightlight_named": "Schalte das Nachtlicht auf {device_name} ein",
+    "turn_off_nightlight": "Schalte das Nachtlicht aus",
+    "turn_off_nightlight_named": "Schalte das Nachtlicht auf {device_name} aus",
+    "set_nightlight": "Setze das Nachtlicht auf {brightness} Prozent",
+    "set_nightlight_named": "Setze das Nachtlicht von {device_name} auf {brightness} Prozent",
+    "set_fan_speed": "Setze die Lüftergeschwindigkeit von {device_name} auf {percentage} Prozent",
+    "turn_on_fan_oscillation": "Schalte die Oszillation für {device_name} ein",
+    "turn_off_fan_oscillation": "Schalte die Oszillation für {device_name} aus",
+    "set_fan_direction": "Setze die Drehrichtung von {device_name} auf {direction}",
+    "set_fan_preset": "Setze {device_name} auf {preset}",
+    "open_cover": "Öffne {device_name}",
+    "close_cover": "Schließe {device_name}",
+    "set_cover_position": "Setze {device_name} Position auf {position} Prozent",
+    "start_vacuum": "Starte {device_name}",
+    "stop_vacuum": "Stoppe {device_name}",
+    "dock_vacuum": "Schicke {device_name} zur Ladestation",
+    "set_temperature": "Setze die Temperatur von {device_name} auf {temperature} Grad",
+    "set_hvac_mode": "Schalte {device_name} in den {mode} Modus",
+    "lock": "Sperre {device_name} zu",
+    "unlock": "Entsperre {device_name}",
+    "set_volume": "Setze die Lautstärke von {device_name} auf {volume} Prozent",
+    "mute": "Schalte {device_name} stumm",
+    "unmute": "Hebe die Stummschaltung für {device_name} auf",
+    "play": "Wiedergabe auf {device_name} fortsetzen",
+    "pause": "Pausiere {device_name}"
   }
 }
+
+

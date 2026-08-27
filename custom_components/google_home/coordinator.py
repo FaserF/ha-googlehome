@@ -29,6 +29,7 @@ class GoogleHomeDataUpdateCoordinator(DataUpdateCoordinator[list[GoogleHomeDevic
     ) -> None:
         """Initialize."""
         self.client = client
+        self._device_cache: dict[str, GoogleHomeDevice] = {}
         self._previous_active_timers: dict[str, set[str]] = {}
         self._previous_active_alarms: dict[str, set[str]] = {}
         super().__init__(
@@ -42,6 +43,9 @@ class GoogleHomeDataUpdateCoordinator(DataUpdateCoordinator[list[GoogleHomeDevic
         """Update data via client and fire events for finished timers / triggered alarms."""
         try:
             devices = await self.client.update_google_devices_information()
+            if devices:
+                for dev in devices:
+                    self._device_cache[dev.device_id] = dev
             self._check_and_fire_events(devices)
             return devices
         except Exception as err:
@@ -97,9 +101,8 @@ class GoogleHomeDataUpdateCoordinator(DataUpdateCoordinator[list[GoogleHomeDevic
 
     def get_device(self, device_id: str) -> GoogleHomeDevice | None:
         """Get device by ID from latest coordinator data."""
-        if not self.data:
-            return None
-        for device in self.data:
-            if device.device_id == device_id:
-                return device
-        return None
+        if self.data:
+            for device in self.data:
+                if device.device_id == device_id:
+                    return device
+        return self._device_cache.get(device_id)

@@ -60,8 +60,10 @@ CONF_SELECTED_HOMES: Final = "selected_homes"
 
 CONF_THIRD_PARTY_ENTITY_MODE: Final = "third_party_entity_mode"
 THIRD_PARTY_MODE_READONLY: Final = "readonly_sensors"
-THIRD_PARTY_MODE_CONTROL: Final = "control_entities"
+THIRD_PARTY_MODE_DIRECT_CLOUD: Final = "control_entities"
+THIRD_PARTY_MODE_ASSISTANT_SDK: Final = "assistant_sdk_control"
 DEFAULT_THIRD_PARTY_ENTITY_MODE: Final = THIRD_PARTY_MODE_READONLY
+
 
 DATA_CLIENT: Final = "client"
 DATA_COORDINATOR: Final = "coordinator"

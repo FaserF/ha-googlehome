@@ -17,6 +17,7 @@ from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
+from .assistant_helper import format_command
 from .cloud_coordinator import GoogleHomeCloudDataUpdateCoordinator
 from .cloud_models import CloudHomeDevice
 from .const import (
@@ -25,6 +26,8 @@ from .const import (
     DEFAULT_THIRD_PARTY_ENTITY_MODE,
     DOMAIN,
     MANUFACTURER,
+    THIRD_PARTY_MODE_ASSISTANT_SDK,
+    THIRD_PARTY_MODE_DIRECT_CLOUD,
     THIRD_PARTY_MODE_READONLY,
 )
 
@@ -186,23 +189,80 @@ class GoogleHomeCloudClimate(
             configuration_url="https://home.google.com/",
         )
 
+    async def _async_send_assistant_command(self, command: str) -> None:
+        """Forward command via Google Assistant SDK if installed and available."""
+        if self.hass.services.has_service("google_assistant_sdk", "send_text_command"):
+            try:
+                _LOGGER.debug("Sending Assistant SDK climate command: %s", command)
+                await self.hass.services.async_call(
+                    "google_assistant_sdk",
+                    "send_text_command",
+                    {"command": command},
+                    blocking=False,
+                )
+            except Exception as ex:
+                _LOGGER.warning("Error invoking google_assistant_sdk: %s", ex)
+
     async def async_set_temperature(self, **kwargs: Any) -> None:
         """Set new target temperature."""
         temp = kwargs.get("temperature")
         if temp is None:
             return
-        await self.coordinator.client.async_execute_command(
-            device_id=self.device_id,
-            command="action.devices.commands.ThermostatTemperatureSetpoint",
-            params={"thermostatTemperatureSetpoint": temp},
-        )
-        await self.coordinator.async_request_refresh()
+
+        device = self.get_device()
+        if device:
+            device.state["thermostatTemperatureSetpoint"] = temp
+
+        config_entry = getattr(self.coordinator, "config_entry", None)
+        third_party_mode = DEFAULT_THIRD_PARTY_ENTITY_MODE
+        if config_entry:
+            third_party_mode = config_entry.options.get(
+                CONF_THIRD_PARTY_ENTITY_MODE,
+                config_entry.data.get(
+                    CONF_THIRD_PARTY_ENTITY_MODE, DEFAULT_THIRD_PARTY_ENTITY_MODE
+                ),
+            )
+
+        if third_party_mode == THIRD_PARTY_MODE_ASSISTANT_SDK and device:
+            await self._async_send_assistant_command(
+                format_command(
+                    self.hass, "set_temperature", device.name, temperature=temp
+                )
+            )
+        elif third_party_mode == THIRD_PARTY_MODE_DIRECT_CLOUD and device:
+            await self.coordinator.client.async_execute_command(
+                device_id=self.device_id,
+                command="action.devices.commands.ThermostatTemperatureSetpoint",
+                params={"thermostatTemperatureSetpoint": temp},
+            )
+        self.async_write_ha_state()
 
     async def async_set_hvac_mode(self, hvac_mode: HVACMode) -> None:
         """Set HVAC mode."""
-        await self.coordinator.client.async_execute_command(
-            device_id=self.device_id,
-            command="action.devices.commands.ThermostatSetMode",
-            params={"thermostatMode": str(hvac_mode).split(".")[-1]},
-        )
-        await self.coordinator.async_request_refresh()
+        mode_str = str(hvac_mode).split(".")[-1]
+        device = self.get_device()
+        if device:
+            device.state["thermostatMode"] = mode_str
+
+        config_entry = getattr(self.coordinator, "config_entry", None)
+        third_party_mode = DEFAULT_THIRD_PARTY_ENTITY_MODE
+        if config_entry:
+            third_party_mode = config_entry.options.get(
+                CONF_THIRD_PARTY_ENTITY_MODE,
+                config_entry.data.get(
+                    CONF_THIRD_PARTY_ENTITY_MODE, DEFAULT_THIRD_PARTY_ENTITY_MODE
+                ),
+            )
+
+        if third_party_mode == THIRD_PARTY_MODE_ASSISTANT_SDK and device:
+            await self._async_send_assistant_command(
+                format_command(self.hass, "set_hvac_mode", device.name, mode=mode_str)
+            )
+
+        elif third_party_mode == THIRD_PARTY_MODE_DIRECT_CLOUD and device:
+            await self.coordinator.client.async_execute_command(
+                device_id=self.device_id,
+                command="action.devices.commands.ThermostatSetMode",
+                params={"thermostatMode": mode_str},
+            )
+        self.async_write_ha_state()

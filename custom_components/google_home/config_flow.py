@@ -64,7 +64,8 @@ from .const import (
     MODE_CLOUD,
     MODE_HYBRID,
     MODE_LOCAL,
-    THIRD_PARTY_MODE_CONTROL,
+    THIRD_PARTY_MODE_ASSISTANT_SDK,
+    THIRD_PARTY_MODE_DIRECT_CLOUD,
     THIRD_PARTY_MODE_READONLY,
 )
 from .exceptions import (
@@ -335,6 +336,16 @@ class GoogleHomeFlowHandler(AddonFlowMixin, ConfigFlow, domain=DOMAIN):
             except Exception as err:
                 _LOGGER.debug("Could not query homes during config flow: %s", err)
 
+        has_assistant_sdk = self.hass.services.has_service(
+            "google_assistant_sdk", "send_text_command"
+        )
+        initial_third_party_options = [
+            THIRD_PARTY_MODE_READONLY,
+            THIRD_PARTY_MODE_DIRECT_CLOUD,
+        ]
+        if has_assistant_sdk:
+            initial_third_party_options.append(THIRD_PARTY_MODE_ASSISTANT_SDK)
+
         schema_dict: dict[Any, Any] = {
             vol.Required(CONF_OPERATION_MODE, default=MODE_HYBRID): SelectSelector(
                 SelectSelectorConfig(
@@ -347,10 +358,7 @@ class GoogleHomeFlowHandler(AddonFlowMixin, ConfigFlow, domain=DOMAIN):
                 CONF_THIRD_PARTY_ENTITY_MODE, default=DEFAULT_THIRD_PARTY_ENTITY_MODE
             ): SelectSelector(
                 SelectSelectorConfig(
-                    options=[
-                        THIRD_PARTY_MODE_READONLY,
-                        THIRD_PARTY_MODE_CONTROL,
-                    ],
+                    options=initial_third_party_options,
                     translation_key="third_party_entity_mode",
                     mode=SelectSelectorMode.DROPDOWN,
                 )
@@ -457,6 +465,16 @@ class GoogleHomeOptionsFlowHandler(OptionsFlow):
         errors: dict[str, str] = {}
 
         if user_input is not None:
+            selected_third_party_mode = user_input.get(
+                CONF_THIRD_PARTY_ENTITY_MODE, DEFAULT_THIRD_PARTY_ENTITY_MODE
+            )
+            if selected_third_party_mode == THIRD_PARTY_MODE_ASSISTANT_SDK:
+                has_assistant_sdk = self.hass.services.has_service(
+                    "google_assistant_sdk", "send_text_command"
+                )
+                if not has_assistant_sdk:
+                    errors["base"] = "assistant_sdk_missing"
+
             new_token = user_input.get(CONF_MASTER_TOKEN, "").strip()
             username = self.config_entry.data.get(CONF_USERNAME, "")
             session = async_get_clientsession(self.hass)
@@ -559,6 +577,21 @@ class GoogleHomeOptionsFlowHandler(OptionsFlow):
             ),
         )
 
+        third_party_mode_options = [
+            SelectOptionDict(
+                value=THIRD_PARTY_MODE_READONLY,
+                label="Read-Only Sensors (Default - Live telemetry without duplicate control entities)",
+            ),
+            SelectOptionDict(
+                value=THIRD_PARTY_MODE_DIRECT_CLOUD,
+                label="Control Entities without Execution (Light/Fan/Switch/Nightlight entities, direct cloud sync)",
+            ),
+            SelectOptionDict(
+                value=THIRD_PARTY_MODE_ASSISTANT_SDK,
+                label="Control Entities with Google Assistant SDK Execution (Universal text command forwarding via official Google Assistant SDK)",
+            ),
+        ]
+
         schema_dict: dict[Any, Any] = {
             vol.Required(CONF_OPERATION_MODE, default=current_mode): SelectSelector(
                 SelectSelectorConfig(
@@ -571,11 +604,7 @@ class GoogleHomeOptionsFlowHandler(OptionsFlow):
                 CONF_THIRD_PARTY_ENTITY_MODE, default=current_third_party_mode
             ): SelectSelector(
                 SelectSelectorConfig(
-                    options=[
-                        THIRD_PARTY_MODE_READONLY,
-                        THIRD_PARTY_MODE_CONTROL,
-                    ],
-                    translation_key="third_party_entity_mode",
+                    options=third_party_mode_options,
                     mode=SelectSelectorMode.DROPDOWN,
                 )
             ),

@@ -168,6 +168,7 @@ class GoogleHomeDeleteAllAlarmsButton(GoogleHomeBaseEntity, ButtonEntity):
                 device=device, item_to_delete=alarm_ids
             )
             device.clear_alarms()
+            self.coordinator.async_update_listeners()
 
         await self.coordinator.async_request_refresh()
 
@@ -202,5 +203,6 @@ class GoogleHomeDeleteAllTimersButton(GoogleHomeBaseEntity, ButtonEntity):
                 device=device, item_to_delete=timer_ids
             )
             device.clear_timers()
+            self.coordinator.async_update_listeners()
 
         await self.coordinator.async_request_refresh()

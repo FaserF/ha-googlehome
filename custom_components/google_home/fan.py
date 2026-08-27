@@ -18,6 +18,7 @@ from homeassistant.util.percentage import (
     ranged_value_to_percentage,
 )
 
+from .assistant_helper import format_command
 from .cloud_coordinator import GoogleHomeCloudDataUpdateCoordinator
 from .cloud_models import CloudHomeDevice
 from .const import (
@@ -26,6 +27,8 @@ from .const import (
     DEFAULT_THIRD_PARTY_ENTITY_MODE,
     DOMAIN,
     MANUFACTURER,
+    THIRD_PARTY_MODE_ASSISTANT_SDK,
+    THIRD_PARTY_MODE_DIRECT_CLOUD,
     THIRD_PARTY_MODE_READONLY,
 )
 
@@ -299,6 +302,20 @@ class GoogleHomeCloudFan(
             "agent": cdev.agent_name or cdev.agent_id,
         }
 
+    async def _async_send_assistant_command(self, command: str) -> None:
+        """Forward command via Google Assistant SDK if installed and available."""
+        if self.hass.services.has_service("google_assistant_sdk", "send_text_command"):
+            try:
+                _LOGGER.debug("Sending Assistant SDK fan command: %s", command)
+                await self.hass.services.async_call(
+                    "google_assistant_sdk",
+                    "send_text_command",
+                    {"command": command},
+                    blocking=False,
+                )
+            except Exception as ex:
+                _LOGGER.warning("Error invoking google_assistant_sdk: %s", ex)
+
     async def async_turn_on(
         self,
         percentage: int | None = None,
@@ -314,17 +331,38 @@ class GoogleHomeCloudFan(
         cdev.state["is_on"] = True
         if percentage is not None:
             cdev.state["currentFanSpeedPercent"] = percentage
-            await self.coordinator.cloud_client.async_execute_command(
-                self._device_id,
-                "action.devices.commands.SetFanSpeed",
-                {"fanSpeedPercent": percentage},
+
+        config_entry = getattr(self.coordinator, "config_entry", None)
+        third_party_mode = DEFAULT_THIRD_PARTY_ENTITY_MODE
+        if config_entry:
+            third_party_mode = config_entry.options.get(
+                CONF_THIRD_PARTY_ENTITY_MODE,
+                config_entry.data.get(
+                    CONF_THIRD_PARTY_ENTITY_MODE, DEFAULT_THIRD_PARTY_ENTITY_MODE
+                ),
             )
-        else:
-            await self.coordinator.cloud_client.async_execute_command(
-                self._device_id,
-                "action.devices.commands.OnOff",
-                {"on": True},
-            )
+
+        if third_party_mode == THIRD_PARTY_MODE_ASSISTANT_SDK:
+            dev_name = cdev.name
+            if percentage is not None:
+                await self._async_send_assistant_command(
+                    f"Set fan speed on {dev_name} to {percentage}%"
+                )
+            else:
+                await self._async_send_assistant_command(f"Turn on {dev_name}")
+        elif third_party_mode == THIRD_PARTY_MODE_DIRECT_CLOUD:
+            if percentage is not None:
+                await self.coordinator.cloud_client.async_execute_command(
+                    self._device_id,
+                    "action.devices.commands.SetFanSpeed",
+                    {"fanSpeedPercent": percentage},
+                )
+            else:
+                await self.coordinator.cloud_client.async_execute_command(
+                    self._device_id,
+                    "action.devices.commands.OnOff",
+                    {"on": True},
+                )
         self.async_write_ha_state()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
@@ -335,11 +373,27 @@ class GoogleHomeCloudFan(
 
         cdev.state["on"] = False
         cdev.state["is_on"] = False
-        await self.coordinator.cloud_client.async_execute_command(
-            self._device_id,
-            "action.devices.commands.OnOff",
-            {"on": False},
-        )
+
+        config_entry = getattr(self.coordinator, "config_entry", None)
+        third_party_mode = DEFAULT_THIRD_PARTY_ENTITY_MODE
+        if config_entry:
+            third_party_mode = config_entry.options.get(
+                CONF_THIRD_PARTY_ENTITY_MODE,
+                config_entry.data.get(
+                    CONF_THIRD_PARTY_ENTITY_MODE, DEFAULT_THIRD_PARTY_ENTITY_MODE
+                ),
+            )
+
+        if third_party_mode == THIRD_PARTY_MODE_ASSISTANT_SDK:
+            await self._async_send_assistant_command(
+                format_command(self.hass, "turn_off", cdev.name)
+            )
+        elif third_party_mode == THIRD_PARTY_MODE_DIRECT_CLOUD:
+            await self.coordinator.cloud_client.async_execute_command(
+                self._device_id,
+                "action.devices.commands.OnOff",
+                {"on": False},
+            )
         self.async_write_ha_state()
 
     async def async_set_percentage(self, percentage: int) -> None:
@@ -352,13 +406,37 @@ class GoogleHomeCloudFan(
             await self.async_turn_off()
             return
 
+        was_off = not self.is_on
         cdev.state["on"] = True
+        cdev.state["is_on"] = True
         cdev.state["currentFanSpeedPercent"] = percentage
-        await self.coordinator.cloud_client.async_execute_command(
-            self._device_id,
-            "action.devices.commands.SetFanSpeed",
-            {"fanSpeedPercent": percentage},
-        )
+
+        config_entry = getattr(self.coordinator, "config_entry", None)
+        third_party_mode = DEFAULT_THIRD_PARTY_ENTITY_MODE
+        if config_entry:
+            third_party_mode = config_entry.options.get(
+                CONF_THIRD_PARTY_ENTITY_MODE,
+                config_entry.data.get(
+                    CONF_THIRD_PARTY_ENTITY_MODE, DEFAULT_THIRD_PARTY_ENTITY_MODE
+                ),
+            )
+
+        if third_party_mode == THIRD_PARTY_MODE_ASSISTANT_SDK:
+            if was_off:
+                await self._async_send_assistant_command(
+                    format_command(self.hass, "turn_on", cdev.name)
+                )
+            await self._async_send_assistant_command(
+                format_command(
+                    self.hass, "set_fan_speed", cdev.name, percentage=percentage
+                )
+            )
+        elif third_party_mode == THIRD_PARTY_MODE_DIRECT_CLOUD:
+            await self.coordinator.cloud_client.async_execute_command(
+                self._device_id,
+                "action.devices.commands.SetFanSpeed",
+                {"fanSpeedPercent": percentage},
+            )
         self.async_write_ha_state()
 
     async def async_oscillate(self, oscillating: bool) -> None:
@@ -368,11 +446,30 @@ class GoogleHomeCloudFan(
             return
 
         cdev.state["isOscillating"] = oscillating
-        await self.coordinator.cloud_client.async_execute_command(
-            self._device_id,
-            "action.devices.commands.SetOscillation",
-            {"oscillate": oscillating},
-        )
+
+        config_entry = getattr(self.coordinator, "config_entry", None)
+        third_party_mode = DEFAULT_THIRD_PARTY_ENTITY_MODE
+        if config_entry:
+            third_party_mode = config_entry.options.get(
+                CONF_THIRD_PARTY_ENTITY_MODE,
+                config_entry.data.get(
+                    CONF_THIRD_PARTY_ENTITY_MODE, DEFAULT_THIRD_PARTY_ENTITY_MODE
+                ),
+            )
+
+        if third_party_mode == THIRD_PARTY_MODE_ASSISTANT_SDK:
+            action = (
+                "turn_on_fan_oscillation" if oscillating else "turn_off_fan_oscillation"
+            )
+            cmd = format_command(self.hass, action, cdev.name)
+            await self._async_send_assistant_command(cmd)
+
+        elif third_party_mode == THIRD_PARTY_MODE_DIRECT_CLOUD:
+            await self.coordinator.cloud_client.async_execute_command(
+                self._device_id,
+                "action.devices.commands.SetOscillation",
+                {"oscillate": oscillating},
+            )
         self.async_write_ha_state()
 
     async def async_set_direction(self, direction: str) -> None:
@@ -382,11 +479,29 @@ class GoogleHomeCloudFan(
             return
 
         cdev.state["fanDirection"] = direction
-        await self.coordinator.cloud_client.async_execute_command(
-            self._device_id,
-            "action.devices.commands.SetFanDirection",
-            {"direction": direction},
-        )
+
+        config_entry = getattr(self.coordinator, "config_entry", None)
+        third_party_mode = DEFAULT_THIRD_PARTY_ENTITY_MODE
+        if config_entry:
+            third_party_mode = config_entry.options.get(
+                CONF_THIRD_PARTY_ENTITY_MODE,
+                config_entry.data.get(
+                    CONF_THIRD_PARTY_ENTITY_MODE, DEFAULT_THIRD_PARTY_ENTITY_MODE
+                ),
+            )
+
+        if third_party_mode == THIRD_PARTY_MODE_ASSISTANT_SDK:
+            await self._async_send_assistant_command(
+                format_command(
+                    self.hass, "set_fan_direction", cdev.name, direction=direction
+                )
+            )
+        elif third_party_mode == THIRD_PARTY_MODE_DIRECT_CLOUD:
+            await self.coordinator.cloud_client.async_execute_command(
+                self._device_id,
+                "action.devices.commands.SetFanDirection",
+                {"direction": direction},
+            )
         self.async_write_ha_state()
 
     async def async_set_preset_mode(self, preset_mode: str) -> None:
@@ -407,9 +522,27 @@ class GoogleHomeCloudFan(
         cdev.state["on"] = True
         cdev.state["currentFanSpeedPercent"] = pct
         cdev.state["currentFanSpeedSetting"] = preset_mode
-        await self.coordinator.cloud_client.async_execute_command(
-            self._device_id,
-            "action.devices.commands.SetFanSpeed",
-            {"fanSpeed": preset_mode, "fanSpeedPercent": pct},
-        )
+
+        config_entry = getattr(self.coordinator, "config_entry", None)
+        third_party_mode = DEFAULT_THIRD_PARTY_ENTITY_MODE
+        if config_entry:
+            third_party_mode = config_entry.options.get(
+                CONF_THIRD_PARTY_ENTITY_MODE,
+                config_entry.data.get(
+                    CONF_THIRD_PARTY_ENTITY_MODE, DEFAULT_THIRD_PARTY_ENTITY_MODE
+                ),
+            )
+
+        if third_party_mode == THIRD_PARTY_MODE_ASSISTANT_SDK:
+            await self._async_send_assistant_command(
+                format_command(
+                    self.hass, "set_fan_preset", cdev.name, preset=preset_mode
+                )
+            )
+        elif third_party_mode == THIRD_PARTY_MODE_DIRECT_CLOUD:
+            await self.coordinator.cloud_client.async_execute_command(
+                self._device_id,
+                "action.devices.commands.SetFanSpeed",
+                {"fanSpeed": preset_mode, "fanSpeedPercent": pct},
+            )
         self.async_write_ha_state()

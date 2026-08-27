@@ -112,7 +112,7 @@ class GlocaltokensApiClient:
 
                     found_names: list[str] = []
                     for match in re.finditer(
-                        b"StructureTrait[^\x00-\x1f]*\x12[\x01-\x20]\n\x04name\x12[\x01-\x20]\x1a[\x01-\x20]([^\x00-\x1f]+)",
+                        rb"StructureTrait[^\x00-\x1F]*\x12[\x01-\x20]\n\x04name\x12[\x01-\x20]\x1a[\x01-\x20]([^\x00-\x1F]+)",
                         raw,
                     ):
                         struct_name = match.group(1).decode("utf-8", errors="ignore")
@@ -293,7 +293,7 @@ class GlocaltokensApiClient:
                     )
                     continue
 
-                # Determine structure ID and name for this device
+                # Determine structure ID and name for this device by checking device name and HomeGraph correlation
                 dev_structure_id = None
                 dev_structure_name = None
                 raw_dev_bytes = str(getattr(device, "device_name", "")).encode()
@@ -305,7 +305,27 @@ class GlocaltokensApiClient:
                         break
 
                 if not dev_structure_id and available_homes:
-                    # Default to the first available home if not specifically matched
+                    # Check if device belongs to another structure by scanning raw HomeGraph
+                    try:
+                        hg = self._client.get_homegraph()
+                        if hg and hasattr(hg, "home"):
+                            for r in getattr(hg.home, "rooms", []):
+                                r_bytes = r.SerializeToString()
+                                if (
+                                    getattr(device, "device_id", "").encode() in r_bytes
+                                    or raw_dev_bytes in r_bytes
+                                ):
+                                    rid = getattr(r, "room_id", "")
+                                    if "." in rid:
+                                        p_uuid = rid.split(".")[0]
+                                        if p_uuid in available_homes:
+                                            dev_structure_id = p_uuid
+                                            dev_structure_name = available_homes[p_uuid]
+                                            break
+                    except Exception:
+                        pass
+
+                if not dev_structure_id and available_homes:
                     first_hid = next(iter(available_homes))
                     dev_structure_id = first_hid
                     dev_structure_name = available_homes[first_hid]
@@ -698,11 +718,14 @@ class GlocaltokensApiClient:
             )
         return res
 
-    async def update_device_volume(self, device: GoogleHomeDevice, volume: int) -> None:
+    async def update_device_volume(
+        self, device: GoogleHomeDevice, volume: int
+    ) -> JsonDict | None:
         """Update normal speaker volume percentage (0-100) and sync local state."""
         float_volume = round(volume / 100, 2)
-        await self.set_device_volume(device, float_volume)
+        res = await self.set_device_volume(device, float_volume)
         device.set_device_volume(volume)
+        return res
 
     async def get_do_not_disturb(self, device: GoogleHomeDevice) -> JsonDict | None:
         """Get Do Not Disturb state."""

@@ -15,6 +15,7 @@ from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
+from .assistant_helper import format_command
 from .cloud_coordinator import GoogleHomeCloudDataUpdateCoordinator
 from .cloud_models import CloudHomeDevice
 from .const import (
@@ -23,6 +24,8 @@ from .const import (
     DEFAULT_THIRD_PARTY_ENTITY_MODE,
     DOMAIN,
     MANUFACTURER,
+    THIRD_PARTY_MODE_ASSISTANT_SDK,
+    THIRD_PARTY_MODE_DIRECT_CLOUD,
     THIRD_PARTY_MODE_READONLY,
 )
 
@@ -161,29 +164,103 @@ class GoogleHomeCloudVacuum(
             configuration_url="https://home.google.com/",
         )
 
+    async def _async_send_assistant_command(self, command: str) -> None:
+        """Forward command via Google Assistant SDK if installed and available."""
+        if self.hass.services.has_service("google_assistant_sdk", "send_text_command"):
+            try:
+                _LOGGER.debug("Sending Assistant SDK vacuum command: %s", command)
+                await self.hass.services.async_call(
+                    "google_assistant_sdk",
+                    "send_text_command",
+                    {"command": command},
+                    blocking=False,
+                )
+            except Exception as ex:
+                _LOGGER.warning("Error invoking google_assistant_sdk: %s", ex)
+
     async def async_start(self) -> None:
         """Start vacuuming."""
-        await self.coordinator.client.async_execute_command(
-            device_id=self.device_id,
-            command="action.devices.commands.StartStop",
-            params={"start": True},
-        )
-        await self.coordinator.async_request_refresh()
+        device = self.get_device()
+        if device:
+            device.state["isRunning"] = True
+            device.state["isDocked"] = False
+
+        config_entry = getattr(self.coordinator, "config_entry", None)
+        third_party_mode = DEFAULT_THIRD_PARTY_ENTITY_MODE
+        if config_entry:
+            third_party_mode = config_entry.options.get(
+                CONF_THIRD_PARTY_ENTITY_MODE,
+                config_entry.data.get(
+                    CONF_THIRD_PARTY_ENTITY_MODE, DEFAULT_THIRD_PARTY_ENTITY_MODE
+                ),
+            )
+
+        if third_party_mode == THIRD_PARTY_MODE_ASSISTANT_SDK and device:
+            await self._async_send_assistant_command(
+                format_command(self.hass, "start_vacuum", device.name)
+            )
+        elif third_party_mode == THIRD_PARTY_MODE_DIRECT_CLOUD and device:
+            await self.coordinator.client.async_execute_command(
+                device_id=self.device_id,
+                command="action.devices.commands.StartStop",
+                params={"start": True},
+            )
+        self.async_write_ha_state()
 
     async def async_stop(self, **kwargs: Any) -> None:
         """Stop vacuuming."""
-        await self.coordinator.client.async_execute_command(
-            device_id=self.device_id,
-            command="action.devices.commands.StartStop",
-            params={"start": False},
-        )
-        await self.coordinator.async_request_refresh()
+        device = self.get_device()
+        if device:
+            device.state["isRunning"] = False
+
+        config_entry = getattr(self.coordinator, "config_entry", None)
+        third_party_mode = DEFAULT_THIRD_PARTY_ENTITY_MODE
+        if config_entry:
+            third_party_mode = config_entry.options.get(
+                CONF_THIRD_PARTY_ENTITY_MODE,
+                config_entry.data.get(
+                    CONF_THIRD_PARTY_ENTITY_MODE, DEFAULT_THIRD_PARTY_ENTITY_MODE
+                ),
+            )
+
+        if third_party_mode == THIRD_PARTY_MODE_ASSISTANT_SDK and device:
+            await self._async_send_assistant_command(
+                format_command(self.hass, "stop_vacuum", device.name)
+            )
+        elif third_party_mode == THIRD_PARTY_MODE_DIRECT_CLOUD and device:
+            await self.coordinator.client.async_execute_command(
+                device_id=self.device_id,
+                command="action.devices.commands.StartStop",
+                params={"start": False},
+            )
+        self.async_write_ha_state()
 
     async def async_return_to_base(self, **kwargs: Any) -> None:
         """Return to dock."""
-        await self.coordinator.client.async_execute_command(
-            device_id=self.device_id,
-            command="action.devices.commands.Dock",
-            params={},
-        )
-        await self.coordinator.async_request_refresh()
+        device = self.get_device()
+        if device:
+            device.state["isRunning"] = False
+            device.state["isDocked"] = True
+
+        config_entry = getattr(self.coordinator, "config_entry", None)
+        third_party_mode = DEFAULT_THIRD_PARTY_ENTITY_MODE
+        if config_entry:
+            third_party_mode = config_entry.options.get(
+                CONF_THIRD_PARTY_ENTITY_MODE,
+                config_entry.data.get(
+                    CONF_THIRD_PARTY_ENTITY_MODE, DEFAULT_THIRD_PARTY_ENTITY_MODE
+                ),
+            )
+
+        if third_party_mode == THIRD_PARTY_MODE_ASSISTANT_SDK and device:
+            await self._async_send_assistant_command(
+                format_command(self.hass, "dock_vacuum", device.name)
+            )
+
+        elif third_party_mode == THIRD_PARTY_MODE_DIRECT_CLOUD and device:
+            await self.coordinator.client.async_execute_command(
+                device_id=self.device_id,
+                command="action.devices.commands.Dock",
+                params={},
+            )
+        self.async_write_ha_state()

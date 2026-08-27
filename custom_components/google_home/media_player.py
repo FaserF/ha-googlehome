@@ -17,9 +17,18 @@ from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
+from .assistant_helper import format_command
 from .cloud_coordinator import GoogleHomeCloudDataUpdateCoordinator
 from .cloud_models import CloudHomeDevice
-from .const import DATA_CLOUD_COORDINATOR, DOMAIN, MANUFACTURER
+from .const import (
+    CONF_THIRD_PARTY_ENTITY_MODE,
+    DATA_CLOUD_COORDINATOR,
+    DEFAULT_THIRD_PARTY_ENTITY_MODE,
+    DOMAIN,
+    MANUFACTURER,
+    THIRD_PARTY_MODE_ASSISTANT_SDK,
+    THIRD_PARTY_MODE_DIRECT_CLOUD,
+)
 
 _LOGGER: logging.Logger = logging.getLogger(__package__)
 
@@ -135,14 +144,23 @@ class GoogleHomeCloudMediaPlayer(
         cdev = self.get_cloud_device()
         if not cdev or not cdev.online:
             return MediaPlayerState.OFF
-        if "on" in cdev.state and not cdev.state["on"]:
-            return MediaPlayerState.OFF
+
+        # If on state is explicitly tracked
+        if "on" in cdev.state:
+            if not cdev.state["on"]:
+                return MediaPlayerState.OFF
+
         activity = cdev.state.get("activityState", "").upper()
         if activity in ("PLAYING", "ACTIVE"):
             return MediaPlayerState.PLAYING
         if activity in ("PAUSED", "STANDBY"):
             return MediaPlayerState.PAUSED
-        return MediaPlayerState.ON
+
+        # If device is explicitly on without active playback, return ON; otherwise OFF
+        if cdev.state.get("on") is True:
+            return MediaPlayerState.ON
+
+        return MediaPlayerState.OFF
 
     @property
     def volume_level(self) -> float | None:
@@ -212,29 +230,79 @@ class GoogleHomeCloudMediaPlayer(
             "agent": cdev.agent_name or cdev.agent_id,
         }
 
+    async def _async_send_assistant_command(self, command: str) -> None:
+        """Forward command via Google Assistant SDK if installed and available."""
+        if self.hass.services.has_service("google_assistant_sdk", "send_text_command"):
+            try:
+                _LOGGER.debug("Sending Assistant SDK media command: %s", command)
+                await self.hass.services.async_call(
+                    "google_assistant_sdk",
+                    "send_text_command",
+                    {"command": command},
+                    blocking=False,
+                )
+            except Exception as ex:
+                _LOGGER.warning("Error invoking google_assistant_sdk: %s", ex)
+
     async def async_turn_on(self) -> None:
         """Turn on the media player."""
         cdev = self.get_cloud_device()
-        if cdev:
-            cdev.state["on"] = True
+        if not cdev:
+            return
+
+        cdev.state["on"] = True
+
+        config_entry = getattr(self.coordinator, "config_entry", None)
+        third_party_mode = DEFAULT_THIRD_PARTY_ENTITY_MODE
+        if config_entry:
+            third_party_mode = config_entry.options.get(
+                CONF_THIRD_PARTY_ENTITY_MODE,
+                config_entry.data.get(
+                    CONF_THIRD_PARTY_ENTITY_MODE, DEFAULT_THIRD_PARTY_ENTITY_MODE
+                ),
+            )
+
+        if third_party_mode == THIRD_PARTY_MODE_ASSISTANT_SDK:
+            await self._async_send_assistant_command(
+                format_command(self.hass, "turn_on", cdev.name)
+            )
+        elif third_party_mode == THIRD_PARTY_MODE_DIRECT_CLOUD:
             await self.coordinator.cloud_client.async_execute_command(
                 self._device_id,
                 "action.devices.commands.OnOff",
                 {"on": True},
             )
-            self.async_write_ha_state()
+        self.async_write_ha_state()
 
     async def async_turn_off(self) -> None:
         """Turn off the media player."""
         cdev = self.get_cloud_device()
-        if cdev:
-            cdev.state["on"] = False
+        if not cdev:
+            return
+
+        cdev.state["on"] = False
+
+        config_entry = getattr(self.coordinator, "config_entry", None)
+        third_party_mode = DEFAULT_THIRD_PARTY_ENTITY_MODE
+        if config_entry:
+            third_party_mode = config_entry.options.get(
+                CONF_THIRD_PARTY_ENTITY_MODE,
+                config_entry.data.get(
+                    CONF_THIRD_PARTY_ENTITY_MODE, DEFAULT_THIRD_PARTY_ENTITY_MODE
+                ),
+            )
+
+        if third_party_mode == THIRD_PARTY_MODE_ASSISTANT_SDK:
+            await self._async_send_assistant_command(
+                format_command(self.hass, "turn_off", cdev.name)
+            )
+        elif third_party_mode == THIRD_PARTY_MODE_DIRECT_CLOUD:
             await self.coordinator.cloud_client.async_execute_command(
                 self._device_id,
                 "action.devices.commands.OnOff",
                 {"on": False},
             )
-            self.async_write_ha_state()
+        self.async_write_ha_state()
 
     async def async_set_volume_level(self, volume: float) -> None:
         """Set volume level (expected float 0.0 - 1.0)."""
@@ -248,56 +316,122 @@ class GoogleHomeCloudMediaPlayer(
 
         pct = int(round(vol_float * 100))
         cdev = self.get_cloud_device()
-        if cdev:
-            cdev.state["currentVolume"] = pct
+        if not cdev:
+            return
 
-        # 1. Direct local speaker control (zero latency & 100% working)
+        cdev.state["currentVolume"] = pct
+
         config_entry = getattr(self.coordinator, "config_entry", None)
-        entry_id = getattr(config_entry, "entry_id", None) if config_entry else None
-        if entry_id and entry_id in self.hass.data.get(DOMAIN, {}):
-            entry_data = self.hass.data[DOMAIN][entry_id]
-            local_client = entry_data.get("client")
-            local_coord = entry_data.get("coordinator")
-            if local_coord and local_client and cdev:
-                for ldev in local_coord.data or []:
-                    if ldev.name.lower() == cdev.name.lower() or (
-                        ldev.device_id and ldev.device_id == cdev.device_id
-                    ):
-                        await local_client.update_device_volume(ldev, pct)
-                        break
+        third_party_mode = DEFAULT_THIRD_PARTY_ENTITY_MODE
+        if config_entry:
+            third_party_mode = config_entry.options.get(
+                CONF_THIRD_PARTY_ENTITY_MODE,
+                config_entry.data.get(
+                    CONF_THIRD_PARTY_ENTITY_MODE, DEFAULT_THIRD_PARTY_ENTITY_MODE
+                ),
+            )
 
-        # 2. Cloud execute command fallback
-        await self.coordinator.cloud_client.async_execute_command(
-            self._device_id,
-            "action.devices.commands.setVolume",
-            {"volumeLevel": pct},
-        )
+        if third_party_mode == THIRD_PARTY_MODE_ASSISTANT_SDK:
+            await self._async_send_assistant_command(
+                format_command(self.hass, "set_volume", cdev.name, volume=pct)
+            )
+        else:
+            # 1. Direct local speaker control (zero latency & 100% working)
+            entry_id = getattr(config_entry, "entry_id", None) if config_entry else None
+            if entry_id and entry_id in self.hass.data.get(DOMAIN, {}):
+                entry_data = self.hass.data[DOMAIN][entry_id]
+                local_client = entry_data.get("client")
+                local_coord = entry_data.get("coordinator")
+                if local_coord and local_client and cdev:
+                    for ldev in local_coord.data or []:
+                        if ldev.name.lower() == cdev.name.lower() or (
+                            ldev.device_id and ldev.device_id == cdev.device_id
+                        ):
+                            await local_client.update_device_volume(ldev, pct)
+                            break
+
+            # 2. Cloud execute command fallback
+            await self.coordinator.cloud_client.async_execute_command(
+                self._device_id,
+                "action.devices.commands.setVolume",
+                {"volumeLevel": pct},
+            )
         self.async_write_ha_state()
 
     async def async_mute_volume(self, mute: bool) -> None:
         """Mute the volume."""
         cdev = self.get_cloud_device()
-        if cdev:
-            cdev.state["isMuted"] = mute
+        if not cdev:
+            return
+
+        cdev.state["isMuted"] = mute
+
+        config_entry = getattr(self.coordinator, "config_entry", None)
+        third_party_mode = DEFAULT_THIRD_PARTY_ENTITY_MODE
+        if config_entry:
+            third_party_mode = config_entry.options.get(
+                CONF_THIRD_PARTY_ENTITY_MODE,
+                config_entry.data.get(
+                    CONF_THIRD_PARTY_ENTITY_MODE, DEFAULT_THIRD_PARTY_ENTITY_MODE
+                ),
+            )
+
+        if third_party_mode == THIRD_PARTY_MODE_ASSISTANT_SDK:
+            action = "mute" if mute else "unmute"
+            cmd = format_command(self.hass, action, cdev.name)
+            await self._async_send_assistant_command(cmd)
+        elif third_party_mode == THIRD_PARTY_MODE_DIRECT_CLOUD:
             await self.coordinator.cloud_client.async_execute_command(
                 self._device_id,
                 "action.devices.commands.mute",
                 {"mute": mute},
             )
-            self.async_write_ha_state()
+        self.async_write_ha_state()
 
     async def async_media_play(self) -> None:
         """Play media."""
-        await self.coordinator.cloud_client.async_execute_command(
-            self._device_id,
-            "action.devices.commands.mediaResume",
-            {},
-        )
+        cdev = self.get_cloud_device()
+        config_entry = getattr(self.coordinator, "config_entry", None)
+        third_party_mode = DEFAULT_THIRD_PARTY_ENTITY_MODE
+        if config_entry:
+            third_party_mode = config_entry.options.get(
+                CONF_THIRD_PARTY_ENTITY_MODE,
+                config_entry.data.get(
+                    CONF_THIRD_PARTY_ENTITY_MODE, DEFAULT_THIRD_PARTY_ENTITY_MODE
+                ),
+            )
+
+        if third_party_mode == THIRD_PARTY_MODE_ASSISTANT_SDK and cdev:
+            await self._async_send_assistant_command(
+                format_command(self.hass, "play", cdev.name)
+            )
+        elif third_party_mode == THIRD_PARTY_MODE_DIRECT_CLOUD:
+            await self.coordinator.cloud_client.async_execute_command(
+                self._device_id,
+                "action.devices.commands.mediaResume",
+                {},
+            )
 
     async def async_media_pause(self) -> None:
         """Pause media."""
-        await self.coordinator.cloud_client.async_execute_command(
-            self._device_id,
-            "action.devices.commands.mediaPause",
-            {},
-        )
+        cdev = self.get_cloud_device()
+        config_entry = getattr(self.coordinator, "config_entry", None)
+        third_party_mode = DEFAULT_THIRD_PARTY_ENTITY_MODE
+        if config_entry:
+            third_party_mode = config_entry.options.get(
+                CONF_THIRD_PARTY_ENTITY_MODE,
+                config_entry.data.get(
+                    CONF_THIRD_PARTY_ENTITY_MODE, DEFAULT_THIRD_PARTY_ENTITY_MODE
+                ),
+            )
+
+        if third_party_mode == THIRD_PARTY_MODE_ASSISTANT_SDK and cdev:
+            await self._async_send_assistant_command(
+                format_command(self.hass, "pause", cdev.name)
+            )
+        elif third_party_mode == THIRD_PARTY_MODE_DIRECT_CLOUD:
+            await self.coordinator.cloud_client.async_execute_command(
+                self._device_id,
+                "action.devices.commands.mediaPause",
+                {},
+            )

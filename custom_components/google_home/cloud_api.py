@@ -68,7 +68,7 @@ class GoogleHomeCloudClient:
 
                 found_names: list[str] = []
                 for match in re.finditer(
-                    b"StructureTrait[^\x00-\x1f]*\x12[\x01-\x20]\n\x04name\x12[\x01-\x20]\x1a[\x01-\x20]([^\x00-\x1f]+)",
+                    rb"StructureTrait[^\x00-\x1F]*\x12[\x01-\x20]\n\x04name\x12[\x01-\x20]\x1a[\x01-\x20]([^\x00-\x1F]+)",
                     raw,
                 ):
                     struct_name = match.group(1).decode("utf-8", errors="ignore")
@@ -162,7 +162,25 @@ class GoogleHomeCloudClient:
                     if hid.encode() in raw_item:
                         item_structure_id = hid
                         break
+
+            # If still not matched, check if any room in HomeGraph contains this device
             if not item_structure_id:
+                raw_item = item.SerializeToString()
+                for r in getattr(homegraph.home, "rooms", []):
+                    rid = getattr(r, "room_id", "")
+                    r_bytes = r.SerializeToString()
+                    if (
+                        dev_id.encode() in r_bytes
+                        or getattr(item, "device_name", "").encode() in r_bytes
+                    ):
+                        if "." in rid:
+                            p_uuid = rid.split(".")[0]
+                            if p_uuid in available_homes:
+                                item_structure_id = p_uuid
+                                break
+
+            if not item_structure_id:
+                # Default to primary structure only if not specifically configured
                 item_structure_id = default_home_id
 
             item_structure_name = available_homes.get(
@@ -276,17 +294,36 @@ class GoogleHomeCloudClient:
             m30 = getattr(item, "message30", None)
             if m30:
                 m30_str = str(m30)
-                # Specific onOff parsing: match onOff { message2 { bool4: true/false } } or on: true
-                if "onOff" in m30_str:
-                    # If string1 is 'online', the bool4 is whether the device is online/connected, NOT the light state!
-                    if 'string1: "online"' in m30_str and "bool4" in m30_str:
-                        # For speaker/display devices, 'online' is connectivity.
-                        state_dict["online_status"] = True
-                    elif "bool4: false" in m30_str or "false" in m30_str:
-                        state_dict["on"] = False
-                    else:
-                        # If key: "onOff" is present in message30, the device's OnOff state is active (on)
-                        state_dict["on"] = True
+                # Specific onOff parsing: extract exact boolean value
+                import re
+
+                # Match patterns like:
+                # 1) key: "onOff" ... bool4: true / bool4: false
+                # 2) "action.devices.traits.OnOff" ... bool4: true / false
+                # 3) on: true / on: false
+                on_match = re.search(
+                    r"(?:onOff|action\.devices\.traits\.OnOff)[^}]*?bool4:\s*(true|false)",
+                    m30_str,
+                    re.IGNORECASE | re.DOTALL,
+                )
+                if on_match:
+                    state_dict["on"] = on_match.group(1).lower() == "true"
+                elif (
+                    '"on": true' in m30_str
+                    or '"on":true' in m30_str
+                    or "on: true" in m30_str
+                ):
+                    state_dict["on"] = True
+                elif (
+                    '"on": false' in m30_str
+                    or '"on":false' in m30_str
+                    or "on: false" in m30_str
+                ):
+                    state_dict["on"] = False
+                elif "bool4: false" in m30_str:
+                    state_dict["on"] = False
+                elif "bool4: true" in m30_str and 'string1: "online"' not in m30_str:
+                    state_dict["on"] = True
 
                 if "transportControl" in m30_str:
                     # Check if there is an explicit playing/playback state rather than just connectivity/static field

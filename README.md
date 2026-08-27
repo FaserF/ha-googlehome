@@ -95,19 +95,11 @@ Choose the best mode during setup or change it anytime in the Options Flow:
   - **Universal Capability & Attribute Extraction**: The integration dynamically inspects all Google HomeGraph key-value pairs (`message20` and `message30`), uncovering hidden capabilities across all your devices:
     - *Smart TVs*: Available streaming apps (`availableApplications`), HDMI inputs (`availableInputs`), supported media types, and toggle states.
     - *Robot Vacuums*: Configured cleaning zones (`availableZones`) and pause capabilities (`pausable`).
-    - *Speakers & Clocks*: Call capabilities (`communicationCallCapabilities`), ducking state (`RemoteDucking`), and active audio streams.
-  - **HomeGraph Discovery & State Inspection**: The integration leverages the Google Foyer / HomeGraph gRPC endpoint (`GetHomeGraph`) to synchronize all devices, structures/homes, rooms, hardware models, and traits into Home Assistant.
-  - **Third-Party & Device Status Architecture**: Google's Cloud Foyer API serves as a secure read-and-aggregation layer for consumer accounts.
-    - In **`readonly_sensors` mode (Default & Recommended)**, cloud devices and specialized speaker/clock traits are represented as clean, descriptive status sensors (`sensor.xxx_status`) with real-world dynamic states:
-      - **Lights**: Shows brightness percentage when active (e.g. `on (75%)`), `on`, or `off`.
-      - **Switches & Plugs**: `on` or `off`.
-      - **Covers & Blinds**: `open (50%)`, `open`, or `closed`.
-      - **Locks**: `locked`, `unlocked`, or `jammed`.
-      - **Robot Vacuums & Mowers**: `cleaning`, `docked`, `docking`, `paused`, `stopped`.
-      - **Thermostats**: Mode and setpoint (e.g. `heat (21.5°C)`).
-      - **Speakers & Media Players**: `playing`, `paused`, or `off`.
-    - **Rich State Attributes**: Every status sensor exposes attributes including `brightness`, `open_percent`, `is_locked`, `device_ip`, `wifi_network` (SSID), `wifi_signal_level` (RSSI), `mac_address`, `bluetooth_mac`, `hardware_model`, `firmware_version`, `room`, and raw `state_data`.
-  - **Best Practice**: For bi-directional hardware switching of third-party devices, use their native Home Assistant integrations (e.g. Xiaomi Miio, Tuya, Hue). Local Google Cast speakers are controlled directly and with zero latency via their local HTTPS/REST API!
+  - **HomeGraph Discovery & Third-Party Architecture (3 Modes in Options Flow)**:
+    - **`readonly_sensors` (Default & Recommended)**: Cloud devices and specialized speaker/clock traits are represented as clean, descriptive status sensors (`sensor.xxx_status`) with real-world dynamic states (e.g. `on (75%)`, `cleaning`, `docked`). No duplicate control entities are created.
+    - **`control_entities`**: Exposes controllable entities (`light`, `fan`, `switch`, `cover`, `vacuum`, `climate`) reflecting live telemetry via Google HomeGraph without dispatching outbound voice commands.
+    - **`assistant_sdk_control`**: Dynamically available if the official [Google Assistant SDK](https://www.home-assistant.io/integrations/google_assistant_sdk/) integration is installed. Universal text commands are automatically dispatched (e.g. `"Turn on night light on Wohnzimmer Uhr"`, `"Set fan speed on Bedroom Fan to 50%"`, `"Turn off Living Room Light"`) while maintaining real-time telemetry from Google HomeGraph!
+
 
 
 

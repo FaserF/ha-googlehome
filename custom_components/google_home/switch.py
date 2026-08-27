@@ -12,6 +12,7 @@ from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
+from .assistant_helper import format_command
 from .cloud_coordinator import GoogleHomeCloudDataUpdateCoordinator
 from .cloud_models import CloudHomeDevice
 from .const import (
@@ -22,6 +23,8 @@ from .const import (
     ICON_DO_NOT_DISTURB,
     ICON_NIGHT_MODE,
     MANUFACTURER,
+    THIRD_PARTY_MODE_ASSISTANT_SDK,
+    THIRD_PARTY_MODE_DIRECT_CLOUD,
     THIRD_PARTY_MODE_READONLY,
 )
 from .coordinator import GoogleHomeDataUpdateCoordinator
@@ -221,23 +224,76 @@ class GoogleHomeCloudSwitch(
             configuration_url="https://home.google.com/",
         )
 
+    async def _async_send_assistant_command(self, command: str) -> None:
+        """Forward command via Google Assistant SDK if installed and available."""
+        if self.hass.services.has_service("google_assistant_sdk", "send_text_command"):
+            try:
+                _LOGGER.debug("Sending Assistant SDK switch command: %s", command)
+                await self.hass.services.async_call(
+                    "google_assistant_sdk",
+                    "send_text_command",
+                    {"command": command},
+                    blocking=False,
+                )
+            except Exception as ex:
+                _LOGGER.warning("Error invoking google_assistant_sdk: %s", ex)
+
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn on switch."""
-        await self.coordinator.client.async_execute_command(
-            device_id=self.device_id,
-            command="action.devices.commands.OnOff",
-            params={"on": True},
-        )
-        await self.coordinator.async_request_refresh()
+        device = self.get_device()
+        if device:
+            device.state["on"] = True
+
+        config_entry = getattr(self.coordinator, "config_entry", None)
+        third_party_mode = DEFAULT_THIRD_PARTY_ENTITY_MODE
+        if config_entry:
+            third_party_mode = config_entry.options.get(
+                CONF_THIRD_PARTY_ENTITY_MODE,
+                config_entry.data.get(
+                    CONF_THIRD_PARTY_ENTITY_MODE, DEFAULT_THIRD_PARTY_ENTITY_MODE
+                ),
+            )
+
+        if third_party_mode == THIRD_PARTY_MODE_ASSISTANT_SDK and device:
+            await self._async_send_assistant_command(
+                format_command(self.hass, "turn_on", device.name)
+            )
+        elif third_party_mode == THIRD_PARTY_MODE_DIRECT_CLOUD and device:
+            await self.coordinator.client.async_execute_command(
+                device_id=self.device_id,
+                command="action.devices.commands.OnOff",
+                params={"on": True},
+            )
+        self.async_write_ha_state()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn off switch."""
-        await self.coordinator.client.async_execute_command(
-            device_id=self.device_id,
-            command="action.devices.commands.OnOff",
-            params={"on": False},
-        )
-        await self.coordinator.async_request_refresh()
+        device = self.get_device()
+        if device:
+            device.state["on"] = False
+
+        config_entry = getattr(self.coordinator, "config_entry", None)
+        third_party_mode = DEFAULT_THIRD_PARTY_ENTITY_MODE
+        if config_entry:
+            third_party_mode = config_entry.options.get(
+                CONF_THIRD_PARTY_ENTITY_MODE,
+                config_entry.data.get(
+                    CONF_THIRD_PARTY_ENTITY_MODE, DEFAULT_THIRD_PARTY_ENTITY_MODE
+                ),
+            )
+
+        if third_party_mode == THIRD_PARTY_MODE_ASSISTANT_SDK and device:
+            await self._async_send_assistant_command(
+                format_command(self.hass, "turn_off", device.name)
+            )
+
+        elif third_party_mode == THIRD_PARTY_MODE_DIRECT_CLOUD and device:
+            await self.coordinator.client.async_execute_command(
+                device_id=self.device_id,
+                command="action.devices.commands.OnOff",
+                params={"on": False},
+            )
+        self.async_write_ha_state()
 
 
 class GoogleHomeDoNotDisturbSwitch(GoogleHomeBaseEntity, SwitchEntity):

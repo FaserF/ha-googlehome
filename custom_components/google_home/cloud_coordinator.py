@@ -35,6 +35,7 @@ class GoogleHomeCloudDataUpdateCoordinator(
         """Initialize cloud coordinator."""
         self.client = client
         self.cloud_client = client
+        self._device_cache: dict[str, CloudHomeDevice] = {}
         super().__init__(
             hass,
             _LOGGER,
@@ -45,7 +46,11 @@ class GoogleHomeCloudDataUpdateCoordinator(
     async def _async_update_data(self) -> list[CloudHomeDevice]:
         """Update cloud data via HomeGraph client."""
         try:
-            return await self.client.async_get_cloud_devices()
+            devices = await self.client.async_get_cloud_devices()
+            if devices:
+                for dev in devices:
+                    self._device_cache[dev.device_id] = dev
+            return devices
         except Exception as err:
             raise UpdateFailed(
                 f"Error updating Google Home Cloud HomeGraph: {err}"
@@ -53,9 +58,8 @@ class GoogleHomeCloudDataUpdateCoordinator(
 
     def get_device(self, device_id: str) -> CloudHomeDevice | None:
         """Get device by ID from latest coordinator data."""
-        if not self.data:
-            return None
-        for device in self.data:
-            if device.device_id == device_id:
-                return device
-        return None
+        if self.data:
+            for device in self.data:
+                if device.device_id == device_id:
+                    return device
+        return self._device_cache.get(device_id)

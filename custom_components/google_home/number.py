@@ -9,13 +9,17 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
+from .assistant_helper import format_command
 from .const import (
+    CONF_THIRD_PARTY_ENTITY_MODE,
     DATA_COORDINATOR,
+    DEFAULT_THIRD_PARTY_ENTITY_MODE,
     DOMAIN,
     ICON_ALARM_VOLUME_HIGH,
     ICON_ALARM_VOLUME_LOW,
     ICON_ALARM_VOLUME_MID,
     ICON_ALARM_VOLUME_OFF,
+    THIRD_PARTY_MODE_ASSISTANT_SDK,
 )
 from .coordinator import GoogleHomeDataUpdateCoordinator
 from .entity import GoogleHomeBaseEntity
@@ -82,9 +86,9 @@ class GoogleHomeAlarmVolumeNumber(GoogleHomeBaseEntity, NumberEntity):
     """Google Home Alarm Volume slider entity."""
 
     _attr_mode = NumberMode.SLIDER
-    _attr_native_min_value = 0
-    _attr_native_max_value = 100
-    _attr_native_step = 1
+    _attr_native_min_value = 0.0
+    _attr_native_max_value = 100.0
+    _attr_native_step = 1.0
     _attr_native_unit_of_measurement = "%"
 
     @property
@@ -129,9 +133,9 @@ class GoogleHomeDeviceVolumeNumber(GoogleHomeBaseEntity, NumberEntity):
     """Google Home Media/Speaker Volume slider entity."""
 
     _attr_mode = NumberMode.SLIDER
-    _attr_native_min_value = 0
-    _attr_native_max_value = 100
-    _attr_native_step = 1
+    _attr_native_min_value = 0.0
+    _attr_native_max_value = 100.0
+    _attr_native_step = 1.0
     _attr_native_unit_of_measurement = "%"
 
     @property
@@ -157,7 +161,10 @@ class GoogleHomeDeviceVolumeNumber(GoogleHomeBaseEntity, NumberEntity):
         device = self.get_device()
         if not device:
             return None
-        return device.get_device_volume()
+        vol = device.get_device_volume()
+        if vol is not None:
+            return vol
+        return device.get_alarm_volume()
 
     async def async_set_native_value(self, value: float) -> None:
         """Set media/speaker volume percentage on the device."""
@@ -168,5 +175,46 @@ class GoogleHomeDeviceVolumeNumber(GoogleHomeBaseEntity, NumberEntity):
 
         vol_int = int(round(value))
         device.set_device_volume(vol_int)
-        await self.client.update_device_volume(device=device, volume=vol_int)
+
+        local_success = False
+        # 1. Local HTTP command
+        try:
+            res = await self.client.update_device_volume(device=device, volume=vol_int)
+            local_success = res is not None
+        except Exception as err:
+            _LOGGER.debug(
+                "Local update_device_volume failed on %s: %s", self.device_name, err
+            )
+
+        # 2. Assistant SDK fallback ONLY on failure if enabled in config entry options
+        if not local_success:
+            config_entry = getattr(self.coordinator, "config_entry", None)
+            third_party_mode = DEFAULT_THIRD_PARTY_ENTITY_MODE
+            if config_entry:
+                third_party_mode = config_entry.options.get(
+                    CONF_THIRD_PARTY_ENTITY_MODE,
+                    config_entry.data.get(
+                        CONF_THIRD_PARTY_ENTITY_MODE, DEFAULT_THIRD_PARTY_ENTITY_MODE
+                    ),
+                )
+
+            if (
+                third_party_mode == THIRD_PARTY_MODE_ASSISTANT_SDK
+                and self.hass.services.has_service(
+                    "google_assistant_sdk", "send_text_command"
+                )
+            ):
+                try:
+                    cmd = format_command(
+                        self.hass, "set_volume", self.device_name, volume=vol_int
+                    )
+                    await self.hass.services.async_call(
+                        "google_assistant_sdk",
+                        "send_text_command",
+                        {"command": cmd},
+                        blocking=False,
+                    )
+                except Exception as ex:
+                    _LOGGER.debug("Assistant SDK volume fallback error: %s", ex)
+
         self.async_write_ha_state()
