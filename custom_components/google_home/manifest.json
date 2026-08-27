@@ -13,8 +13,12 @@
   "dependencies": [],
   "documentation": "https://github.com/FaserF/ha-googlehome",
   "hassio": [
-    {"addon": "edfe50eb_googlehome"},
-    {"addon": "605cee21_googlehome"}
+    {
+      "addon": "edfe50eb_googlehome"
+    },
+    {
+      "addon": "605cee21_googlehome"
+    }
   ],
   "integration_type": "hub",
   "iot_class": "local_polling",
