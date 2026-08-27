@@ -317,6 +317,19 @@ class CloudHomeDevice:
         )
 
     @property
+    def is_nightlight(self) -> bool:
+        """Return True if device has a Smart Clock nightlight or NightLight trait."""
+        return (
+            "action.devices.traits.NightLight" in (self.traits or [])
+            or "action.devices.types.NIGHTLIGHT" in (self.traits or [])
+            or any(
+                k in (self.hardware_model or "").lower()
+                or k in (self.name or "").lower()
+                for k in ("clock", "uhr", "cd-")
+            )
+        )
+
+    @property
     def is_automation_routine(self) -> bool:
         """Return True if device is a Google Home Automation or Routine Scene."""
         return (
@@ -324,3 +337,146 @@ class CloudHomeDevice:
             or "action.devices.types.ROUTINE" in self.device_type
             or "action.devices.traits.Scene" in self.traits
         )
+
+    def get_human_status(self) -> str:
+        """Return human-readable device status string (Single Source of Truth)."""
+        if not self.online:
+            return "offline"
+
+        state = self.state
+        dtype = (self.device_type or "").upper()
+        traits = self.traits or []
+
+        # 1. Speakers / Smart Displays: Prioritize playback/activity state
+        if "SPEAKER" in dtype or "DISPLAY" in dtype or "AUDIO" in dtype:
+            if "activityState" in state:
+                activity = str(state["activityState"]).lower()
+                if activity in ("playing", "in_use"):
+                    return "playing"
+                if activity in ("paused", "standby"):
+                    return "paused"
+                if activity in ("idle", "active"):
+                    return "idle"
+                return activity
+            return "idle"
+
+        # 0. Smart Clock Nightlight / Dedicated Nightlight devices:
+        if self.is_nightlight:
+            nl_on = state.get("nightlight_on")
+            if nl_on is not None:
+                if nl_on:
+                    bri = state.get("brightness")
+                    return f"on ({bri}%)" if bri is not None else "on"
+                return "off"
+            if state.get("on"):
+                bri = state.get("brightness")
+                return f"on ({bri}%)" if bri is not None else "on"
+            return "off"
+
+        # 2. Lights
+        if (
+            "LIGHT" in dtype
+            or "action.devices.types.LIGHT" in self.device_type
+            or "action.devices.traits.Brightness" in traits
+        ):
+            is_on = state.get("on") if "on" in state else state.get("is_on")
+            if is_on is False:
+                return "off"
+            if "brightness" in state:
+                bri = state["brightness"]
+                return f"on ({bri}%)" if is_on else "off"
+            if is_on is True:
+                return "on"
+
+        # 3. OnOff trait (switches, plugs, outlets, generic toggles)
+        if "on" in state:
+            return "on" if state["on"] else "off"
+        if "is_on" in state:
+            return "on" if state["is_on"] else "off"
+
+        # 4. OpenClose trait (covers, doors, blinds, valves, garages)
+        if "openPercent" in state:
+            pct = state["openPercent"]
+            if pct == 0:
+                return "closed"
+            if pct == 100:
+                return "open"
+            return f"open ({pct}%)"
+
+        # 5. Lock
+        if "isLocked" in state:
+            return "locked" if state["isLocked"] else "unlocked"
+        if "isJammed" in state:
+            return "jammed" if state["isJammed"] else "clear"
+
+        # 6. Vacuum / mower
+        if "VACUUM" in dtype or "MOWER" in dtype:
+            vac_status = (
+                state.get("currentMode") or state.get("vacuumMode") or state.get("on")
+            )
+            if vac_status in (True, "cleaning", "CLEANING", "running"):
+                return "cleaning"
+            if vac_status in ("docking", "DOCKING", "returning"):
+                return "docking"
+            if vac_status in ("docked", "DOCKED", False):
+                return "docked"
+
+        # 7. StartStop trait (robot, mowers)
+        if "isRunning" in state:
+            if state["isRunning"]:
+                return "running"
+            if state.get("isPaused"):
+                return "paused"
+            return "stopped"
+
+        # 8. Thermostat / climate
+        if "thermostatMode" in state:
+            mode = str(state["thermostatMode"]).lower()
+            temp = state.get("thermostatTemperatureSetpoint")
+            if temp is not None:
+                return f"{mode} ({temp}°C)"
+            return mode
+
+        # 9. ArmDisarm (security)
+        if "isArmed" in state:
+            return "armed" if state["isArmed"] else "disarmed"
+
+        # 10. Fan speed
+        if "currentFanSpeedSetting" in state:
+            return str(state["currentFanSpeedSetting"])
+        if "fanSpeed" in state:
+            return str(state["fanSpeed"])
+
+        # Sensor state data
+        if "currentSensorStateData" in state:
+            sensor_data = state["currentSensorStateData"]
+            if sensor_data:
+                parts = []
+                for s in sensor_data if isinstance(sensor_data, list) else []:
+                    sname = s.get("name", "")
+                    sval = s.get("currentSensorState", "")
+                    if sname and sval:
+                        parts.append(f"{sname}: {sval}")
+                if parts:
+                    return ", ".join(parts)
+
+        # Fallback domain defaults
+        if (
+            "action.devices.traits.OpenClose" in traits
+            or "SHUTTER" in dtype
+            or "BLINDS" in dtype
+            or "GARAGE" in dtype
+        ):
+            return "closed"
+        if "action.devices.traits.LockUnlock" in traits or "LOCK" in dtype:
+            return "locked"
+        if (
+            "action.devices.traits.Dock" in traits
+            or "VACUUM" in dtype
+            or "MOWER" in dtype
+        ):
+            return "docked"
+        if "SCENE" in dtype or "action.devices.traits.Scene" in traits:
+            return "ready"
+
+        return "off"

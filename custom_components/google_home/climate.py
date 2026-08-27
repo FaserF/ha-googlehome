@@ -236,6 +236,7 @@ class GoogleHomeCloudClimate(
                 params={"thermostatTemperatureSetpoint": temp},
             )
         self.async_write_ha_state()
+        self.coordinator.async_update_listeners()
 
     async def async_set_hvac_mode(self, hvac_mode: HVACMode) -> None:
         """Set HVAC mode."""
@@ -266,3 +267,4 @@ class GoogleHomeCloudClimate(
                 params={"thermostatMode": mode_str},
             )
         self.async_write_ha_state()
+        self.coordinator.async_update_listeners()

@@ -114,7 +114,14 @@ class GoogleHomeAlarmVolumeNumber(GoogleHomeBaseEntity, NumberEntity):
         device = self.get_device()
         if not device:
             return None
-        return device.get_alarm_volume()
+        vol = device.get_alarm_volume()
+        if vol is not None:
+            return vol
+        # Fallback to general device volume if alarm volume not polled yet
+        dev_vol = device.get_device_volume()
+        if dev_vol is not None:
+            return dev_vol
+        return 50.0
 
     async def async_set_native_value(self, value: float) -> None:
         """Set alarm volume percentage on the device."""
@@ -164,7 +171,10 @@ class GoogleHomeDeviceVolumeNumber(GoogleHomeBaseEntity, NumberEntity):
         vol = device.get_device_volume()
         if vol is not None:
             return vol
-        return device.get_alarm_volume()
+        alarm_vol = device.get_alarm_volume()
+        if alarm_vol is not None:
+            return alarm_vol
+        return 50.0
 
     async def async_set_native_value(self, value: float) -> None:
         """Set media/speaker volume percentage on the device."""

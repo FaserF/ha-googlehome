@@ -364,6 +364,7 @@ class GoogleHomeCloudFan(
                     {"on": True},
                 )
         self.async_write_ha_state()
+        self.coordinator.async_update_listeners()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn off the fan."""
@@ -395,6 +396,7 @@ class GoogleHomeCloudFan(
                 {"on": False},
             )
         self.async_write_ha_state()
+        self.coordinator.async_update_listeners()
 
     async def async_set_percentage(self, percentage: int) -> None:
         """Set fan speed percentage."""
@@ -438,6 +440,7 @@ class GoogleHomeCloudFan(
                 {"fanSpeedPercent": percentage},
             )
         self.async_write_ha_state()
+        self.coordinator.async_update_listeners()
 
     async def async_oscillate(self, oscillating: bool) -> None:
         """Set fan oscillation."""

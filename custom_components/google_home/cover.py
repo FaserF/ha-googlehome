@@ -207,6 +207,7 @@ class GoogleHomeCloudCover(
                 params={"openPercent": 100},
             )
         self.async_write_ha_state()
+        self.coordinator.async_update_listeners()
 
     async def async_close_cover(self, **kwargs: Any) -> None:
         """Close cover."""
@@ -235,6 +236,7 @@ class GoogleHomeCloudCover(
                 params={"openPercent": 0},
             )
         self.async_write_ha_state()
+        self.coordinator.async_update_listeners()
 
     async def async_set_cover_position(self, **kwargs: Any) -> None:
         """Set cover position."""
@@ -267,3 +269,4 @@ class GoogleHomeCloudCover(
                 params={"openPercent": pos},
             )
         self.async_write_ha_state()
+        self.coordinator.async_update_listeners()

@@ -55,11 +55,7 @@ class GoogleHomeBaseEntity(CoordinatorEntity[GoogleHomeDataUpdateCoordinator]):
     def available(self) -> bool:
         """Return True if device is available."""
         device = self.get_device()
-        return (
-            self.coordinator.last_update_success
-            and device is not None
-            and device.available
-        )
+        return device is not None
 
     @property
     def device_info(self) -> DeviceInfo:

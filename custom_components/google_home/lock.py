@@ -190,6 +190,7 @@ class GoogleHomeCloudLock(
                 params={"lock": True},
             )
         self.async_write_ha_state()
+        self.coordinator.async_update_listeners()
 
     async def async_unlock(self, **kwargs: Any) -> None:
         """Unlock the device."""
@@ -219,3 +220,4 @@ class GoogleHomeCloudLock(
                 params={"lock": False},
             )
         self.async_write_ha_state()
+        self.coordinator.async_update_listeners()

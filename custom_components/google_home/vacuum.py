@@ -206,6 +206,7 @@ class GoogleHomeCloudVacuum(
                 params={"start": True},
             )
         self.async_write_ha_state()
+        self.coordinator.async_update_listeners()
 
     async def async_stop(self, **kwargs: Any) -> None:
         """Stop vacuuming."""
@@ -234,6 +235,7 @@ class GoogleHomeCloudVacuum(
                 params={"start": False},
             )
         self.async_write_ha_state()
+        self.coordinator.async_update_listeners()
 
     async def async_return_to_base(self, **kwargs: Any) -> None:
         """Return to dock."""
@@ -256,7 +258,6 @@ class GoogleHomeCloudVacuum(
             await self._async_send_assistant_command(
                 format_command(self.hass, "dock_vacuum", device.name)
             )
-
         elif third_party_mode == THIRD_PARTY_MODE_DIRECT_CLOUD and device:
             await self.coordinator.client.async_execute_command(
                 device_id=self.device_id,
@@ -264,3 +265,4 @@ class GoogleHomeCloudVacuum(
                 params={},
             )
         self.async_write_ha_state()
+        self.coordinator.async_update_listeners()

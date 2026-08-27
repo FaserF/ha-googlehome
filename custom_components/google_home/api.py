@@ -693,10 +693,16 @@ class GlocaltokensApiClient:
         self, device: GoogleHomeDevice
     ) -> JsonDict | None:
         """Get current live speaker / media volume."""
-        res = await self._request("GET", device, API_ENDPOINT_CURRENT_VOLUME)
-        if not res:
-            res = await self._request("GET", device, "setup/assistant/volume")
-        return res
+        for ep in (
+            API_ENDPOINT_CURRENT_VOLUME,
+            "setup/assistant/volume",
+            "setup/assistant/alarms/volume",
+            "setup/audio/status",
+        ):
+            res = await self._request("GET", device, ep)
+            if res and any(k in res for k in ("volume", "level", "current_volume")):
+                return res
+        return None
 
     async def set_device_volume(
         self, device: GoogleHomeDevice, volume: float

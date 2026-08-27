@@ -127,9 +127,18 @@
       },
       "bluetooth": {
         "name": "Bluetooth MAC"
+      },
+      "nightlight_status": {
+        "name": "Nightlight Status"
+      }
+    },
+    "light": {
+      "nightlight": {
+        "name": "Nightlight"
       }
     },
     "switch": {
+
       "do_not_disturb": {
         "name": "Do Not Disturb"
       },

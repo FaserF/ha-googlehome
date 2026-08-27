@@ -47,6 +47,9 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           if [ -f requirements_test.txt ]; then pip install -r requirements_test.txt; fi
+          if [ -f custom_components/*/manifest.json ]; then
+            python -c "import json, glob, subprocess, sys; reqs = [r for f in glob.glob('custom_components/*/manifest.json') for r in json.load(open(f)).get('requirements', [])]; subprocess.check_call([sys.executable, '-m', 'pip', 'install'] + reqs) if reqs else None"
+          fi
           pip install ruff mypy pyyaml pytest pytest-asyncio pytest-cov homeassistant paramiko aiohttp pytest-homeassistant-custom-component beautifulsoup4
 
       - name: Validate JSON/YAML

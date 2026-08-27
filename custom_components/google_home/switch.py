@@ -265,6 +265,7 @@ class GoogleHomeCloudSwitch(
                 params={"on": True},
             )
         self.async_write_ha_state()
+        self.coordinator.async_update_listeners()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn off switch."""
@@ -294,6 +295,7 @@ class GoogleHomeCloudSwitch(
                 params={"on": False},
             )
         self.async_write_ha_state()
+        self.coordinator.async_update_listeners()
 
 
 class GoogleHomeDoNotDisturbSwitch(GoogleHomeBaseEntity, SwitchEntity):

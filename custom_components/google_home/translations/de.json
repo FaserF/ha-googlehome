@@ -120,8 +120,9 @@
         "name": "Geräte-IP"
       },
       "alarms": {
-        "name": "Nächster Alarm"
+        "name": "Nächster Wecker"
       },
+
       "timers": {
         "name": "Nächster Timer"
       },
@@ -130,9 +131,18 @@
       },
       "bluetooth": {
         "name": "Bluetooth MAC"
+      },
+      "nightlight_status": {
+        "name": "Nachtlicht Status"
+      }
+    },
+    "light": {
+      "nightlight": {
+        "name": "Nachtlicht"
       }
     },
     "switch": {
+
       "do_not_disturb": {
         "name": "Nicht stören"
       },

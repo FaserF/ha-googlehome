@@ -590,140 +590,7 @@ class GoogleHomeCloudStatusSensor(
         device = self.get_device()
         if not device:
             return "unavailable"
-        if not device.online:
-            return "offline"
-
-        state = device.state
-        dtype = device.device_type.upper()
-        traits = device.traits or []
-
-        # 1. Lights: if on and brightness is known, show "on (X%)", if on without brightness show "on", if off show "off"
-        if (
-            "LIGHT" in dtype
-            or "action.devices.types.LIGHT" in device.device_type
-            or "action.devices.traits.Brightness" in traits
-        ):
-            is_on = state.get("on") if "on" in state else state.get("is_on")
-            if is_on is False:
-                return "off"
-            if "brightness" in state:
-                bri = state["brightness"]
-                return f"on ({bri}%)" if is_on else "off"
-            if is_on is True:
-                return "on"
-
-        # 2. OnOff trait (switches, plugs, outlets, generic toggles)
-        if "on" in state:
-            return "on" if state["on"] else "off"
-        if "is_on" in state:
-            return "on" if state["is_on"] else "off"
-
-        # 3. OpenClose trait (covers, doors, blinds, valves, garages)
-        if "openPercent" in state:
-            pct = state["openPercent"]
-            if pct == 0:
-                return "closed"
-            if pct == 100:
-                return "open"
-            return f"open ({pct}%)"
-
-        # 4. Lock
-        if "isLocked" in state:
-            return "locked" if state["isLocked"] else "unlocked"
-        if "isJammed" in state:
-            return "jammed" if state["isJammed"] else "clear"
-
-        # 5. Vacuum / mower
-        if "VACUUM" in dtype or "MOWER" in dtype:
-            vac_status = (
-                state.get("currentMode") or state.get("vacuumMode") or state.get("on")
-            )
-            if vac_status in (True, "cleaning", "CLEANING", "running"):
-                return "cleaning"
-            if vac_status in ("docking", "DOCKING", "returning"):
-                return "docking"
-            if vac_status in ("docked", "DOCKED", False):
-                return "docked"
-
-        # 6. StartStop trait (robot, mowers)
-        if "isRunning" in state:
-            if state["isRunning"]:
-                return "running"
-            if state.get("isPaused"):
-                return "paused"
-            return "stopped"
-
-        # 7. Thermostat / climate
-        if "thermostatMode" in state:
-            mode = str(state["thermostatMode"]).lower()
-            temp = state.get("thermostatTemperatureSetpoint")
-            if temp is not None:
-                return f"{mode} ({temp}°C)"
-            return mode
-
-        # 8. ArmDisarm (security)
-        if "isArmed" in state:
-            return "armed" if state["isArmed"] else "disarmed"
-
-        # 9. Fan speed
-        if "currentFanSpeedSetting" in state:
-            return str(state["currentFanSpeedSetting"])
-        if "fanSpeed" in state:
-            return str(state["fanSpeed"])
-
-        # 10. Media / volume / speaker state
-        if "activityState" in state:
-            activity = str(state["activityState"]).lower()
-            if activity in ("playing", "in_use"):
-                return "playing"
-            if activity in ("paused", "standby"):
-                return "paused"
-            if activity in ("idle", "active"):
-                return "idle"
-            return activity
-
-        # Brightness standalone
-        if "brightness" in state:
-            bri = state["brightness"]
-            on_state = state.get("on", True)
-            return f"on ({bri}%)" if on_state else "off"
-
-        # Sensor state data
-        if "currentSensorStateData" in state:
-            sensor_data = state["currentSensorStateData"]
-            if sensor_data:
-                parts = []
-                for s in sensor_data if isinstance(sensor_data, list) else []:
-                    sname = s.get("name", "")
-                    sval = s.get("currentSensorState", "")
-                    if sname and sval:
-                        parts.append(f"{sname}: {sval}")
-                if parts:
-                    return ", ".join(parts)
-
-        # Fallback for devices without explicit state payload in HomeGraph:
-        # Return standard domain default states
-        traits = device.traits or []
-        if (
-            "action.devices.traits.OpenClose" in traits
-            or "SHUTTER" in dtype
-            or "BLINDS" in dtype
-            or "GARAGE" in dtype
-        ):
-            return "closed"
-        if "action.devices.traits.LockUnlock" in traits or "LOCK" in dtype:
-            return "locked"
-        if (
-            "action.devices.traits.Dock" in traits
-            or "VACUUM" in dtype
-            or "MOWER" in dtype
-        ):
-            return "docked"
-        if "SCENE" in dtype or "action.devices.traits.Scene" in traits:
-            return "ready"
-
-        # Default for all switchable/controllable entities (Fans, Lights, Switches, TVs, Speakers)
-        return "off"
+        return device.get_human_status()
 
     @property
     def icon(self) -> str:
@@ -877,6 +744,8 @@ class GoogleHomeClockNightlightSensor(
     """Google Home Smart Clock Nightlight Status sensor."""
 
     _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_has_entity_name = True
+    _attr_translation_key = "nightlight_status"
 
     def __init__(
         self,
@@ -893,25 +762,19 @@ class GoogleHomeClockNightlightSensor(
         return self.coordinator.get_device(self.device_id)
 
     @property
-    def name(self) -> str:
-        """Return name."""
-        device = self.get_device()
-        return f"{device.name} Nightlight Status" if device else "Nightlight Status"
-
-    @property
     def native_value(self) -> str:
         """Return nightlight state (on (X%), on, off)."""
         device = self.get_device()
         if not device or not device.online:
             return "unavailable" if not device else "offline"
         state = device.state
-        is_on = state.get("on") if "on" in state else state.get("is_on")
-        if is_on is False:
+        is_on = bool(state.get("nightlight_on", False))
+        if not is_on:
             return "off"
         if "brightness" in state:
             bri = state["brightness"]
-            return f"on ({bri}%)" if is_on else "off"
-        return "on" if is_on else "off"
+            return f"on ({bri}%)" if bri is not None else "on"
+        return "on"
 
     @property
     def icon(self) -> str:

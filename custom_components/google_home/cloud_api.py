@@ -297,33 +297,183 @@ class GoogleHomeCloudClient:
                 # Specific onOff parsing: extract exact boolean value
                 import re
 
-                # Match patterns like:
-                # 1) key: "onOff" ... bool4: true / bool4: false
-                # 2) "action.devices.traits.OnOff" ... bool4: true / false
-                # 3) on: true / on: false
-                on_match = re.search(
-                    r"(?:onOff|action\.devices\.traits\.OnOff)[^}]*?bool4:\s*(true|false)",
+                # Match patterns specifically for onOff state:
+                # 1) Specific NightLight trait
+                nl_match = re.search(
+                    r"(?:action\.devices\.traits\.NightLight|nightLight)[^}]*?bool4:\s*(true|false)",
                     m30_str,
                     re.IGNORECASE | re.DOTALL,
                 )
-                if on_match:
-                    state_dict["on"] = on_match.group(1).lower() == "true"
-                elif (
-                    '"on": true' in m30_str
-                    or '"on":true' in m30_str
-                    or "on: true" in m30_str
+                if nl_match:
+                    state_dict["on"] = nl_match.group(1).lower() == "true"
+                else:
+                    # 2) Standard onOff trait, but exclude ScreenOnOff or general device connectivity
+                    on_match = re.search(
+                        r'(?:key:\s*"onOff"|action\.devices\.traits\.OnOff)[^}]*?bool4:\s*(true|false)',
+                        m30_str,
+                        re.IGNORECASE | re.DOTALL,
+                    )
+                    if on_match:
+                        # For speakers / smart clocks, OnOff trait in HomeGraph usually refers to the nightlight / display
+                        # If device_type is SPEAKER and it has ScreenOnOff, ensure it is not just the screen/device status
+                        state_dict["on"] = on_match.group(1).lower() == "true"
+                    elif (
+                        '"on": true' in m30_str
+                        or '"on":true' in m30_str
+                        or "on: true" in m30_str
+                    ):
+                        state_dict["on"] = True
+                    elif (
+                        '"on": false' in m30_str
+                        or '"on":false' in m30_str
+                        or "on: false" in m30_str
+                    ):
+                        state_dict["on"] = False
+                    else:
+                        state_dict["on"] = False
+
+                # Extract Brightness (0-100%)
+                bri_match = re.search(
+                    r'(?:key:\s*"brightness"|action\.devices\.traits\.Brightness|brightness)[^}]*?(?:int\d+|val\d+|num\d+|value):\s*(\d+)',
+                    m30_str,
+                    re.IGNORECASE | re.DOTALL,
+                )
+                if bri_match:
+                    try:
+                        state_dict["brightness"] = int(bri_match.group(1))
+                    except ValueError:
+                        pass
+                else:
+                    # Generic brightness pattern in proto dumps
+                    bri_gen = re.search(r'"brightness":\s*(\d+)', m30_str)
+                    if bri_gen:
+                        try:
+                            state_dict["brightness"] = int(bri_gen.group(1))
+                        except ValueError:
+                            pass
+
+                # Extract Color (spectrumRGB)
+                color_match = re.search(
+                    r"(?:spectrumRGB|spectrum_rgb|color)[^}]*?(?:int\d+|val\d+|num\d+|value):\s*(\d+)",
+                    m30_str,
+                    re.IGNORECASE | re.DOTALL,
+                )
+                if color_match:
+                    try:
+                        state_dict["color"] = {"spectrumRGB": int(color_match.group(1))}
+                    except ValueError:
+                        pass
+
+                # Extract Cover OpenPercent (0-100%)
+                open_pct_match = re.search(
+                    r"(?:openPercent|open_percent|openState)[^}]*?(?:int\d+|val\d+|num\d+|value):\s*(\d+)",
+                    m30_str,
+                    re.IGNORECASE | re.DOTALL,
+                )
+                if open_pct_match:
+                    try:
+                        state_dict["openPercent"] = int(open_pct_match.group(1))
+                    except ValueError:
+                        pass
+
+                # Extract Fan Speed Percent / Fan Speed Setting
+                fan_pct_match = re.search(
+                    r"(?:currentFanSpeedPercent|fanSpeedPercent)[^}]*?(?:int\d+|val\d+|num\d+|value):\s*(\d+)",
+                    m30_str,
+                    re.IGNORECASE | re.DOTALL,
+                )
+                if fan_pct_match:
+                    try:
+                        state_dict["currentFanSpeedPercent"] = int(
+                            fan_pct_match.group(1)
+                        )
+                    except ValueError:
+                        pass
+
+                # Extract Lock State
+                lock_match = re.search(
+                    r"(?:isLocked|is_locked|isLockedState)[^}]*?bool4:\s*(true|false)",
+                    m30_str,
+                    re.IGNORECASE | re.DOTALL,
+                )
+                if lock_match:
+                    state_dict["isLocked"] = lock_match.group(1).lower() == "true"
+
+                # Extract Vacuum State (isRunning / isDocked)
+                if (
+                    "action.devices.types.VACUUM" in device_type
+                    or "mower" in device_type.lower()
                 ):
-                    state_dict["on"] = True
-                elif (
-                    '"on": false' in m30_str
-                    or '"on":false' in m30_str
-                    or "on: false" in m30_str
-                ):
-                    state_dict["on"] = False
-                elif "bool4: false" in m30_str:
-                    state_dict["on"] = False
-                elif "bool4: true" in m30_str and 'string1: "online"' not in m30_str:
-                    state_dict["on"] = True
+                    run_match = re.search(
+                        r"(?:isRunning|is_running|cleaning)[^}]*?bool4:\s*(true|false)",
+                        m30_str,
+                        re.IGNORECASE | re.DOTALL,
+                    )
+                    if run_match:
+                        state_dict["isRunning"] = run_match.group(1).lower() == "true"
+                    dock_match = re.search(
+                        r"(?:isDocked|is_docked|docked)[^}]*?bool4:\s*(true|false)",
+                        m30_str,
+                        re.IGNORECASE | re.DOTALL,
+                    )
+                    if dock_match:
+                        state_dict["isDocked"] = dock_match.group(1).lower() == "true"
+
+                # Extract Thermostat Temperature & Setpoint
+                amb_match = re.search(
+                    r"(?:thermostatTemperatureAmbient|temperatureAmbient)[^}]*?(?:int\d+|val\d+|num\d+|value|float\d+):\s*([0-9\.]+)",
+                    m30_str,
+                    re.IGNORECASE | re.DOTALL,
+                )
+                if amb_match:
+                    try:
+                        state_dict["thermostatTemperatureAmbient"] = float(
+                            amb_match.group(1)
+                        )
+                    except ValueError:
+                        pass
+                set_match = re.search(
+                    r"(?:thermostatTemperatureSetpoint|temperatureSetpoint)[^}]*?(?:int\d+|val\d+|num\d+|value|float\d+):\s*([0-9\.]+)",
+                    m30_str,
+                    re.IGNORECASE | re.DOTALL,
+                )
+                if set_match:
+                    try:
+                        state_dict["thermostatTemperatureSetpoint"] = float(
+                            set_match.group(1)
+                        )
+                    except ValueError:
+                        pass
+
+                # Extract Media Player / Speaker Volume (0-100%)
+                vol_match = re.search(
+                    r"(?:currentVolume|volumeLevel|volume)[^}]*?(?:int\d+|val\d+|num\d+|value):\s*(\d+)",
+                    m30_str,
+                    re.IGNORECASE | re.DOTALL,
+                )
+                if vol_match:
+                    try:
+                        state_dict["currentVolume"] = int(vol_match.group(1))
+                        state_dict["volume"] = int(vol_match.group(1))
+                    except ValueError:
+                        pass
+                else:
+                    vol_gen = re.search(r'"(?:currentVolume|volume)":\s*(\d+)', m30_str)
+                    if vol_gen:
+                        try:
+                            state_dict["currentVolume"] = int(vol_gen.group(1))
+                            state_dict["volume"] = int(vol_gen.group(1))
+                        except ValueError:
+                            pass
+
+                # Extract Mute state
+                mute_match = re.search(
+                    r"(?:isMuted|is_muted|mute)[^}]*?bool4:\s*(true|false)",
+                    m30_str,
+                    re.IGNORECASE | re.DOTALL,
+                )
+                if mute_match:
+                    state_dict["isMuted"] = mute_match.group(1).lower() == "true"
 
                 if "transportControl" in m30_str:
                     # Check if there is an explicit playing/playback state rather than just connectivity/static field

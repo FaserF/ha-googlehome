@@ -1,7 +1,7 @@
 [project]
-name = "ha-openwrt"
-version = "2.4.8-dev0"
-description = "Home Assistant integration for OpenWrt devices."
+name = "ha-googlehome"
+version = "1.0.0"
+description = "Home Assistant integration for Google Home devices."
 authors = [
     {name = "FaserF", email = "github@fabiseitz.de"}
 ]

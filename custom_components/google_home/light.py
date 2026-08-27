@@ -138,11 +138,14 @@ class GoogleHomeCloudLight(
             or has_color
         )
 
+        self._is_nightlight = bool(is_nightlight)
         modes = set()
         if is_nightlight:
             modes.add(ColorMode.BRIGHTNESS)
             self._attr_color_mode = ColorMode.BRIGHTNESS
             self._attr_icon = "mdi:lightbulb-night-outline"
+            self._attr_has_entity_name = True
+            self._attr_translation_key = "nightlight"
         elif has_color:
             modes.add(ColorMode.RGB)
             modes.add(ColorMode.COLOR_TEMP)
@@ -161,18 +164,12 @@ class GoogleHomeCloudLight(
         return self.coordinator.get_device(self.device_id)
 
     @property
-    def name(self) -> str:
+    def name(self) -> str | None:
         """Return name."""
+        if self._is_nightlight:
+            return None
         device = self.get_device()
-        if not device:
-            return "Google Light"
-        # For Smart Clocks, append 'Nightlight'
-        if any(
-            k in (device.hardware_model or "").lower() or k in device.name.lower()
-            for k in ("clock", "uhr", "cd-")
-        ):
-            return f"{device.name} Nightlight"
-        return device.name
+        return device.name if device else "Google Light"
 
     @property
     def is_on(self) -> bool:
@@ -180,6 +177,8 @@ class GoogleHomeCloudLight(
         device = self.get_device()
         if not device:
             return False
+        if self._is_nightlight:
+            return bool(device.state.get("nightlight_on", False))
         return bool(device.state.get("on", False))
 
     @property
@@ -294,11 +293,6 @@ class GoogleHomeCloudLight(
         """Turn on light."""
         device = self.get_device()
         brightness = kwargs.get("brightness")
-        if device:
-            device.state["on"] = True
-            if brightness is not None:
-                device.state["brightness"] = int(round(brightness * 100 / 255))
-
         is_nightlight = device and (
             "action.devices.traits.NightLight" in (device.traits or [])
             or any(
@@ -306,6 +300,13 @@ class GoogleHomeCloudLight(
                 for k in ("clock", "uhr", "cd-")
             )
         )
+        if device:
+            if is_nightlight:
+                device.state["nightlight_on"] = True
+            else:
+                device.state["on"] = True
+            if brightness is not None:
+                device.state["brightness"] = int(round(brightness * 100 / 255))
 
         config_entry = getattr(self.coordinator, "config_entry", None)
         third_party_mode = DEFAULT_THIRD_PARTY_ENTITY_MODE
@@ -415,13 +416,11 @@ class GoogleHomeCloudLight(
                 )
 
         self.async_write_ha_state()
+        self.coordinator.async_update_listeners()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn off light."""
         device = self.get_device()
-        if device:
-            device.state["on"] = False
-
         is_nightlight = device and (
             "action.devices.traits.NightLight" in (device.traits or [])
             or any(
@@ -429,6 +428,11 @@ class GoogleHomeCloudLight(
                 for k in ("clock", "uhr", "cd-")
             )
         )
+        if device:
+            if is_nightlight:
+                device.state["nightlight_on"] = False
+            else:
+                device.state["on"] = False
 
         config_entry = getattr(self.coordinator, "config_entry", None)
         third_party_mode = DEFAULT_THIRD_PARTY_ENTITY_MODE
@@ -472,3 +476,4 @@ class GoogleHomeCloudLight(
                     params={"on": False},
                 )
         self.async_write_ha_state()
+        self.coordinator.async_update_listeners()
