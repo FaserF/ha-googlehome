@@ -157,6 +157,20 @@ class GoogleHomeAlarmVolumeNumber(GoogleHomeBaseEntity, RestoreNumber):
             return ICON_ALARM_VOLUME_MID
         return ICON_ALARM_VOLUME_HIGH
 
+    def _find_target_media_player(self) -> str | None:
+        """Find matching media_player entity for this device in Home Assistant."""
+        dev_name = self.device_name.strip().lower()
+        dev_slug = dev_name.replace(" ", "_")
+
+        for state in self.hass.states.async_all("media_player"):
+            if dev_slug in state.entity_id:
+                return state.entity_id
+            fname = state.attributes.get("friendly_name", "").strip().lower()
+            if fname == dev_name:
+                return state.entity_id
+
+        return None
+
     @property
     def native_value(self) -> float | None:
         """Return current alarm volume percentage (0-100)."""
@@ -171,6 +185,15 @@ class GoogleHomeAlarmVolumeNumber(GoogleHomeBaseEntity, RestoreNumber):
         dev_vol = device.get_device_volume()
         if dev_vol is not None:
             return dev_vol
+
+        # Check matched media_player entity volume in Home Assistant
+        target_mp = self._find_target_media_player()
+        if target_mp:
+            mp_state = self.hass.states.get(target_mp)
+            if mp_state and "volume_level" in mp_state.attributes:
+                vlevel = mp_state.attributes.get("volume_level")
+                if vlevel is not None:
+                    return round(float(vlevel) * 100)
 
         # Check corresponding CloudHomeDevice in cloud coordinator if available
         entry_data = self.hass.data.get(DOMAIN, {}).get(
@@ -262,6 +285,20 @@ class GoogleHomeDeviceVolumeNumber(GoogleHomeBaseEntity, RestoreNumber):
             return ICON_ALARM_VOLUME_MID
         return ICON_ALARM_VOLUME_HIGH
 
+    def _find_target_media_player(self) -> str | None:
+        """Find matching media_player entity for this device in Home Assistant."""
+        dev_name = self.device_name.strip().lower()
+        dev_slug = dev_name.replace(" ", "_")
+
+        for state in self.hass.states.async_all("media_player"):
+            if dev_slug in state.entity_id:
+                return state.entity_id
+            fname = state.attributes.get("friendly_name", "").strip().lower()
+            if fname == dev_name:
+                return state.entity_id
+
+        return None
+
     @property
     def native_value(self) -> float | None:
         """Return current media volume percentage (0-100)."""
@@ -276,6 +313,15 @@ class GoogleHomeDeviceVolumeNumber(GoogleHomeBaseEntity, RestoreNumber):
         alarm_vol = device.get_alarm_volume()
         if alarm_vol is not None:
             return alarm_vol
+
+        # Check matched media_player entity volume in Home Assistant
+        target_mp = self._find_target_media_player()
+        if target_mp:
+            mp_state = self.hass.states.get(target_mp)
+            if mp_state and "volume_level" in mp_state.attributes:
+                vlevel = mp_state.attributes.get("volume_level")
+                if vlevel is not None:
+                    return round(float(vlevel) * 100)
 
         # Check corresponding CloudHomeDevice in cloud coordinator if available
         entry_data = self.hass.data.get(DOMAIN, {}).get(

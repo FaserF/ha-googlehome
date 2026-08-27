@@ -24,7 +24,8 @@ A modern, fast, and feature-complete Home Assistant integration offering **Hybri
 
 ---
 
-## 🔄 Operation Modes Comparison
+<details>
+<summary><h2>🔄 Operation Modes Comparison</h2></summary>
 
 Choose the best mode during setup or change it anytime in the Options Flow:
 
@@ -44,10 +45,12 @@ Choose the best mode during setup or change it anytime in the Options Flow:
 | **Multi-Home Structure Filtering** | ❌ No | ✅ Yes | ✅ Yes |
 | **HA-Loop Prevention Filter** | ❌ No | ✅ Yes | ✅ Yes |
 
+</details>
 
 ---
 
-## ✨ Features
+<details>
+<summary><h2>✨ Features</h2></summary>
 
 - **👥 Multi-Account Support**:
   - Add **multiple distinct Google Accounts** simultaneously to your Home Assistant instance.
@@ -97,7 +100,6 @@ Choose the best mode during setup or change it anytime in the Options Flow:
 
 
 
-
 - **⚡ Direct Local Speaker Communication**:
   - Direct local HTTPS/REST polling and control for speakers within your local network (no cloud delay for alarms/timers).
   - Automatic token management and background recovery when local authorization tokens expire.
@@ -123,6 +125,8 @@ Choose the best mode during setup or change it anytime in the Options Flow:
   - **Wi-Fi Network Sensor**: Shows connected Wi-Fi SSID with signal strength (RSSI in dBm) and IP in attributes.
   - **Bluetooth Sensor**: Diagnostic sensor exposing the speaker local Bluetooth MAC address.
   - Full English, German, and Greek (`de`, `en`, `el`) native translations.
+
+</details>
 
 ---
 
