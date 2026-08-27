@@ -203,8 +203,7 @@ Both integrations share the same `google_home` domain and the same underlying li
 |---|---|---|
 | `sensor` | ✅ Alarms, Timers, Device Info, Wi-Fi SSID/RSSI, Bluetooth MAC, Familiar Faces, Gemini Briefs, cloud status sensors | ✅ Alarms, Timers, Device Info (IP) |
 | `switch` | ✅ Do Not Disturb + cloud smart plug/switch control | ✅ Do Not Disturb only |
-| `number` | ✅ Media Volume, Alarm Volume, Set Timer (min) (SDK) | ✅ Alarm Volume only |
-| `time` | ✅ Set Alarm (HH:MM) (SDK) | ❌ Not present |
+| `number` | ✅ Media Volume, Alarm Volume | ✅ Alarm Volume only |
 | `button` | ✅ Reboot, Delete All Alarms, Delete All Timers | ❌ Not present |
 | `binary_sensor` | ✅ Motion, occupancy, contact, presence, doorbell, smoke/CO (Nest Aware) | ❌ Not present |
 | `light` | ✅ Lights, dimmers, RGB, color temp, Smart Clock nightlight | ❌ Not present |
@@ -325,6 +324,15 @@ The integration fires native events on the Home Assistant Event Bus that you can
 | `google_home.reboot_device` | Reboots the Google Home speaker | `entity_id` |
 | `google_home.refresh_devices` | Triggers an immediate coordinator refresh | - |
 
+---
+
+## ⚠️ Known Limitations & Technical Details
+
+- **Speaker Timers & Alarms Scheduling**:
+  - **Reading & Deleting**: Real-time monitoring (`sensor.<speaker>_alarms`, `sensor.<speaker>_timers`), event firing (`google_home_timer_finished`, `google_home_alarm_triggered`), and deletion (`delete_alarm`, `delete_timer`, delete-all buttons) work **100% locally** via the speaker's port 8443 API.
+  - **Creating Timers/Alarms via Home Assistant**: Google does **not** expose an API endpoint (neither local nor cloud HomeGraph) to create/set timers or alarms programmatically on Google Home / Nest speakers. Creating timers/alarms must be spoken directly to the speaker or scheduled natively via Google Assistant voice input.
+- **Third-Party Devices in Google Home**:
+  - Devices synced into Google Home from proprietary cloud integrations (e.g. Tuya, Smart Life, Dreame) can either be monitored as read-only sensors or controlled via Home Assistant's Google Assistant SDK integration or direct cloud commands depending on the selected Third-Party Mode in the Options Flow.
 
 ---
 

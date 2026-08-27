@@ -97,7 +97,6 @@ PLATFORMS: Final = [
     "binary_sensor",
     "switch",
     "number",
-    "time",
     "button",
     "light",
     "fan",

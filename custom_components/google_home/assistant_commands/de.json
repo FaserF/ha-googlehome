@@ -29,9 +29,5 @@
   "mute": "Schalte {device_name} stumm",
   "unmute": "Hebe die Stummschaltung für {device_name} auf",
   "play": "Wiedergabe auf {device_name} fortsetzen",
-  "pause": "Pausiere {device_name}",
-  "set_timer": "Stelle einen Timer für {minutes} Minuten",
-  "set_timer_named": "Stelle einen Timer auf {device_name} für {minutes} Minuten",
-  "set_alarm": "Stelle einen Wecker für {time}",
-  "set_alarm_named": "Stelle einen Wecker auf {device_name} für {time}"
+  "pause": "Pausiere {device_name}"
 }

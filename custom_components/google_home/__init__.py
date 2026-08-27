@@ -361,26 +361,16 @@ async def _async_cleanup_stale_devices_and_entities(
                             ent_reg.async_remove(ent_entry.entity_id)
                             break
 
-    # Clean up local speaker Assistant SDK entities (set_timer, set_alarm) when not in Hybrid + Assistant SDK mode
-    from .const import CONF_OPERATION_MODE, MODE_HYBRID, THIRD_PARTY_MODE_ASSISTANT_SDK
-
-    mode = entry.options.get(
-        CONF_OPERATION_MODE,
-        entry.data.get(CONF_OPERATION_MODE, MODE_HYBRID),
-    )
-    sdk_timer_alarm_enabled = (
-        mode == MODE_HYBRID and third_party_mode == THIRD_PARTY_MODE_ASSISTANT_SDK
-    )
-    if not sdk_timer_alarm_enabled:
-        for ent_entry in er.async_entries_for_config_entry(ent_reg, entry.entry_id):
-            uid = ent_entry.unique_id or ""
-            if uid.endswith("_set_timer") or uid.endswith("_set_alarm"):
-                _LOGGER.info(
-                    "Removing stale local speaker SDK entity (%s): %s",
-                    uid,
-                    ent_entry.entity_id,
-                )
-                ent_reg.async_remove(ent_entry.entity_id)
+    # Clean up deprecated set_timer and set_alarm entities
+    for ent_entry in er.async_entries_for_config_entry(ent_reg, entry.entry_id):
+        uid = ent_entry.unique_id or ""
+        if uid.endswith("_set_timer") or uid.endswith("_set_alarm"):
+            _LOGGER.info(
+                "Removing deprecated speaker timer/alarm scheduling entity (%s): %s",
+                uid,
+                ent_entry.entity_id,
+            )
+            ent_reg.async_remove(ent_entry.entity_id)
 
     device_entries = dr.async_entries_for_config_entry(dev_reg, entry.entry_id)
     for dev_entry in device_entries:
