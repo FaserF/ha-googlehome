@@ -1,6 +1,7 @@
 """Test migration entry logic."""
 
 from unittest.mock import MagicMock
+
 import pytest
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
