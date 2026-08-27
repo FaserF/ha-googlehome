@@ -152,8 +152,30 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     ent_reg = er.async_get(hass)
     for ent_entry in er.async_entries_for_config_entry(ent_reg, entry.entry_id):
         uid = ent_entry.unique_id or ""
-        if "/" in uid:
-            new_uid = uid.replace("/", "_")
+        # Handle deprecated leikoilja device sensor (e.g. '<device_id>/device' or '<device_id>_device')
+        if uid.endswith("/device") or uid.endswith("_device"):
+            _LOGGER.info(
+                "Removing deprecated legacy device sensor entity: %s (%s)",
+                ent_entry.entity_id,
+                uid,
+            )
+            ent_reg.async_remove(ent_entry.entity_id)
+            continue
+
+        # Map leikoilja unique_ids:
+        # '<device_id>/alarms' -> '<device_id>_alarms'
+        # '<device_id>/timers' -> '<device_id>_timers'
+        # '<device_id>/alarm volume' or '<device_id>_alarm volume' -> '<device_id>_alarm_volume'
+        # '<device_id>/Do Not Disturb' or '<device_id>_Do Not Disturb' -> '<device_id>_do_not_disturb'
+        new_uid = uid.replace("/", "_")
+        if new_uid.endswith("_alarm volume"):
+            new_uid = new_uid.replace("_alarm volume", "_alarm_volume")
+        elif new_uid.endswith("_Do Not Disturb") or new_uid.endswith("_do not disturb"):
+            new_uid = new_uid.replace("_Do Not Disturb", "_do_not_disturb").replace(
+                "_do not disturb", "_do_not_disturb"
+            )
+
+        if new_uid != uid:
             existing_new_ent = ent_reg.async_get_entity_id(
                 ent_entry.domain, DOMAIN, new_uid
             )
@@ -228,6 +250,17 @@ async def _async_cleanup_stale_devices_and_entities(
 
     # Clean up deprecated entities and orphaned entities
     for ent_entry in er.async_entries_for_config_entry(ent_reg, entry.entry_id):
+        uid = ent_entry.unique_id or ""
+        # Remove deprecated leikoilja device sensor (e.g. '<device_id>_device')
+        if uid.endswith("/device") or uid.endswith("_device"):
+            _LOGGER.info(
+                "Removing deprecated legacy device sensor entity: %s (%s)",
+                ent_entry.entity_id,
+                uid,
+            )
+            ent_reg.async_remove(ent_entry.entity_id)
+            continue
+
         # 1. Check if entity belongs to an active device
         dev_entry = (
             dev_reg.async_get(ent_entry.device_id) if ent_entry.device_id else None
