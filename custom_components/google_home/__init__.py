@@ -534,13 +534,7 @@ async def async_migrate_entry(hass: HomeAssistant, config_entry: ConfigEntry) ->
             unique_id=new_unique_id,
             version=3,
         )
-        _LOGGER.info(
-            "Successfully auto-migrated leikoilja entry to VERSION=3 "
-            "(auth_method=%s, mode=%s, unique_id=%s)",
-            auth_method,
-            MODE_LOCAL,
-            new_unique_id,
-        )
+        _LOGGER.info("Successfully auto-migrated leikoilja entry to VERSION=3")
         return True
 
     # ------------------------------------------------------------------ #
