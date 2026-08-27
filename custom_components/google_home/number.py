@@ -20,7 +20,6 @@ from .const import (
     ICON_ALARM_VOLUME_LOW,
     ICON_ALARM_VOLUME_MID,
     ICON_ALARM_VOLUME_OFF,
-    ICON_TIMERS,
     THIRD_PARTY_MODE_ASSISTANT_SDK,
 )
 from .coordinator import GoogleHomeDataUpdateCoordinator
@@ -378,5 +377,3 @@ class GoogleHomeDeviceVolumeNumber(GoogleHomeBaseEntity, RestoreNumber):
                     _LOGGER.debug("Assistant SDK volume fallback error: %s", ex)
 
         self.async_write_ha_state()
-
-

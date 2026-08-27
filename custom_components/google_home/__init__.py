@@ -14,6 +14,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import GlocaltokensApiClient
 from .const import (
+    AUTH_METHOD_APP_PASSWORD,
     AUTH_METHOD_TOKEN,
     CONF_ANDROID_ID,
     CONF_AUTH_METHOD,
@@ -554,8 +555,12 @@ async def async_migrate_entry(hass: HomeAssistant, config_entry: ConfigEntry) ->
     # Our own VERSION=2 → VERSION=3 migration (normalise unique_id)
     # ------------------------------------------------------------------ #
     if config_entry.version == 2:
-        username = config_entry.data.get(CONF_USERNAME)
-        new_unique_id = username.strip().lower() if username else config_entry.unique_id
+        v2_username: str | None = config_entry.data.get(CONF_USERNAME)
+        new_unique_id = (
+            v2_username.strip().lower()
+            if v2_username
+            else (config_entry.unique_id or DOMAIN)
+        )
         hass.config_entries.async_update_entry(
             config_entry,
             unique_id=new_unique_id,
