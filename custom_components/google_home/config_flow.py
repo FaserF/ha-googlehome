@@ -117,6 +117,9 @@ class GoogleHomeFlowHandler(AddonFlowMixin, ConfigFlow, domain=DOMAIN):
         self, discovery_info: HassioServiceInfo
     ) -> ConfigFlowResult:
         """Handle Home Assistant Supervisor auto-discovery from googlehome add-on."""
+        if self._async_current_entries():
+            return self.async_abort(reason="already_configured")
+
         _LOGGER.info(
             "Supervisor auto-discovered Google Home Add-on: %s", discovery_info
         )
@@ -130,6 +133,9 @@ class GoogleHomeFlowHandler(AddonFlowMixin, ConfigFlow, domain=DOMAIN):
 
     async def async_step_zeroconf(self, discovery_info: Any) -> ConfigFlowResult:
         """Handle zeroconf discovery of Google Cast / Home devices."""
+        if self._async_current_entries():
+            return self.async_abort(reason="already_configured")
+
         # Ensure only a single discovery flow / card is presented for the domain
         await self.async_set_unique_id(DOMAIN)
         self._abort_if_unique_id_configured()

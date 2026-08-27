@@ -52,6 +52,14 @@
     "number": {
       "alarm_volume": {
         "name": "Ένταση αφύπνισης"
+      },
+      "set_timer": {
+        "name": "Ρύθμιση χρονομέτρου"
+      }
+    },
+    "time": {
+      "set_alarm": {
+        "name": "Ρύθμιση αφύπνισης"
       }
     },
     "button": {

@@ -20,6 +20,7 @@ from .const import (
     ICON_ALARM_VOLUME_LOW,
     ICON_ALARM_VOLUME_MID,
     ICON_ALARM_VOLUME_OFF,
+    ICON_TIMERS,
     THIRD_PARTY_MODE_ASSISTANT_SDK,
 )
 from .coordinator import GoogleHomeDataUpdateCoordinator
@@ -46,11 +47,23 @@ async def async_setup_entry(
     entities: list[GoogleHomeBaseEntity] = []
     registered_device_ids: set[str] = set()
 
+    mode = entry.options.get(
+        "operation_mode",
+        entry.data.get("operation_mode", "hybrid"),
+    )
+    third_party_mode = entry.options.get(
+        CONF_THIRD_PARTY_ENTITY_MODE,
+        entry.data.get(CONF_THIRD_PARTY_ENTITY_MODE, DEFAULT_THIRD_PARTY_ENTITY_MODE),
+    )
+    enable_sdk_entities = (
+        mode == "hybrid" and third_party_mode == THIRD_PARTY_MODE_ASSISTANT_SDK
+    )
+
     def _create_entities_for_device(
         device: GoogleHomeDevice,
     ) -> list[GoogleHomeBaseEntity]:
         registered_device_ids.add(device.device_id)
-        return [
+        dev_entities: list[GoogleHomeBaseEntity] = [
             GoogleHomeAlarmVolumeNumber(
                 coordinator=coordinator,
                 device_id=device.device_id,
@@ -62,6 +75,15 @@ async def async_setup_entry(
                 device_name=device.name,
             ),
         ]
+        if enable_sdk_entities and device.auth_token:
+            dev_entities.append(
+                GoogleHomeSetTimerNumber(
+                    coordinator=coordinator,
+                    device_id=device.device_id,
+                    device_name=device.name,
+                )
+            )
+        return dev_entities
 
     for device in coordinator.data or []:
         entities.extend(_create_entities_for_device(device))
@@ -331,3 +353,90 @@ class GoogleHomeDeviceVolumeNumber(GoogleHomeBaseEntity, RestoreNumber):
                     _LOGGER.debug("Assistant SDK volume fallback error: %s", ex)
 
         self.async_write_ha_state()
+
+
+class GoogleHomeSetTimerNumber(GoogleHomeBaseEntity, RestoreNumber):
+    """Number entity to set a timer on a specific Google Home speaker via Assistant SDK."""
+
+    _attr_mode = NumberMode.BOX
+    _attr_native_min_value = 1.0
+    _attr_native_max_value = 1440.0
+    _attr_native_step = 1.0
+    _attr_native_unit_of_measurement = "min"
+    _attr_icon = ICON_TIMERS
+    _attr_entity_registry_enabled_default = True
+
+    def __init__(
+        self,
+        coordinator: GoogleHomeDataUpdateCoordinator,
+        device_id: str,
+        device_name: str,
+    ) -> None:
+        """Initialize."""
+        super().__init__(coordinator, device_id, device_name)
+        self._attr_native_value: float | None = None
+
+    @property
+    def label(self) -> str:
+        """Label to use for unique_id and name."""
+        return "set_timer"
+
+    def _find_target_media_player(self) -> str | None:
+        """Find matching media_player entity for this device in Home Assistant."""
+        dev_name = self.device_name.strip().lower()
+        dev_slug = dev_name.replace(" ", "_")
+
+        for state in self.hass.states.async_all("media_player"):
+            if dev_slug in state.entity_id:
+                return state.entity_id
+            fname = state.attributes.get("friendly_name", "").strip().lower()
+            if fname == dev_name:
+                return state.entity_id
+
+        return None
+
+    async def _async_send_assistant_command(self, command: str) -> None:
+        """Forward command via Google Assistant SDK targeted to this specific device."""
+        if self.hass.services.has_service("google_assistant_sdk", "send_text_command"):
+            try:
+                service_data: dict[str, Any] = {"command": command}
+                target_mp = self._find_target_media_player()
+                if target_mp:
+                    service_data["media_player"] = target_mp
+
+                _LOGGER.debug(
+                    "Sending Assistant SDK command for %s: %s (data=%s)",
+                    self.device_name,
+                    command,
+                    service_data,
+                )
+                await self.hass.services.async_call(
+                    "google_assistant_sdk",
+                    "send_text_command",
+                    service_data,
+                    blocking=False,
+                )
+            except Exception as ex:
+                _LOGGER.warning(
+                    "Error invoking google_assistant_sdk for %s: %s",
+                    self.device_name,
+                    ex,
+                )
+
+    async def async_set_native_value(self, value: float) -> None:
+        """Set a timer for the given duration in minutes on this specific speaker."""
+        minutes_int = int(round(value))
+        self._attr_native_value = float(minutes_int)
+        self.async_write_ha_state()
+
+        target_mp = self._find_target_media_player()
+        action = "set_timer" if target_mp else "set_timer_named"
+        cmd = format_command(
+            self.hass,
+            action,
+            self.device_name,
+            minutes=minutes_int,
+        )
+        await self._async_send_assistant_command(cmd)
+
+

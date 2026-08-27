@@ -29,5 +29,9 @@
   "mute": "Mute {device_name}",
   "unmute": "Unmute {device_name}",
   "play": "Resume {device_name}",
-  "pause": "Pause {device_name}"
+  "pause": "Pause {device_name}",
+  "set_timer": "Set a timer for {minutes} minutes",
+  "set_timer_named": "Set a timer on {device_name} for {minutes} minutes",
+  "set_alarm": "Set an alarm for {time}",
+  "set_alarm_named": "Set an alarm on {device_name} for {time}"
 }

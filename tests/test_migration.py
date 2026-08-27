@@ -3,12 +3,9 @@
 from unittest.mock import MagicMock
 
 import pytest
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
 
 from custom_components.google_home import async_migrate_entry
 from custom_components.google_home.const import (
-    AUTH_METHOD_APP_PASSWORD,
     AUTH_METHOD_TOKEN,
     CONF_ANDROID_ID,
     CONF_AUTH_METHOD,
@@ -25,11 +22,11 @@ from custom_components.google_home.const import (
 @pytest.mark.asyncio
 async def test_migration_from_leikoilja_with_master_token():
     """Test migration from leikoilja integration entry when master_token exists."""
-    hass = MagicMock(spec=HomeAssistant)
+    hass = MagicMock()
     hass.config_entries = MagicMock()
     hass.config_entries.async_update_entry = MagicMock()
 
-    entry = MagicMock(spec=ConfigEntry)
+    entry = MagicMock()
     entry.version = 1
     entry.unique_id = "old_unique_id"
     entry.data = {
@@ -61,17 +58,17 @@ async def test_migration_from_leikoilja_with_master_token():
 
 @pytest.mark.asyncio
 async def test_migration_from_leikoilja_without_master_token():
-    """Test migration from leikoilja integration entry when only app password is used."""
-    hass = MagicMock(spec=HomeAssistant)
+    """Test migration from leikoilja integration entry when only legacy credentials exist."""
+    hass = MagicMock()
     hass.config_entries = MagicMock()
     hass.config_entries.async_update_entry = MagicMock()
 
-    entry = MagicMock(spec=ConfigEntry)
+    entry = MagicMock()
     entry.version = 1
     entry.unique_id = None
     entry.data = {
         CONF_USERNAME: "user@domain.com",
-        CONF_PASSWORD: "my_app_password",
+        CONF_PASSWORD: "my_password",
         CONF_ANDROID_ID: "android_999",
     }
 
@@ -84,8 +81,8 @@ async def test_migration_from_leikoilja_without_master_token():
     assert kwargs["unique_id"] == "user@domain.com"
 
     migrated_data = kwargs["data"]
-    assert migrated_data[CONF_AUTH_METHOD] == AUTH_METHOD_APP_PASSWORD
+    assert migrated_data[CONF_AUTH_METHOD] == AUTH_METHOD_TOKEN
     assert migrated_data[CONF_USERNAME] == "user@domain.com"
-    assert migrated_data[CONF_PASSWORD] == "my_app_password"
+    assert migrated_data[CONF_PASSWORD] == "my_password"
     assert migrated_data[CONF_LOCAL_UPDATE_INTERVAL] == 120
     assert migrated_data[CONF_OPERATION_MODE] == MODE_LOCAL

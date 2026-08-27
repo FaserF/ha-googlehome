@@ -14,7 +14,6 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import GlocaltokensApiClient
 from .const import (
-    AUTH_METHOD_APP_PASSWORD,
     AUTH_METHOD_TOKEN,
     CONF_ANDROID_ID,
     CONF_AUTH_METHOD,
@@ -297,6 +296,23 @@ async def _async_cleanup_stale_devices_and_entities(
                             ent_reg.async_remove(ent_entry.entity_id)
                             break
 
+    # Clean up local speaker Assistant SDK entities (set_timer, set_alarm) when not in Hybrid + Assistant SDK mode
+    from .const import MODE_HYBRID, THIRD_PARTY_MODE_ASSISTANT_SDK
+
+    sdk_timer_alarm_enabled = (
+        mode == MODE_HYBRID and third_party_mode == THIRD_PARTY_MODE_ASSISTANT_SDK
+    )
+    if not sdk_timer_alarm_enabled:
+        for ent_entry in er.async_entries_for_config_entry(ent_reg, entry.entry_id):
+            uid = ent_entry.unique_id or ""
+            if uid.endswith("_set_timer") or uid.endswith("_set_alarm"):
+                _LOGGER.info(
+                    "Removing stale local speaker SDK entity (%s): %s",
+                    uid,
+                    ent_entry.entity_id,
+                )
+                ent_reg.async_remove(ent_entry.entity_id)
+
     device_entries = dr.async_entries_for_config_entry(dev_reg, entry.entry_id)
     for dev_entry in device_entries:
         # Check if device matches any active identifier
@@ -431,8 +447,8 @@ async def async_migrate_entry(hass: HomeAssistant, config_entry: ConfigEntry) ->
         )
         local_update_interval = max(60, legacy_update_interval)
 
-        # Determine best auth_method based on what credentials are present
-        auth_method = AUTH_METHOD_TOKEN if master_token else AUTH_METHOD_APP_PASSWORD
+        # Default auth_method to token
+        auth_method = AUTH_METHOD_TOKEN
 
         new_data: dict[str, Any] = {
             CONF_AUTH_METHOD: auth_method,

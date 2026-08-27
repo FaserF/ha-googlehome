@@ -134,6 +134,14 @@
       },
       "volume": {
         "name": "Speaker Volume"
+      },
+      "set_timer": {
+        "name": "Set Timer"
+      }
+    },
+    "time": {
+      "set_alarm": {
+        "name": "Set Alarm"
       }
     },
     "button": {

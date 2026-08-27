@@ -37,7 +37,6 @@ Choose the best mode during setup or change it anytime in the Options Flow:
 | **Do Not Disturb & Night Mode** | ✅ Yes | ❌ No | ✅ Yes |
 | **Smart Clock Nightlight (`light` & Brightness)** | ❌ No | 🗣️ Via [Assistant SDK](https://www.home-assistant.io/integrations/google_assistant_sdk/) | 🗣️ Via [Assistant SDK](https://www.home-assistant.io/integrations/google_assistant_sdk/) |
 | **Reboot Speaker & Diagnostics** | ✅ Yes (IP, Wi-Fi RSSI, Bluetooth) | ❌ No | ✅ Yes |
-
 | **Cloud Device Live Telemetry & Status Sensors** | ❌ No | ✅ Yes (State, Brightness, Fan Speed %, Covers, etc.) | ✅ Yes |
 | **Cloud Device Control (Lights, Switches, Fans, etc.)** | ❌ No | 🗣️ Via [Assistant SDK](https://www.home-assistant.io/integrations/google_assistant_sdk/) | 🗣️ Via [Assistant SDK](https://www.home-assistant.io/integrations/google_assistant_sdk/) |
 | **Google Routines & Scenes (`scene`)** | ❌ No | ✅ Yes (Trigger any routine/scene) | ✅ Yes |
@@ -109,11 +108,11 @@ Choose the best mode during setup or change it anytime in the Options Flow:
   - Clear multi-step Config Flow:
     - **Token Authentication (Recommended)**: 100% reliable 30-second setup using a browser token from Google setup page, automatically exchanged for a permanent Master Token.
     - **[Google Home Token Hub Add-on](https://github.com/FaserF/hassio-addons/tree/master/googlehome)**: Automatic setup via Add-on (auto-detected, edge & stable).
-    - **App Password Authentication**: Automatic token extraction via Google App Password.
 
 - **Alarm & Timer Management**:
   - **Next Alarm Sensor**: Native timestamp sensor (`datetime | None`) with full alarm list, repeat days, and status in state attributes.
   - **Next Timer Sensor**: Native timestamp sensor with duration, remaining time, and state details.
+  - **Set Timer (`number`) & Set Alarm (`time`) Entities**: When *Hybrid mode* is configured with *Google Assistant SDK execution*, dedicated `number` (duration in minutes) and `time` (alarm clock time) entities are exposed per local speaker to schedule timers and alarms directly at the targeted device via voice command forwarding. Automatically cleaned up when SDK mode is disabled.
   - **Delete Buttons**: Convenient **Delete All Alarms** and **Delete All Timers** buttons (`button.xxx_alle_wecker_loschen` & `button.xxx_alle_timer_loschen`, disabled by default) to purge all active alarms and timers with one click.
   - **Native Bus Events**: Automatically fires `google_home_timer_finished` and `google_home_alarm_triggered` on the Home Assistant event bus for easy automations.
   - Dedicated entity services to delete alarms, delete timers, broadcast local announcements, and set alarm volume via automations or dashboard buttons.
@@ -142,7 +141,8 @@ Choose the best mode during setup or change it anytime in the Options Flow:
 
 ---
 
-## 🔄 Migration from [leikoilja/ha-google-home](https://github.com/leikoilja/ha-google-home)
+<details>
+<summary><strong>🔄 Migration from <a href="https://github.com/leikoilja/ha-google-home">leikoilja/ha-google-home</a></strong></summary>
 
 Already running the original community integration by [@leikoilja](https://github.com/leikoilja)? **Migration is fully automatic — no manual steps required.**
 
@@ -154,7 +154,7 @@ Both integrations use the same `google_home` domain. When you replace the files 
 |---|---|
 | **Google Account Email** (`username`) | Carried over 1:1 |
 | **Master Token** (`aas_et/...`) | Carried over 1:1 |
-| **App Password / Password** | Carried over if no master token was present |
+| **Password** | Carried over if no master token was present |
 | **Android ID** | Carried over 1:1 |
 | **Polling interval** (`update_interval`) | Mapped to `local_update_interval`; enforced min 60s |
 | **Operation mode** | Defaulted to **Local Only** (safe, identical to original behavior) |
@@ -169,6 +169,8 @@ Both integrations use the same `google_home` domain. When you replace the files 
 3. ✅ Done — the migration runs silently on startup. Check **Settings → System → Logs** for a `"Successfully auto-migrated leikoilja entry"` confirmation line.
 
 > **Tip:** After migration the integration starts in **Local Only** mode (identical to leikoilja). To unlock cloud device support (lights, fans, thermostats, cameras, locks, vacuums, routines, etc.), go to **Settings → Devices & Services → Google Home → Configure** and switch the Operation Mode to **Hybrid (Local & Cloud)**.
+
+</details>
 
 ---
 
@@ -188,7 +190,7 @@ Both integrations share the same `google_home` domain and the same underlying li
 | **Zeroconf discovery** | ✅ `_googlecast._tcp.local.` + `_googlezone._tcp.local.` | ✅ `_googlecast._tcp.local.` |
 | **HA-loop prevention** | ✅ Filters out devices synced from HA (configurable) | ❌ Not present |
 | **Dynamic entity/device cleanup** | ✅ Stale entities auto-removed when homes are deselected | ❌ Not present |
-| **Update intervals** | ✅ Separate local (60s default) and cloud (300s default) | ⚠️ Single interval (default 180s, configurable) |
+| **Update intervals** | ✅ Separate local (120s default) and cloud (300s default) | ⚠️ Single interval (default 180s, configurable) |
 | **Maintenance status** | ✅ Actively maintained (2025–2026) | ⚠️ Unmaintained since ~2023 |
 
 ### 🔌 Platforms & Entity Types
@@ -197,7 +199,8 @@ Both integrations share the same `google_home` domain and the same underlying li
 |---|---|---|
 | `sensor` | ✅ Alarms, Timers, Device Info, Wi-Fi SSID/RSSI, Bluetooth MAC, Familiar Faces, Gemini Briefs, cloud status sensors | ✅ Alarms, Timers, Device Info (IP) |
 | `switch` | ✅ Do Not Disturb + cloud smart plug/switch control | ✅ Do Not Disturb only |
-| `number` | ✅ Media Volume + Alarm Volume | ✅ Alarm Volume only |
+| `number` | ✅ Media Volume, Alarm Volume, Set Timer (min) (SDK) | ✅ Alarm Volume only |
+| `time` | ✅ Set Alarm (HH:MM) (SDK) | ❌ Not present |
 | `button` | ✅ Reboot, Delete All Alarms, Delete All Timers | ❌ Not present |
 | `binary_sensor` | ✅ Motion, occupancy, contact, presence, doorbell, smoke/CO (Nest Aware) | ❌ Not present |
 | `light` | ✅ Lights, dimmers, RGB, color temp, Smart Clock nightlight | ❌ Not present |
