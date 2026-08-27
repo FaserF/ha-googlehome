@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Google Home Setup",
-        "description": "{discovery_intro}Google requires authentication to communicate with your Google Home speakers and HomeGraph devices.\n\n### 🔐 Choose an authentication method:\n- **Token (Master Token / Web OAuth Token)**: 100% reliable, recommended by Google Home community.\n- **Google Home Token Hub Add-on**: Automatic setup via Add-on (auto-detected, edge & stable).\n- **App Password**: Automatic token generation (requires App Password from Google Account).",
+        "description": "{discovery_intro}Google requires authentication to communicate with your Google Home speakers and HomeGraph devices.\n\n### 🔐 Choose an authentication method:\n- **Token (Master Token / Web OAuth Token)**: 100% reliable, recommended by Google Home community.\n- **Google Home Token Hub Add-on**: Automatic setup via Add-on (auto-detected, edge & stable).",
         "data": {
           "auth_method": "Authentication Method"
         }
@@ -36,10 +36,10 @@
       },
       "addon_login": {
         "title": "Add-on Login",
-        "description": "{discovery_intro}Enter your Google account email and password (or App Password). The Add-on will automatically authenticate and acquire your Master Token in the background.",
+        "description": "{discovery_intro}Enter your Google account email and password. The Add-on will automatically authenticate and acquire your Master Token in the background.",
         "data": {
           "username": "Google Account Email",
-          "password": "Password / App-Password"
+          "password": "Password"
         }
       },
       "addon_existing": {
@@ -62,29 +62,17 @@
         "data": {
           "addon_action": "Action for Add-on"
         }
-      },
-      "app_password": {
-        "title": "App Password Login",
-        "description": "Enter your Google Account Email and a 16-character [Google App Password]({app_passwords_url}).\n\nThe integration will automatically connect to Google and extract your permanent Master Token in the background.",
-        "data": {
-          "username": "Google Account Email",
-          "password": "16-character App Password"
-        }
       }
     },
     "error": {
       "invalid_email": "Please enter a valid Google email address (e.g. name@gmail.com).",
       "invalid_token_format": "Invalid token format. Token must start with 'aas_et/' (Master Token) or 'oauth2_4/' (Web OAuth Token).",
-      "invalid_app_password_format": "Invalid App Password format. Google App Passwords must consist of 16 letters (e.g. abcd efgh ijkl mnop).",
       "invalid_master_token": "The token provided is invalid or expired. Please generate a fresh token from {setup_url}.",
-      "advanced_protection": "Your Google account has the Advanced Protection Program enabled. Google strictly prohibits App Passwords for this account. Please use the Token method instead.",
-      "two_factor_required": "Google rejected password login (BadAuthentication / 2FA). Please enter an App Password at {app_passwords_url} or provide a web OAuth token.",
       "missing_email_for_oauth": "Please enter your Google Account Email above.",
-      "missing_credentials": "Please enter either a password or a token.",
+      "missing_credentials": "Please enter your credentials.",
       "addon_not_logged_in": "The Google Home Add-on is running, but no token has been entered yet.",
       "cannot_connect_addon": "Could not connect to Google Home Add-on. Make sure it is installed and running.",
       "invalid_auth": "Invalid email address or credentials. Please verify your data.",
-      "password_too_long": "Password exceeds maximum length (100 characters).",
       "assistant_sdk_missing": "The official Google Assistant SDK integration is not installed or configured in Home Assistant. Please set up the Google Assistant SDK integration before enabling Assistant SDK control mode.",
       "unknown": "An unexpected error occurred. Please check Home Assistant logs."
     },
@@ -93,7 +81,8 @@
       "already_configured": "Google Home is already configured.",
       "already_in_progress": "A Google Home setup is already in progress. Please complete or cancel it first.",
       "cannot_connect": "Cannot connect to the Google Home Token Hub Add-on. Make sure the Add-on is running.",
-      "no_devices_found": "No Google Home devices found on the local network."
+      "no_devices_found": "No Google Home devices found on the local network.",
+      "migrated_from_leikoilja": "Your existing leikoilja/ha-google-home configuration has been automatically migrated. All your devices continue to work. You can switch to Hybrid mode in the Options Flow to gain cloud device support."
     }
   },
   "options": {
@@ -106,8 +95,8 @@
           "third_party_entity_mode": "Third-Party Devices Representation",
           "selected_homes": "Google Homes to synchronize",
           "ignore_ha_synced_devices": "Ignore devices synced from Home Assistant",
-          "local_update_interval": "Local Speaker Polling Interval (seconds, min 60s)",
-          "cloud_update_interval": "Cloud HomeGraph Polling Interval (seconds, min 60s)",
+          "local_update_interval": "Local Speaker Polling Interval (seconds, min 60s, default 120s)",
+          "cloud_update_interval": "Cloud HomeGraph Polling Interval (seconds, min 60s, default 300s)",
           "master_token": "Master Token (hidden - paste new aas_et/... or oauth2_4/... token to update)"
         }
       }
@@ -166,8 +155,7 @@
     "auth_method": {
       "options": {
         "token": "Token (Master Token / Web OAuth Token) [Recommended]",
-        "addon": "Google Home Token Hub Add-on (Ingress Hub)",
-        "app_password": "App Password (Username + App Password)"
+        "addon": "Google Home Token Hub Add-on (Ingress Hub)"
       }
     },
     "addon_action": {

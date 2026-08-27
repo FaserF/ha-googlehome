@@ -3,24 +3,22 @@
     "step": {
       "user": {
         "title": "Ρύθμιση Google Home",
-        "description": "Συνδεθείτε με τον λογαριασμό σας Google. Εάν έχετε 2FA, δημιουργήστε έναν κωδικό πρόσβασης εφαρμογής ({app_passwords_url}).",
+        "description": "Συνδεθείτε με τον λογαριασμό σας Google.",
         "data": {
           "username": "Διεύθυνση Email λογαριασμού Google",
-          "password": "Κωδικός πρόσβασης / Κωδικός εφαρμογής",
-          "master_token": "Master Token (Προαιρετικό)"
+          "master_token": "Master Token"
         }
       }
     },
     "error": {
       "invalid_master_token": "Το master token δεν είναι έγκυρο ή έχει λήξει.",
-      "two_factor_required": "Απαιτείται κωδικός πρόσβασης εφαρμογής (2FA): {app_passwords_url}.",
       "invalid_auth": "Μη έγκυρα στοιχεία σύνδεσης.",
-      "password_too_long": "Ο κωδικός πρόσβασης υπερβαίνει το μέγιστο όριο χαρακτήρων.",
-      "missing_credentials": "Παρακαλώ εισαγάγετε Email και κωδικό πρόσβασης ή Master Token.",
+      "missing_credentials": "Παρακαλώ εισαγάγετε τα στοιχεία σύνδεσής σας.",
       "unknown": "Παρουσιάστηκε μη αναμενόμενο σφάλμα. Ελέγξτε τα αρχεία καταγραφής."
     },
     "abort": {
-      "single_instance_allowed": "Επιτρέπεται μόνο μία εγκατάσταση του Google Home."
+      "single_instance_allowed": "Επιτρέπεται μόνο μία εγκατάσταση του Google Home.",
+      "migrated_from_leikoilja": "Η υπάρχουσα ρύθμιση leikoilja/ha-google-home μεταναστεύτηκε αυτόματα. Όλες οι συσκευές σας συνεχίζουν να λειτουργούν. Μπορείτε να μεταβείτε σε Hybrid mode από τις Επιλογές για να αποκτήσετε υποστήριξη cloud συσκευών."
     }
   },
   "options": {

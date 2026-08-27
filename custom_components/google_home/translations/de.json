@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Google Home Einrichtung",
-        "description": "{discovery_intro}Google verlangt eine Authentifizierung, um deine Google Home & Nest Lautsprecher und Cloud-Geräte abzufragen.\n\n### 🔐 Wähle deine Anmeldemethode:\n- **Token (Master-Token / Web-OAuth-Token)**: 100% zuverlässig, von der Community empfohlen.\n- **Google Home Token Hub Add-on**: Automatische Einrichtung über das Add-on (Erkennung für Edge & Stable).\n- **App-Passwort**: Automatische Token-Generierung (erfordert ein App-Passwort von Google).",
+        "description": "{discovery_intro}Google verlangt eine Authentifizierung, um deine Google Home & Nest Lautsprecher und Cloud-Geräte abzufragen.\n\n### 🔐 Wähle deine Anmeldemethode:\n- **Token (Master-Token / Web-OAuth-Token)**: 100% zuverlässig, von der Community empfohlen.\n- **Google Home Token Hub Add-on**: Automatische Einrichtung über das Add-on (Erkennung für Edge & Stable).",
         "data": {
           "auth_method": "Anmeldemethode"
         }
@@ -36,10 +36,10 @@
       },
       "addon_login": {
         "title": "Add-on Anmeldung",
-        "description": "{discovery_intro}Gib deine Google-Konto E-Mail und dein Passwort (oder App-Passwort) ein. Das Add-on führt die Anmeldung automatisch durch und ruft den Master-Token im Hintergrund ab.",
+        "description": "{discovery_intro}Gib deine Google-Konto E-Mail und dein Passwort ein. Das Add-on führt die Anmeldung automatisch durch und ruft den Master-Token im Hintergrund ab.",
         "data": {
           "username": "Google-Konto E-Mail",
-          "password": "Passwort / App-Passwort"
+          "password": "Passwort"
         }
       },
       "addon_existing": {
@@ -62,29 +62,17 @@
         "data": {
           "addon_action": "Aktion für Add-on"
         }
-      },
-      "app_password": {
-        "title": "App-Passwort Anmeldung",
-        "description": "Gib deine Google-Konto E-Mail-Adresse und ein 16-stelliges [Google App-Passwort]({app_passwords_url}) ein.\n\nDie Integration verbindet sich im Hintergrund automatisch mit Google und generiert deinen dauerhaften Master-Token.",
-        "data": {
-          "username": "Google-Konto E-Mail-Adresse",
-          "password": "16-stelliges App-Passwort"
-        }
       }
     },
     "error": {
       "invalid_email": "Bitte gib eine gültige Google-Mailadresse ein (z. B. name@gmail.com).",
       "invalid_token_format": "Ungültiges Token-Format. Der Token muss mit 'aas_et/' (Master-Token) oder 'oauth2_4/' (OAuth-Token) beginnen.",
-      "invalid_app_password_format": "Ungültiges App-Passwort. Google App-Passwörter bestehen aus 16 Zeichen (z. B. abcd efgh ijkl mnop).",
       "invalid_master_token": "Der angegebene Token ist ungültig oder abgelaufen. Bitte erstelle einen neuen Token unter {setup_url}.",
-      "advanced_protection": "Für dieses Google-Konto ist das 'Erweiterte Sicherheitsprogramm' aktiv. Google erlaubt keine App-Passwörter für dieses Konto. Bitte nutze die Token-Methode.",
-      "two_factor_required": "Google hat die Passwort-Anmeldung abgewiesen (2FA aktiv). Bitte erstelle ein 16-stelliges App-Passwort unter {app_passwords_url} oder verwende die Token-Methode.",
       "missing_email_for_oauth": "Bitte gib oben deine Google-Konto E-Mail-Adresse ein.",
-      "missing_credentials": "Bitte gib entweder ein Passwort oder einen Token ein.",
+      "missing_credentials": "Bitte gib deine Zugangsdaten ein.",
       "addon_not_logged_in": "Das Google Home Add-on läuft, es wurde jedoch noch kein Token hinterlegt.",
       "cannot_connect_addon": "Verbindung zum Google Home Add-on fehlgeschlagen. Bitte stelle sicher, dass das Add-on läuft.",
       "invalid_auth": "Ungültige E-Mail-Adresse oder Zugangsdaten. Bitte überprüfe deine Eingabe.",
-      "password_too_long": "Das Passwort ist zu lang (maximal 100 Zeichen).",
       "assistant_sdk_missing": "Die offizielle Google Assistant SDK Integration ist in Home Assistant nicht konfiguriert. Bitte richte zuerst das Google Assistant SDK ein, bevor du diesen Modus aktivierst.",
       "unknown": "Ein unerwarteter Fehler ist aufgetreten. Bitte prüfe die Home Assistant Logs."
     },
@@ -93,7 +81,8 @@
       "already_configured": "Google Home ist bereits eingerichtet.",
       "already_in_progress": "Eine Google Home Einrichtung ist bereits im Gange. Bitte zuerst abschließen oder abbrechen.",
       "cannot_connect": "Verbindung zum Google Home Token Hub Add-on fehlgeschlagen. Bitte sicherstellen, dass das Add-on läuft.",
-      "no_devices_found": "Keine Google Home Geräte im lokalen Netzwerk gefunden."
+      "no_devices_found": "Keine Google Home Geräte im lokalen Netzwerk gefunden.",
+      "migrated_from_leikoilja": "Deine bestehende leikoilja/ha-google-home-Konfiguration wurde automatisch migriert. Alle deine Geräte funktionieren weiterhin. Du kannst im Options-Flow auf den Hybrid-Modus wechseln, um auch Cloud-Geräte zu unterstützen."
     }
   },
   "options": {
@@ -106,8 +95,8 @@
           "third_party_entity_mode": "Darstellung von Drittanbieter-Geräten",
           "selected_homes": "Zu synchronisierende Google Homes",
           "ignore_ha_synced_devices": "Von Home Assistant synchronisierte Geräte ignorieren",
-          "local_update_interval": "Lokales Lautsprecher-Abfrageintervall (Sekunden, min. 60s)",
-          "cloud_update_interval": "Cloud HomeGraph-Abfrageintervall (Sekunden, min. 60s)",
+          "local_update_interval": "Lokales Lautsprecher-Abfrageintervall (Sekunden, min. 60s, default 120s)",
+          "cloud_update_interval": "Cloud HomeGraph-Abfrageintervall (Sekunden, min. 60s, default 300s)",
           "master_token": "Master Token (versteckt - neuen aas_et/... oder oauth2_4/... Token einfügen zum Aktualisieren)"
         }
       }
@@ -174,8 +163,7 @@
     "auth_method": {
       "options": {
         "token": "Token (Master-Token / Web-OAuth-Token) [Empfohlen]",
-        "addon": "Google Home Token Hub Add-on (Ingress Hub)",
-        "app_password": "App-Passwort (E-Mail + App-Passwort)"
+        "addon": "Google Home Token Hub Add-on (Ingress Hub)"
       }
     },
     "addon_action": {

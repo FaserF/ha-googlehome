@@ -36,7 +36,6 @@ from .api import GlocaltokensApiClient
 from .const import (
     ADDON_CONTAINER_HOSTS,
     AUTH_METHOD_ADDON,
-    AUTH_METHOD_APP_PASSWORD,
     AUTH_METHOD_TOKEN,
     CONF_ADDON_HOST,
     CONF_ADDON_PORT,
@@ -46,10 +45,8 @@ from .const import (
     CONF_LOCAL_UPDATE_INTERVAL,
     CONF_MASTER_TOKEN,
     CONF_OPERATION_MODE,
-    CONF_PASSWORD,
     CONF_SELECTED_HOMES,
     CONF_THIRD_PARTY_ENTITY_MODE,
-    CONF_UPDATE_INTERVAL,
     CONF_USERNAME,
     DATA_CLIENT,
     DATA_CLOUD_CLIENT,
@@ -58,10 +55,9 @@ from .const import (
     DEFAULT_ADDON_PORT,
     DEFAULT_CLOUD_UPDATE_INTERVAL,
     DEFAULT_IGNORE_HA_SYNCED_DEVICES,
+    DEFAULT_LOCAL_UPDATE_INTERVAL,
     DEFAULT_THIRD_PARTY_ENTITY_MODE,
-    DEFAULT_UPDATE_INTERVAL,
     DOMAIN,
-    MAX_PASSWORD_LENGTH,
     MODE_CLOUD,
     MODE_HYBRID,
     MODE_LOCAL,
@@ -70,10 +66,8 @@ from .const import (
     THIRD_PARTY_MODE_READONLY,
 )
 from .exceptions import (
-    AdvancedProtectionActive,
     AuthenticationFailed,
     InvalidMasterToken,
-    TwoFactorRequired,
 )
 
 _LOGGER: logging.Logger = logging.getLogger(__package__)
@@ -211,8 +205,6 @@ class GoogleHomeFlowHandler(AddonFlowMixin, ConfigFlow, domain=DOMAIN):
                 return await self.async_step_token()
             if method == AUTH_METHOD_ADDON:
                 return await self.async_step_addon()
-            if method == AUTH_METHOD_APP_PASSWORD:
-                return await self.async_step_app_password()
 
         data_schema = vol.Schema(
             {
@@ -223,7 +215,6 @@ class GoogleHomeFlowHandler(AddonFlowMixin, ConfigFlow, domain=DOMAIN):
                         options=[
                             AUTH_METHOD_TOKEN,
                             AUTH_METHOD_ADDON,
-                            AUTH_METHOD_APP_PASSWORD,
                         ],
                         translation_key="auth_method",
                         mode=SelectSelectorMode.DROPDOWN,
@@ -244,7 +235,6 @@ class GoogleHomeFlowHandler(AddonFlowMixin, ConfigFlow, domain=DOMAIN):
                 "discovery_intro": discovery_intro,
                 "setup_url": "https://accounts.google.com/EmbeddedSetup",
                 "cookies_url": "https://accounts.google.com",
-                "app_passwords_url": "https://myaccount.google.com/apppasswords",
             },
         )
 
@@ -306,7 +296,6 @@ class GoogleHomeFlowHandler(AddonFlowMixin, ConfigFlow, domain=DOMAIN):
             description_placeholders={
                 "setup_url": "https://accounts.google.com/EmbeddedSetup",
                 "cookies_url": "https://accounts.google.com",
-                "app_passwords_url": "https://myaccount.google.com/apppasswords",
             },
         )
 
@@ -422,69 +411,6 @@ class GoogleHomeFlowHandler(AddonFlowMixin, ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="mode",
             data_schema=vol.Schema(schema_dict),
-        )
-
-    async def async_step_app_password(
-        self, user_input: dict[str, Any] | None = None
-    ) -> ConfigFlowResult:
-        """Handle App Password authentication with automatic token generation."""
-        self._errors = {}
-        data_schema = vol.Schema(
-            {
-                vol.Required(CONF_USERNAME): str,
-                vol.Required(CONF_PASSWORD): str,
-            }
-        )
-
-        if user_input is not None:
-            username = user_input.get(CONF_USERNAME, "").strip()
-            password = user_input.get(CONF_PASSWORD, "").strip()
-            session = async_get_clientsession(self.hass)
-
-            if not username or "@" not in username or "." not in username:
-                self._errors["base"] = "invalid_email"
-            elif not password:
-                self._errors["base"] = "missing_credentials"
-            elif len(password) > MAX_PASSWORD_LENGTH:
-                self._errors["base"] = "password_too_long"
-            else:
-                clean_pwd = (
-                    password.replace(" ", "")
-                    if len(password.replace(" ", "")) == 16
-                    else password
-                )
-                client = GlocaltokensApiClient(
-                    hass=self.hass,
-                    session=session,
-                    username=username,
-                    password=clean_pwd,
-                )
-                try:
-                    extracted_token = await client.get_master_token()
-                except AdvancedProtectionActive:
-                    self._errors["base"] = "advanced_protection"
-                except TwoFactorRequired:
-                    self._errors["base"] = "two_factor_required"
-                except (AuthenticationFailed, InvalidMasterToken):
-                    self._errors["base"] = "invalid_auth"
-                except Exception as err:
-                    _LOGGER.exception(
-                        "Unexpected error during app password login: %s", err
-                    )
-                    self._errors["base"] = "unknown"
-                else:
-                    self._master_token = extracted_token
-                    self._username = username
-                    return await self.async_step_mode()
-
-        return self.async_show_form(
-            step_id="app_password",
-            data_schema=data_schema,
-            errors=self._errors,
-            description_placeholders={
-                "app_passwords_url": "https://myaccount.google.com/apppasswords",
-                "setup_url": "https://accounts.google.com/EmbeddedSetup",
-            },
         )
 
     @staticmethod
@@ -670,15 +596,11 @@ class GoogleHomeOptionsFlowHandler(OptionsFlow):
                 )
             )
 
-        current_legacy_interval = self.config_entry.options.get(
-            CONF_UPDATE_INTERVAL,
-            self.config_entry.data.get(CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL),
-        )
         current_local_interval = self.config_entry.options.get(
             CONF_LOCAL_UPDATE_INTERVAL,
             self.config_entry.data.get(
                 CONF_LOCAL_UPDATE_INTERVAL,
-                max(60, current_legacy_interval),
+                DEFAULT_LOCAL_UPDATE_INTERVAL,
             ),
         )
         current_cloud_interval = self.config_entry.options.get(

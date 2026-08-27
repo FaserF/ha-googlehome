@@ -170,7 +170,6 @@ class AddonFlowMixin:
             description_placeholders={
                 "discovery_intro": discovery_intro,
                 "setup_url": "https://accounts.google.com/EmbeddedSetup",
-                "app_passwords_url": "https://myaccount.google.com/apppasswords",
             },
         )
 

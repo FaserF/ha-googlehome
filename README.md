@@ -19,8 +19,8 @@ A modern, fast, and feature-complete Home Assistant integration offering **Hybri
 
 | | | | |
 | :--- | :--- | :--- | :--- |
-| [✨ Features](#-features) | [🔄 Operation Modes Comparison](#-operation-modes-comparison) | [📦 Installation](#-installation) | [⚙️ Configuration](#️-configuration) |
-| [🛠️ Options Flow](#️-options-flow) | [⚡ Events](#-automation-events) | [🧱 Services](#-services) | [📄 License](#-license) |
+| [✨ Features](#-features) | [🔄 Operation Modes Comparison](#-operation-modes-comparison) | [📦 Installation](#-installation) | [🔄 Migration from leikoilja](#-migration-from-leikoilja-ha-google-home) |
+| [⚙️ Configuration](#️-configuration) | [🛠️ Options Flow](#️-options-flow) | [⚡ Events](#-automation-events) | [🧱 Services](#-services) |
 
 ---
 
@@ -142,6 +142,107 @@ Choose the best mode during setup or change it anytime in the Options Flow:
 
 ---
 
+## 🔄 Migration from [leikoilja/ha-google-home](https://github.com/leikoilja/ha-google-home)
+
+Already running the original community integration by [@leikoilja](https://github.com/leikoilja)? **Migration is fully automatic — no manual steps required.**
+
+### How it works
+
+Both integrations use the same `google_home` domain. When you replace the files and restart Home Assistant, the new integration detects your existing config entry by its legacy schema (VERSION 1, no `auth_method` key) and automatically migrates it:
+
+| What is migrated | Notes |
+|---|---|
+| **Google Account Email** (`username`) | Carried over 1:1 |
+| **Master Token** (`aas_et/...`) | Carried over 1:1 |
+| **App Password / Password** | Carried over if no master token was present |
+| **Android ID** | Carried over 1:1 |
+| **Polling interval** (`update_interval`) | Mapped to `local_update_interval`; enforced min 60s |
+| **Operation mode** | Defaulted to **Local Only** (safe, identical to original behavior) |
+| **Entity IDs & device registry** | All existing entities keep their IDs — no automations break |
+
+### Migration steps
+
+1. **Remove** the old integration files (or let HACS replace them):
+   - Via **HACS**: Add `https://github.com/FaserF/ha-googlehome` as a Custom Repository → Download → overwrite.
+   - Manually: copy the new `custom_components/google_home/` folder, replacing the old one.
+2. **Restart** Home Assistant.
+3. ✅ Done — the migration runs silently on startup. Check **Settings → System → Logs** for a `"Successfully auto-migrated leikoilja entry"` confirmation line.
+
+> **Tip:** After migration the integration starts in **Local Only** mode (identical to leikoilja). To unlock cloud device support (lights, fans, thermostats, cameras, locks, vacuums, routines, etc.), go to **Settings → Devices & Services → Google Home → Configure** and switch the Operation Mode to **Hybrid (Local & Cloud)**.
+
+---
+
+<details>
+<summary><strong>📊 Comparison with leikoilja/ha-google-home</strong> <em>(as of 2026-08-27)</em></summary>
+
+Both integrations share the same `google_home` domain and the same underlying library ([glocaltokens](https://github.com/leikoilja/glocaltokens)) to obtain local auth tokens.
+
+### 🏗️ Architecture & Setup
+
+| Feature | **This integration** | [leikoilja/ha-google-home](https://github.com/leikoilja/ha-google-home) |
+|---|---|---|
+| **Operation modes** | ✅ Three modes: `local`, `cloud`, `hybrid` (configurable in Options Flow) | ❌ Local-only |
+| **Authentication methods** | ✅ Browser token (recommended), Add-on (auto-detected) | ✅ Username + password (glocaltokens) |
+| **Multi-account support** | ✅ Multiple distinct Google accounts per HA instance | ❌ One account per entry |
+| **Multi-home (structure) filtering** | ✅ Selectively sync specific homes; stable UUID binding | ❌ No concept of homes/structures |
+| **Zeroconf discovery** | ✅ `_googlecast._tcp.local.` + `_googlezone._tcp.local.` | ✅ `_googlecast._tcp.local.` |
+| **HA-loop prevention** | ✅ Filters out devices synced from HA (configurable) | ❌ Not present |
+| **Dynamic entity/device cleanup** | ✅ Stale entities auto-removed when homes are deselected | ❌ Not present |
+| **Update intervals** | ✅ Separate local (60s default) and cloud (300s default) | ⚠️ Single interval (default 180s, configurable) |
+| **Maintenance status** | ✅ Actively maintained (2025–2026) | ⚠️ Unmaintained since ~2023 |
+
+### 🔌 Platforms & Entity Types
+
+| Platform | **This integration** | **leikoilja** |
+|---|---|---|
+| `sensor` | ✅ Alarms, Timers, Device Info, Wi-Fi SSID/RSSI, Bluetooth MAC, Familiar Faces, Gemini Briefs, cloud status sensors | ✅ Alarms, Timers, Device Info (IP) |
+| `switch` | ✅ Do Not Disturb + cloud smart plug/switch control | ✅ Do Not Disturb only |
+| `number` | ✅ Media Volume + Alarm Volume | ✅ Alarm Volume only |
+| `button` | ✅ Reboot, Delete All Alarms, Delete All Timers | ❌ Not present |
+| `binary_sensor` | ✅ Motion, occupancy, contact, presence, doorbell, smoke/CO (Nest Aware) | ❌ Not present |
+| `light` | ✅ Lights, dimmers, RGB, color temp, Smart Clock nightlight | ❌ Not present |
+| `fan` | ✅ Power, oscillation, speed % (fans & air purifiers) | ❌ Not present |
+| `media_player` | ✅ Real-time state, volume, mute, play/pause, inputs, app listing | ❌ Not present |
+| `climate` | ✅ Nest Thermostat/AC (setpoint, humidity, HVAC mode) | ❌ Not present |
+| `lock` | ✅ Google Home / Nest x Yale locks | ❌ Not present |
+| `cover` | ✅ Blinds, garage doors (open/close/position) | ❌ Not present |
+| `camera` | ✅ Live streams for Nest Cam / Doorbell | ❌ Not present |
+| `vacuum` | ✅ Start/stop/dock, zone metadata | ❌ Not present |
+| `alarm_control_panel` | ✅ Nest Secure (arm home/away/disarm) | ❌ Not present |
+| `scene` | ✅ Trigger Google Home routines & automations | ❌ Not present |
+| `device_tracker` | ✅ Household presence (HomeGraph AreaPresenceState) | ❌ Not present |
+
+### 📡 Data Sources
+
+| | **This integration** | **leikoilja** |
+|---|---|---|
+| **Local speaker API** | ✅ Alarms, timers, volume, DND, night mode, reboot, Wi-Fi, Bluetooth | ✅ Same local endpoints |
+| **Google HomeGraph (Cloud)** | ✅ Full device graph, traits, telemetry for all smart home device types | ❌ Not present |
+| **Third-party entity modes** | ✅ `readonly_sensors` / `control_entities` / `assistant_sdk_control` | ❌ Not applicable |
+| **Google Assistant SDK integration** | ✅ Optional – auto-detects installed SDK and dispatches voice commands | ❌ Not present |
+
+### ⚡ Events & Services
+
+| | **This integration** | **leikoilja** |
+|---|---|---|
+| **HA event bus events** | ✅ `google_home_timer_finished`, `google_home_alarm_triggered` | ❌ Not present |
+| **Services** | `reboot_device`, `delete_alarm`, `delete_timer`, `refresh_devices`, `set_alarm_volume`, `broadcast` | `reboot_device`, `delete_alarm`, `delete_timer`, `refresh_devices` |
+| **`broadcast` service** | ✅ Local TTS announcement via speaker | ❌ Not present |
+| **`set_alarm_volume` service** | ✅ Yes | ❌ Not present |
+
+### 🌍 Maintenance & Quality
+
+| | **This integration** | **leikoilja** |
+|---|---|---|
+| **HACS status** | ⚠️ Custom repository | ✅ Official HACS default |
+| **Diagnostics support** | ✅ Yes | ❌ Not present |
+| **Translations** | ✅ English, German (`de`), Greek (`el`) | ✅ English + community translations |
+| **Type hints / mypy + ruff CI** | ✅ Full | ✅ Basic |
+
+</details>
+
+---
+
 ## ⚙️ Configuration
 
 1. In Home Assistant, go to **Settings** -> **Devices & Services** -> **Add Integration** -> **Google Home**.
@@ -162,11 +263,6 @@ Choose the best mode during setup or change it anytime in the Options Flow:
 2. The Home Assistant integration will auto-discover the running add-on and prompt you to log in directly via the HA dialog.
 3. Once the token is acquired, the integration offers you the option to automatically stop or uninstall the add-on to conserve system resources.
 
-### Option 3: App Password
-1. Create a 16-character App Password at **[myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords)**.
-2. Enter your Google Email Address and App Password.
-3. The integration will attempt to generate your Master Token automatically.
-
 ---
 
 ## 🛠️ Options Flow
@@ -183,7 +279,7 @@ You can customize your integration settings at any time without reinstalling:
 
    - **Google Homes to synchronize**: Select or deselect individual homes/structures.
    - **Ignore devices synced from Home Assistant**: Toggle loop prevention on/off.
-   - **Local Speaker Polling Interval**: Adjust local LAN speaker polling frequency (min: 60s, default: 60s / 1 min).
+   - **Local Speaker Polling Interval**: Adjust local LAN speaker polling frequency (min: 60s, default: 120s / 2 min).
    - **Cloud HomeGraph Polling Interval**: Adjust cloud HomeGraph synchronization frequency (min: 60s, default: 300s / 5 min).
    - **Master Token**: View or update your Master Token if you refreshed credentials.
 
