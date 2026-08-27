@@ -297,8 +297,12 @@ async def _async_cleanup_stale_devices_and_entities(
                             break
 
     # Clean up local speaker Assistant SDK entities (set_timer, set_alarm) when not in Hybrid + Assistant SDK mode
-    from .const import MODE_HYBRID, THIRD_PARTY_MODE_ASSISTANT_SDK
+    from .const import CONF_OPERATION_MODE, MODE_HYBRID, THIRD_PARTY_MODE_ASSISTANT_SDK
 
+    mode = entry.options.get(
+        CONF_OPERATION_MODE,
+        entry.data.get(CONF_OPERATION_MODE, MODE_HYBRID),
+    )
     sdk_timer_alarm_enabled = (
         mode == MODE_HYBRID and third_party_mode == THIRD_PARTY_MODE_ASSISTANT_SDK
     )
