@@ -289,7 +289,11 @@ class GoogleHomeCloudClient:
                         state_dict["on"] = True
 
                 if "transportControl" in m30_str:
-                    state_dict["activityState"] = "active"
+                    # Check if there is an explicit playing/playback state rather than just connectivity/static field
+                    if "playbackState: 1" in m30_str or "playing" in m30_str.lower():
+                        state_dict["activityState"] = "playing"
+                    elif "paused" in m30_str.lower():
+                        state_dict["activityState"] = "paused"
 
             dev = CloudHomeDevice(
                 device_id=dev_id,

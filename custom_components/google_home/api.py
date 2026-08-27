@@ -388,7 +388,7 @@ class GlocaltokensApiClient:
     def create_headers(self, auth_token: str | None) -> dict[str, str]:
         """Create headers for request."""
         headers = {
-            HEADER_CONTENT_TYPE: "application/json; charset=UTF-8",
+            HEADER_CONTENT_TYPE: "application/json",
         }
         if auth_token:
             headers[HEADER_CAST_LOCAL_AUTH] = auth_token
@@ -586,8 +586,8 @@ class GlocaltokensApiClient:
 
             device.available = True
         except Exception as err:
-            _LOGGER.warning(
-                "Failed to update device %s (%s): %s",
+            _LOGGER.debug(
+                "Device %s (%s) is offline or unreachable: %s",
                 device.name,
                 device.ip_address,
                 err,

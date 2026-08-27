@@ -51,6 +51,11 @@ async def async_setup_entry(
                 device_id=device.device_id,
                 device_name=device.name,
             ),
+            GoogleHomeDeviceVolumeNumber(
+                coordinator=coordinator,
+                device_id=device.device_id,
+                device_name=device.name,
+            ),
         ]
 
     for device in coordinator.data or []:
@@ -117,4 +122,51 @@ class GoogleHomeAlarmVolumeNumber(GoogleHomeBaseEntity, NumberEntity):
         vol_int = int(round(value))
         device.set_alarm_volume(vol_int)
         await self.client.update_alarm_volume(device=device, volume=vol_int)
+        self.async_write_ha_state()
+
+
+class GoogleHomeDeviceVolumeNumber(GoogleHomeBaseEntity, NumberEntity):
+    """Google Home Media/Speaker Volume slider entity."""
+
+    _attr_mode = NumberMode.SLIDER
+    _attr_native_min_value = 0
+    _attr_native_max_value = 100
+    _attr_native_step = 1
+    _attr_native_unit_of_measurement = "%"
+
+    @property
+    def label(self) -> str:
+        """Label to use for unique_id and name."""
+        return "volume"
+
+    @property
+    def icon(self) -> str:
+        """Dynamically return volume icon based on current volume level."""
+        val = self.native_value
+        if val is None or val == 0:
+            return ICON_ALARM_VOLUME_OFF
+        if val < 33:
+            return ICON_ALARM_VOLUME_LOW
+        if val < 66:
+            return ICON_ALARM_VOLUME_MID
+        return ICON_ALARM_VOLUME_HIGH
+
+    @property
+    def native_value(self) -> float | None:
+        """Return current media volume percentage (0-100)."""
+        device = self.get_device()
+        if not device:
+            return None
+        return device.get_device_volume()
+
+    async def async_set_native_value(self, value: float) -> None:
+        """Set media/speaker volume percentage on the device."""
+        device = self.get_device()
+        if device is None:
+            _LOGGER.error("Device %s not found.", self.device_name)
+            return
+
+        vol_int = int(round(value))
+        device.set_device_volume(vol_int)
+        await self.client.update_device_volume(device=device, volume=vol_int)
         self.async_write_ha_state()

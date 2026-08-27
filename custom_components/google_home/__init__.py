@@ -163,36 +163,35 @@ async def _async_cleanup_stale_devices_and_entities(
     cloud_coordinator = data.get(DATA_CLOUD_COORDINATOR)
 
     active_device_ids: set[str] = set()
+    active_structure_ids: set[str] = set()
 
     if local_coordinator and local_coordinator.data:
         for dev in local_coordinator.data:
             active_device_ids.add(dev.device_id)
+            if dev.structure_id:
+                active_structure_ids.add(dev.structure_id)
 
     if cloud_coordinator and cloud_coordinator.data:
         for cdev in cloud_coordinator.data:
             active_device_ids.add(cdev.device_id)
             if cdev.structure_id:
+                active_structure_ids.add(cdev.structure_id)
                 active_device_ids.add(f"{entry.entry_id}_structure_{cdev.structure_id}")
                 active_device_ids.add(f"structure_{cdev.structure_id}")
-        active_device_ids.add(f"{entry.entry_id}_hub")
-        active_device_ids.add(f"{entry.entry_id}_routines")
+
+    for sid in active_structure_ids:
+        active_device_ids.add(f"{entry.entry_id}_structure_{sid}")
+        active_device_ids.add(f"structure_{sid}")
+
+    active_device_ids.add(f"{entry.entry_id}_hub")
+    active_device_ids.add(f"{entry.entry_id}_routines")
 
     dev_reg = dr.async_get(hass)
     ent_reg = er.async_get(hass)
 
-    # Clean up deprecated entities (e.g. redundant number.volume slider) and orphaned entities
+    # Clean up deprecated entities and orphaned entities
     for ent_entry in er.async_entries_for_config_entry(ent_reg, entry.entry_id):
-        if ent_entry.domain == "number" and (
-            ent_entry.unique_id.endswith("_device_volume")
-            or ent_entry.unique_id.endswith("_volume")
-        ):
-            _LOGGER.info(
-                "Removing deprecated volume number entity: %s", ent_entry.entity_id
-            )
-            ent_reg.async_remove(ent_entry.entity_id)
-            continue
-
-        # Check if entity belongs to an active device or structure
+        # 1. Check if entity belongs to an active device
         dev_entry = (
             dev_reg.async_get(ent_entry.device_id) if ent_entry.device_id else None
         )
@@ -210,20 +209,40 @@ async def _async_cleanup_stale_devices_and_entities(
                 ent_reg.async_remove(ent_entry.entity_id)
                 continue
 
-        # Check structure identifier in unique_id (e.g. scene, presence tracker, bridge)
-        if "structure_" in ent_entry.unique_id:
-            uid = ent_entry.unique_id
-            # Extract structure id from unique_id
-            is_valid_structure_entity = any(
-                str(act_id) in uid for act_id in active_device_ids
-            )
+        # 2. Check entities without device_entry or scene/routine/structure unique_ids
+        uid = ent_entry.unique_id or ""
+        if ent_entry.domain == "scene" or "_cloud_scene" in uid:
+            # Check if routine device_id is still present in active coordinator data
+            is_active_scene = any(act_id in uid for act_id in active_device_ids)
+            if not is_active_scene:
+                _LOGGER.info(
+                    "Removing scene of unselected Google Home: %s (%s)",
+                    ent_entry.entity_id,
+                    uid,
+                )
+                ent_reg.async_remove(ent_entry.entity_id)
+                continue
+
+        if "structure_" in uid:
+            is_valid_structure_entity = any(sid in uid for sid in active_structure_ids)
             if not is_valid_structure_entity:
                 _LOGGER.info(
                     "Removing entity of unselected Google Home structure: %s (%s)",
                     ent_entry.entity_id,
-                    ent_entry.unique_id,
+                    uid,
                 )
                 ent_reg.async_remove(ent_entry.entity_id)
+                continue
+
+        # Fallback check for any orphaned entity whose unique_id starts with a deleted device_id
+        is_active_entity = any(act_id in uid for act_id in active_device_ids)
+        if not is_active_entity and not dev_entry:
+            _LOGGER.info(
+                "Removing orphaned entity: %s (%s)",
+                ent_entry.entity_id,
+                uid,
+            )
+            ent_reg.async_remove(ent_entry.entity_id)
 
     # Mode-switch cleanup: remove stale control-entities or stale readonly sensors
     # depending on current third_party_mode

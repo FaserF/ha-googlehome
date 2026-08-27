@@ -88,7 +88,7 @@ class GoogleHomeRebootButton(GoogleHomeBaseEntity, ButtonEntity):
     _attr_device_class = ButtonDeviceClass.RESTART
     _attr_entity_category = EntityCategory.CONFIG
     _attr_icon = ICON_REBOOT
-    _attr_entity_registry_enabled_default = False
+    _attr_entity_registry_enabled_default = True
 
     @property
     def label(self) -> str:
@@ -99,10 +99,16 @@ class GoogleHomeRebootButton(GoogleHomeBaseEntity, ButtonEntity):
         """Press the button to reboot the device."""
         device = self.get_device()
         if device is None:
-            _LOGGER.error("Device %s not found.", self.device_name)
+            _LOGGER.error("Device %s not found for reboot.", self.device_name)
             return
 
-        await self.client.reboot_device(device=device)
+        res = await self.client.reboot_device(device=device)
+        _LOGGER.info(
+            "Reboot command sent to %s (%s): %s",
+            self.device_name,
+            device.ip_address,
+            res,
+        )
 
 
 class GoogleHomeRefreshButton(GoogleHomeBaseEntity, ButtonEntity):
@@ -111,7 +117,7 @@ class GoogleHomeRefreshButton(GoogleHomeBaseEntity, ButtonEntity):
     _attr_device_class = ButtonDeviceClass.UPDATE
     _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_icon = ICON_REFRESH
-    _attr_entity_registry_enabled_default = False
+    _attr_entity_registry_enabled_default = True
 
     @property
     def label(self) -> str:
@@ -120,7 +126,16 @@ class GoogleHomeRefreshButton(GoogleHomeBaseEntity, ButtonEntity):
 
     async def async_press(self) -> None:
         """Press the button to refresh data."""
+        # 1. Refresh local coordinator
         await self.coordinator.async_request_refresh()
+
+        # 2. Also refresh cloud coordinator if present
+        config_entry = getattr(self.coordinator, "config_entry", None)
+        entry_id = getattr(config_entry, "entry_id", None) if config_entry else None
+        if entry_id and entry_id in self.hass.data.get(DOMAIN, {}):
+            cloud_coord = self.hass.data[DOMAIN][entry_id].get("cloud_coordinator")
+            if cloud_coord:
+                await cloud_coord.async_request_refresh()
 
 
 class GoogleHomeDeleteAllAlarmsButton(GoogleHomeBaseEntity, ButtonEntity):

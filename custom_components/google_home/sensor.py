@@ -674,10 +674,12 @@ class GoogleHomeCloudStatusSensor(
         # 10. Media / volume / speaker state
         if "activityState" in state:
             activity = str(state["activityState"]).lower()
-            if activity in ("playing", "active"):
+            if activity in ("playing", "in_use"):
                 return "playing"
             if activity in ("paused", "standby"):
                 return "paused"
+            if activity in ("idle", "active"):
+                return "idle"
             return activity
 
         # Brightness standalone
