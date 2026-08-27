@@ -18,6 +18,7 @@
   "requirements": [
     "glocaltokens>=0.7.6"
   ],
+  "version": "1.0.0",
   "zeroconf": [
     {
       "type": "_googlecast._tcp.local.",
@@ -26,6 +27,5 @@
     {
       "type": "_googlezone._tcp.local."
     }
-  ],
-  "version": "1.0.0"
+  ]
 }

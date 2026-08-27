@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
@@ -94,19 +95,28 @@ class GoogleHomeFlowHandler(AddonFlowMixin, ConfigFlow, domain=DOMAIN):
         self._discovery_source: str = "manual"
 
     async def _async_probe_addon(self) -> tuple[str | None, dict[str, Any] | None]:
-        """Probe potential add-on hosts (stable, edge, local) to find active addon."""
+        """Probe potential add-on hosts (stable, edge, local) concurrently to find active addon instantly."""
         session = async_get_clientsession(self.hass)
-        for host in ADDON_CONTAINER_HOSTS:
+
+        async def _check_host(host: str) -> tuple[str, dict[str, Any]] | None:
             url = f"http://{host}:{DEFAULT_ADDON_PORT}/api/v1/session"
             try:
                 async with session.get(
-                    url, timeout=aiohttp.ClientTimeout(total=2)
+                    url, timeout=aiohttp.ClientTimeout(total=0.5)
                 ) as resp:
                     if resp.status == 200:
                         data = await resp.json()
                         return host, data
             except Exception:
-                continue
+                pass
+            return None
+
+        results = await asyncio.gather(
+            *[_check_host(h) for h in ADDON_CONTAINER_HOSTS], return_exceptions=True
+        )
+        for res in results:
+            if isinstance(res, tuple) and res is not None:
+                return res
         return None, None
 
     async def async_step_hassio(
