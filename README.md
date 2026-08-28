@@ -73,7 +73,10 @@ Choose the best mode during setup or change it anytime in the Options Flow:
   - **Smart Locks**: Lock/unlock Google Home and Nest x Yale locks (`lock`).
   - **Covers, Blinds & Garage Doors**: Open, close, and set position (0-100%) (`cover`).
   - **Cameras & Video Doorbells**: Live streams for Nest Cam, Nest Doorbell, and partner cameras (`camera`).
-  - **Automations & Household Routines**: Trigger and execute any Google Home script, automation, or routine directly from Home Assistant (`scene`).
+  - **Automations & Household Routines (`scene`)**:
+    - Trigger and activate global Google Home household routines (such as *Home* / *Away*) directly from Home Assistant.
+    - **Note & Google Cloud Limitations**: Google HomeGraph Foyer API only exposes global household routines with the `action.devices.traits.Scene` trait. Personal routines (tied to a single user account) or sensor/schedule-triggered scripts are not exposed as executable scenes by Google's API; however, they can easily be triggered anytime via the [Google Assistant SDK](https://www.home-assistant.io/integrations/google_assistant_sdk/) service (`google_assistant_sdk.send_text_command`).
+
   - **Security Systems**: Arm home, arm away, disarm Nest Secure and security alarms (`alarm_control_panel`).
   - **Sensors & Doorbells**: Motion, occupancy, contact, presence, sound, and doorbell press binary sensors (`binary_sensor`).
 

@@ -37,19 +37,25 @@ async def async_setup_entry(
     ][DATA_CLOUD_COORDINATOR]
 
     registered_ids: set[str] = set()
+    registered_names: set[tuple[str | None, str]] = set()
 
     def _create_entities() -> list[GoogleHomeCloudScene]:
         new_ents = []
         for dev in coordinator.data or []:
-            if dev.is_automation_routine and dev.device_id not in registered_ids:
-                registered_ids.add(dev.device_id)
-                new_ents.append(
-                    GoogleHomeCloudScene(
-                        coordinator=coordinator,
-                        entry_id=entry.entry_id,
-                        device_id=dev.device_id,
-                    )
+            if not dev.is_automation_routine:
+                continue
+            name_key = (dev.structure_id, dev.name.strip().lower())
+            if dev.device_id in registered_ids or name_key in registered_names:
+                continue
+            registered_ids.add(dev.device_id)
+            registered_names.add(name_key)
+            new_ents.append(
+                GoogleHomeCloudScene(
+                    coordinator=coordinator,
+                    entry_id=entry.entry_id,
+                    device_id=dev.device_id,
                 )
+            )
         return new_ents
 
     entities = _create_entities()
