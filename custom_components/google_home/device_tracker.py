@@ -17,7 +17,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .cloud_coordinator import GoogleHomeCloudDataUpdateCoordinator
-from .const import DATA_CLOUD_COORDINATOR, DOMAIN, MANUFACTURER
+from .const import DATA_CLOUD_COORDINATOR, DOMAIN, MANUFACTURER, get_structure_url
 
 _LOGGER: logging.Logger = logging.getLogger(__package__)
 
@@ -189,7 +189,7 @@ class GoogleHomePresenceTracker(
             name=f"Google Home ({self._structure_name})",
             manufacturer=MANUFACTURER,
             model="Google Home Household & Structure",
-            configuration_url="https://home.google.com/",
+            configuration_url=get_structure_url(self._structure_id, "devices"),
         )
 
     @property

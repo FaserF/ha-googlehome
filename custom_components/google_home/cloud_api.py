@@ -62,9 +62,19 @@ class GoogleHomeCloudClient:
                 hname = getattr(homegraph.home, "home_name", "") or "My Google Home"
                 homes[hid] = hname
 
-                # Dynamically scan raw protobuf payload for all StructureTrait definitions
                 raw = homegraph.SerializeToString()
                 import re
+
+                # Extract all 64-char hex strings and StructureTrait names from raw bytes
+                hex_64_ids = [
+                    m.group(0).decode("utf-8")
+                    for m in re.finditer(rb"[0-9a-fA-F]{64}", raw)
+                ]
+                # Unique preserve order
+                unique_64_ids: list[str] = []
+                for x in hex_64_ids:
+                    if x not in unique_64_ids:
+                        unique_64_ids.append(x)
 
                 found_names: list[str] = []
                 for match in re.finditer(
@@ -75,28 +85,32 @@ class GoogleHomeCloudClient:
                     if struct_name not in found_names:
                         found_names.append(struct_name)
 
-                # Correlate any rooms that belong to other structure UUIDs
-                other_structure_ids: list[str] = []
+                # Pair 64-char structure IDs with home names
+                for idx, s_name in enumerate(found_names):
+                    if idx < len(unique_64_ids):
+                        s_hex = unique_64_ids[idx]
+                        homes[s_hex] = s_name
+                        # Also alias the internal non-64 hid if matching name
+                        if s_name == hname:
+                            homes[hid] = s_name
+
+                # Correlate any room prefix UUIDs to the known names as aliases
                 for r in getattr(homegraph.home, "rooms", []):
                     rid = getattr(r, "room_id", "")
                     if "." in rid:
                         prefix_uuid = rid.split(".")[0]
-                        if (
-                            prefix_uuid != hid
-                            and prefix_uuid not in other_structure_ids
-                        ):
-                            other_structure_ids.append(prefix_uuid)
-
-                other_names = [n for n in found_names if n != hname]
-                for idx, sid in enumerate(other_structure_ids):
-                    if idx < len(other_names):
-                        homes[sid] = other_names[idx]
-                    elif len(other_names) == 1:
-                        homes[sid] = other_names[0]
-                    else:
-                        homes[sid] = f"Zuhause ({sid[:8]})"
+                        if prefix_uuid not in homes:
+                            r_bytes = r.SerializeToString()
+                            for s_id, s_name in list(homes.items()):
+                                if (
+                                    s_name.encode() in r_bytes
+                                    or s_id.encode() in r_bytes
+                                ):
+                                    homes[prefix_uuid] = s_name
+                                    break
 
                 return homes
+
         except Exception as exc:
             _LOGGER.debug("Could not fetch available homes: %s", exc)
         return homes

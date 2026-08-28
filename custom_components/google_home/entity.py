@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import ATTRIBUTION, DOMAIN, MANUFACTURER
+from .const import ATTRIBUTION, DOMAIN, MANUFACTURER, get_structure_url
 from .coordinator import GoogleHomeDataUpdateCoordinator
 from .models import GoogleHomeDevice
 
@@ -84,5 +84,7 @@ class GoogleHomeBaseEntity(CoordinatorEntity[GoogleHomeDataUpdateCoordinator]):
             model=model,
             sw_version=firmware,
             connections=connections,
-            configuration_url="https://home.google.com/",
+            configuration_url=get_structure_url(
+                device.structure_id if device else None, "devices"
+            ),
         )

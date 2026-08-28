@@ -37,6 +37,7 @@ from .const import (
     SERVICE_REBOOT,
     SERVICE_REFRESH,
     THIRD_PARTY_MODE_READONLY,
+    get_structure_url,
 )
 from .entity import GoogleHomeBaseEntity
 from .models import (
@@ -547,7 +548,9 @@ class GoogleHomeCloudBridgeSensor(
             name=f"Google Home ({struct_name})",
             manufacturer=MANUFACTURER,
             model="Google Home Household & Structure",
-            configuration_url="https://home.google.com/",
+            configuration_url=get_structure_url(
+                device.structure_id if device else None, "devices"
+            ),
         )
 
 
@@ -734,7 +737,9 @@ class GoogleHomeCloudStatusSensor(
             hw_version=device.hardware_version if device else None,
             suggested_area=device.room_name if device else None,
             connections=connections,
-            configuration_url="https://home.google.com/",
+            configuration_url=get_structure_url(
+                device.structure_id if device else None, "devices"
+            ),
         )
 
 
@@ -815,6 +820,9 @@ class GoogleHomeClockNightlightSensor(
             name=device.name if device else "Device",
             manufacturer=device.manufacturer if device else MANUFACTURER,
             model=device.model_name if device else "Cloud Device",
+            configuration_url=get_structure_url(
+                device.structure_id if device else None, "devices"
+            ),
         )
 
 
@@ -896,7 +904,7 @@ class GoogleHomeBriefsSensor(
             name=f"Google Home ({self.structure_name})",
             manufacturer=MANUFACTURER,
             model="Google Home Household & Structure",
-            configuration_url="https://home.google.com/",
+            configuration_url=get_structure_url(self.structure_id, "devices"),
         )
 
 
@@ -973,5 +981,5 @@ class GoogleHomeFaceLibrarySensor(
             name=f"Google Home ({self.structure_name})",
             manufacturer=MANUFACTURER,
             model="Google Home Household & Structure",
-            configuration_url="https://home.google.com/",
+            configuration_url=get_structure_url(self.structure_id, "devices"),
         )

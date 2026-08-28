@@ -28,6 +28,7 @@ from .const import (
     MANUFACTURER,
     THIRD_PARTY_MODE_ASSISTANT_SDK,
     THIRD_PARTY_MODE_DIRECT_CLOUD,
+    get_structure_url,
 )
 
 _LOGGER: logging.Logger = logging.getLogger(__package__)
@@ -213,7 +214,9 @@ class GoogleHomeCloudMediaPlayer(
             hw_version=hw_version,
             suggested_area=suggested_area,
             connections=connections,
-            configuration_url="https://home.google.com/",
+            configuration_url=get_structure_url(
+                cdev.structure_id if cdev else None, "devices"
+            ),
         )
 
     @property

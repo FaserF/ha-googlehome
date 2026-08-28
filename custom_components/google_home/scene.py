@@ -14,7 +14,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .cloud_coordinator import GoogleHomeCloudDataUpdateCoordinator
 from .cloud_models import CloudHomeDevice
-from .const import DATA_CLOUD_COORDINATOR, DOMAIN
+from .const import DATA_CLOUD_COORDINATOR, DOMAIN, get_structure_url
 
 _LOGGER: logging.Logger = logging.getLogger(__package__)
 
@@ -121,7 +121,9 @@ class GoogleHomeCloudScene(
             name=f"Google Home ({struct_name})",
             manufacturer="Google",
             model="Google Home Household & Structure",
-            configuration_url="https://home.google.com/automations",
+            configuration_url=get_structure_url(
+                struct_id if struct_id != "default_home" else None, "automations"
+            ),
         )
 
     async def async_activate(self, **kwargs: Any) -> None:

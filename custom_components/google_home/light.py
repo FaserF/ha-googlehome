@@ -27,6 +27,7 @@ from .const import (
     THIRD_PARTY_MODE_ASSISTANT_SDK,
     THIRD_PARTY_MODE_DIRECT_CLOUD,
     THIRD_PARTY_MODE_READONLY,
+    get_structure_url,
 )
 
 _LOGGER: logging.Logger = logging.getLogger(__package__)
@@ -243,7 +244,9 @@ class GoogleHomeCloudLight(
             sw_version=device.firmware_version if device else None,
             hw_version=device.hardware_version if device else None,
             connections=connections,
-            configuration_url="https://home.google.com/",
+            configuration_url=get_structure_url(
+                device.structure_id if device else None, "devices"
+            ),
         )
 
     def _find_target_media_player(self) -> str | None:

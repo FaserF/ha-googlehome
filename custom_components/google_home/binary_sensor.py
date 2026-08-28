@@ -17,7 +17,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .cloud_coordinator import GoogleHomeCloudDataUpdateCoordinator
 from .cloud_models import CloudHomeDevice
-from .const import DATA_CLOUD_COORDINATOR, DOMAIN, MANUFACTURER
+from .const import DATA_CLOUD_COORDINATOR, DOMAIN, MANUFACTURER, get_structure_url
 
 _LOGGER: logging.Logger = logging.getLogger(__package__)
 
@@ -191,7 +191,9 @@ class GoogleHomeCloudBinarySensor(
             sw_version=device.firmware_version if device else None,
             hw_version=device.hardware_version if device else None,
             connections=connections,
-            configuration_url="https://home.google.com/",
+            configuration_url=get_structure_url(
+                device.structure_id if device else None, "devices"
+            ),
         )
 
 
@@ -261,5 +263,7 @@ class GoogleHomeSoundSensingBinarySensor(
             name=device.name if device else "Google Device",
             manufacturer=device.manufacturer if device else MANUFACTURER,
             model=device.model_name if device else "Google Device",
-            configuration_url="https://home.google.com/",
+            configuration_url=get_structure_url(
+                device.structure_id if device else None, "devices"
+            ),
         )

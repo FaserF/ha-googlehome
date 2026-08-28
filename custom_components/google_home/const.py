@@ -65,6 +65,26 @@ THIRD_PARTY_MODE_ASSISTANT_SDK: Final = "assistant_sdk_control"
 DEFAULT_THIRD_PARTY_ENTITY_MODE: Final = THIRD_PARTY_MODE_READONLY
 
 
+def get_structure_url(structure_id: str | None, path: str = "devices") -> str:
+    """Return dynamic Google Home web URL for a specific home structure."""
+    if not structure_id or structure_id == "default_home":
+        return "https://home.google.com/"
+    # If structure_id is a 64-char hex string, format as 1-<hex>
+    clean_id = str(structure_id).strip()
+    if clean_id.startswith("1-"):
+        fmt_id = clean_id
+    elif len(clean_id) == 64 and all(c in "0123456789abcdefABCDEF" for c in clean_id):
+        fmt_id = f"1-{clean_id}"
+    elif "-" in clean_id:
+        fmt_id = f"1-{clean_id}"
+    else:
+        fmt_id = f"1-{clean_id}"
+
+    if path:
+        return f"https://home.google.com/home/{fmt_id}/{path.lstrip('/')}"
+    return f"https://home.google.com/home/{fmt_id}"
+
+
 DATA_CLIENT: Final = "client"
 DATA_COORDINATOR: Final = "coordinator"
 DATA_CLOUD_CLIENT: Final = "cloud_client"

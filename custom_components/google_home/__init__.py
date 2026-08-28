@@ -40,6 +40,7 @@ from .const import (
     MODE_HYBRID,
     MODE_LOCAL,
     PLATFORMS,
+    get_structure_url,
 )
 from .coordinator import GoogleHomeDataUpdateCoordinator
 
@@ -402,32 +403,77 @@ async def _async_cleanup_stale_devices_and_entities(
                 if ident[0] == DOMAIN
             )
             if is_structure:
-                if dev_entry.sw_version:
-                    dev_reg.async_update_device(dev_entry.id, sw_version=None)
+                # Extract structure_id from identifier
+                struct_id = None
+                for ident in dev_entry.identifiers:
+                    if ident[0] == DOMAIN and "_structure_" in ident[1]:
+                        struct_id = ident[1].split("_structure_")[-1]
+                        break
+
+                # Resolve structure_id to 64-char hex ID if present in available_homes
+                if cloud_coordinator and struct_id:
+                    avail_homes = cloud_coordinator.client._get_available_homes_sync()
+                    struct_name = avail_homes.get(struct_id)
+                    if struct_name:
+                        for s_hex, s_n in avail_homes.items():
+                            if s_n == struct_name and len(s_hex) == 64:
+                                struct_id = s_hex
+                                break
+
+                dev_reg.async_update_device(
+                    dev_entry.id,
+                    sw_version=None,
+                    configuration_url=get_structure_url(struct_id, "devices"),
+                )
             else:
-                # Find matching device in local or cloud coordinator and sync sw_version / hw_version
+                # Find matching device in local or cloud coordinator and sync sw_version / hw_version / configuration_url
                 for ident in dev_entry.identifiers:
                     if ident[0] == DOMAIN:
                         dev_id = ident[1]
                         # 1. Local coordinator
                         if local_coordinator:
                             ldev = local_coordinator.get_device(dev_id)
-                            if ldev and ldev.firmware_version:
+                            if ldev:
+                                s_id = ldev.structure_id
+                                if cloud_coordinator and s_id:
+                                    avail_homes = cloud_coordinator.client._get_available_homes_sync()
+                                    s_name = avail_homes.get(s_id)
+                                    if s_name:
+                                        for s_hex, s_n in avail_homes.items():
+                                            if s_n == s_name and len(s_hex) == 64:
+                                                s_id = s_hex
+                                                break
                                 dev_reg.async_update_device(
                                     dev_entry.id,
                                     sw_version=ldev.firmware_version,
                                     hw_version=ldev.hardware,
+                                    configuration_url=get_structure_url(
+                                        s_id, "devices"
+                                    ),
                                 )
                                 break
                         # 2. Cloud coordinator
                         if cloud_coordinator:
                             cdev = cloud_coordinator.get_device(dev_id)
-                            if cdev and cdev.firmware_version:
+                            if cdev:
+                                s_id = cdev.structure_id
+                                if s_id:
+                                    avail_homes = cloud_coordinator.client._get_available_homes_sync()
+                                    s_name = avail_homes.get(s_id)
+                                    if s_name:
+                                        for s_hex, s_n in avail_homes.items():
+                                            if s_n == s_name and len(s_hex) == 64:
+                                                s_id = s_hex
+                                                break
                                 dev_reg.async_update_device(
                                     dev_entry.id,
                                     sw_version=cdev.firmware_version,
                                     hw_version=cdev.hardware_version
                                     or cdev.hardware_model,
+                                    configuration_url=get_structure_url(
+                                        s_id,
+                                        "cameras" if cdev.is_camera else "devices",
+                                    ),
                                 )
                                 break
 
