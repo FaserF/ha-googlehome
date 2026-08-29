@@ -253,6 +253,11 @@ class GoogleHomeCloudMediaPlayer(
         if not cdev:
             return
 
+        already_on = self.state not in (
+            MediaPlayerState.OFF,
+            MediaPlayerState.STANDBY,
+            None,
+        ) and bool(cdev.state.get("on", False))
         cdev.state["on"] = True
 
         config_entry = getattr(self.coordinator, "config_entry", None)
@@ -266,9 +271,10 @@ class GoogleHomeCloudMediaPlayer(
             )
 
         if third_party_mode == THIRD_PARTY_MODE_ASSISTANT_SDK:
-            await self._async_send_assistant_command(
-                format_command(self.hass, "turn_on", cdev.name)
-            )
+            if not already_on:
+                await self._async_send_assistant_command(
+                    format_command(self.hass, "turn_on", cdev.name)
+                )
         elif third_party_mode == THIRD_PARTY_MODE_DIRECT_CLOUD:
             await self.coordinator.cloud_client.async_execute_command(
                 self._device_id,
@@ -283,6 +289,10 @@ class GoogleHomeCloudMediaPlayer(
         if not cdev:
             return
 
+        already_off = self.state in (
+            MediaPlayerState.OFF,
+            MediaPlayerState.STANDBY,
+        ) or not bool(cdev.state.get("on", True))
         cdev.state["on"] = False
 
         config_entry = getattr(self.coordinator, "config_entry", None)
@@ -296,9 +306,10 @@ class GoogleHomeCloudMediaPlayer(
             )
 
         if third_party_mode == THIRD_PARTY_MODE_ASSISTANT_SDK:
-            await self._async_send_assistant_command(
-                format_command(self.hass, "turn_off", cdev.name)
-            )
+            if not already_off:
+                await self._async_send_assistant_command(
+                    format_command(self.hass, "turn_off", cdev.name)
+                )
         elif third_party_mode == THIRD_PARTY_MODE_DIRECT_CLOUD:
             await self.coordinator.cloud_client.async_execute_command(
                 self._device_id,

@@ -330,6 +330,7 @@ class GoogleHomeCloudFan(
         if not cdev:
             return
 
+        already_on = self.is_on
         cdev.state["on"] = True
         cdev.state["is_on"] = True
         if percentage is not None:
@@ -351,7 +352,7 @@ class GoogleHomeCloudFan(
                 await self._async_send_assistant_command(
                     f"Set fan speed on {dev_name} to {percentage}%"
                 )
-            else:
+            elif not already_on:
                 await self._async_send_assistant_command(f"Turn on {dev_name}")
         elif third_party_mode == THIRD_PARTY_MODE_DIRECT_CLOUD:
             if percentage is not None:
@@ -375,6 +376,7 @@ class GoogleHomeCloudFan(
         if not cdev:
             return
 
+        already_off = not self.is_on
         cdev.state["on"] = False
         cdev.state["is_on"] = False
 
@@ -389,9 +391,10 @@ class GoogleHomeCloudFan(
             )
 
         if third_party_mode == THIRD_PARTY_MODE_ASSISTANT_SDK:
-            await self._async_send_assistant_command(
-                format_command(self.hass, "turn_off", cdev.name)
-            )
+            if not already_off:
+                await self._async_send_assistant_command(
+                    format_command(self.hass, "turn_off", cdev.name)
+                )
         elif third_party_mode == THIRD_PARTY_MODE_DIRECT_CLOUD:
             await self.coordinator.cloud_client.async_execute_command(
                 self._device_id,

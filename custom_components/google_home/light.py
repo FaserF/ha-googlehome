@@ -296,13 +296,11 @@ class GoogleHomeCloudLight(
         """Turn on light."""
         device = self.get_device()
         brightness = kwargs.get("brightness")
-        is_nightlight = device and (
-            "action.devices.traits.NightLight" in (device.traits or [])
-            or any(
-                k in (device.hardware_model or "").lower() or k in device.name.lower()
-                for k in ("clock", "uhr", "cd-")
-            )
-        )
+        rgb_color = kwargs.get("rgb_color")
+        color_temp = kwargs.get("color_temp_kelvin") or kwargs.get("color_temp")
+        already_on = self.is_on
+        is_nightlight = self._is_nightlight
+
         if device:
             if is_nightlight:
                 device.state["nightlight_on"] = True
@@ -321,9 +319,6 @@ class GoogleHomeCloudLight(
                 ),
             )
 
-        rgb_color = kwargs.get("rgb_color")
-        color_temp = kwargs.get("color_temp_kelvin") or kwargs.get("color_temp")
-
         if third_party_mode == THIRD_PARTY_MODE_ASSISTANT_SDK and device:
             dev_name = device.name
             target_mp = self._find_target_media_player()
@@ -340,7 +335,7 @@ class GoogleHomeCloudLight(
                     await self._async_send_assistant_command(
                         cmd, target_media_player=True
                     )
-                else:
+                elif not already_on:
                     action = (
                         "turn_on_nightlight"
                         if target_mp
@@ -356,7 +351,7 @@ class GoogleHomeCloudLight(
                     )
 
             else:
-                was_off = not self.is_on
+                was_off = not already_on
                 # 1. Color (RGB)
                 if rgb_color is not None:
                     if was_off:
@@ -389,14 +384,14 @@ class GoogleHomeCloudLight(
                     )
 
                 # 3. Brightness
-                if brightness is not None:
+                elif brightness is not None:
                     pct = int(round(brightness * 100 / 255))
                     await self._async_send_assistant_command(
                         format_command(
                             self.hass, "set_brightness", dev_name, brightness=pct
                         )
                     )
-                elif rgb_color is None and color_temp is None:
+                elif not already_on:
                     await self._async_send_assistant_command(
                         format_command(self.hass, "turn_on", dev_name)
                     )
@@ -424,13 +419,8 @@ class GoogleHomeCloudLight(
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn off light."""
         device = self.get_device()
-        is_nightlight = device and (
-            "action.devices.traits.NightLight" in (device.traits or [])
-            or any(
-                k in (device.hardware_model or "").lower() or k in device.name.lower()
-                for k in ("clock", "uhr", "cd-")
-            )
-        )
+        already_off = not self.is_on
+        is_nightlight = self._is_nightlight
         if device:
             if is_nightlight:
                 device.state["nightlight_on"] = False
@@ -448,22 +438,27 @@ class GoogleHomeCloudLight(
             )
 
         if third_party_mode == THIRD_PARTY_MODE_ASSISTANT_SDK and device:
-            dev_name = device.name
-            target_mp = self._find_target_media_player()
-            if is_nightlight:
-                action = (
-                    "turn_off_nightlight" if target_mp else "turn_off_nightlight_named"
-                )
-                cmd = format_command(
-                    self.hass,
-                    action,
-                    dev_name,
-                )
-                await self._async_send_assistant_command(cmd, target_media_player=True)
-            else:
-                await self._async_send_assistant_command(
-                    format_command(self.hass, "turn_off", dev_name)
-                )
+            if not already_off:
+                dev_name = device.name
+                target_mp = self._find_target_media_player()
+                if is_nightlight:
+                    action = (
+                        "turn_off_nightlight"
+                        if target_mp
+                        else "turn_off_nightlight_named"
+                    )
+                    cmd = format_command(
+                        self.hass,
+                        action,
+                        dev_name,
+                    )
+                    await self._async_send_assistant_command(
+                        cmd, target_media_player=True
+                    )
+                else:
+                    await self._async_send_assistant_command(
+                        format_command(self.hass, "turn_off", dev_name)
+                    )
 
         elif third_party_mode == THIRD_PARTY_MODE_DIRECT_CLOUD and device:
             if "action.devices.traits.NightLight" in (device.traits or []):

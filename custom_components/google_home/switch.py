@@ -244,6 +244,7 @@ class GoogleHomeCloudSwitch(
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn on switch."""
         device = self.get_device()
+        already_on = self.is_on
         if device:
             device.state["on"] = True
 
@@ -258,9 +259,10 @@ class GoogleHomeCloudSwitch(
             )
 
         if third_party_mode == THIRD_PARTY_MODE_ASSISTANT_SDK and device:
-            await self._async_send_assistant_command(
-                format_command(self.hass, "turn_on", device.name)
-            )
+            if not already_on:
+                await self._async_send_assistant_command(
+                    format_command(self.hass, "turn_on", device.name)
+                )
         elif third_party_mode == THIRD_PARTY_MODE_DIRECT_CLOUD and device:
             await self.coordinator.client.async_execute_command(
                 device_id=self.device_id,
@@ -273,6 +275,7 @@ class GoogleHomeCloudSwitch(
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn off switch."""
         device = self.get_device()
+        already_off = not self.is_on
         if device:
             device.state["on"] = False
 
@@ -287,9 +290,10 @@ class GoogleHomeCloudSwitch(
             )
 
         if third_party_mode == THIRD_PARTY_MODE_ASSISTANT_SDK and device:
-            await self._async_send_assistant_command(
-                format_command(self.hass, "turn_off", device.name)
-            )
+            if not already_off:
+                await self._async_send_assistant_command(
+                    format_command(self.hass, "turn_off", device.name)
+                )
 
         elif third_party_mode == THIRD_PARTY_MODE_DIRECT_CLOUD and device:
             await self.coordinator.client.async_execute_command(
