@@ -179,7 +179,9 @@ class GoogleHomeCloudLight(
         if not device:
             return False
         if self._is_nightlight:
-            return bool(device.state.get("nightlight_on", False))
+            if "nightlight_on" in device.state:
+                return bool(device.state["nightlight_on"])
+            return bool(device.state.get("on", False))
         return bool(device.state.get("on", False))
 
     @property
@@ -304,6 +306,7 @@ class GoogleHomeCloudLight(
         if device:
             if is_nightlight:
                 device.state["nightlight_on"] = True
+                device.state["on"] = True
             else:
                 device.state["on"] = True
             if brightness is not None:
@@ -424,6 +427,7 @@ class GoogleHomeCloudLight(
         if device:
             if is_nightlight:
                 device.state["nightlight_on"] = False
+                device.state["on"] = False
             else:
                 device.state["on"] = False
 
