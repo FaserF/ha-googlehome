@@ -349,14 +349,67 @@ class GlocaltokensApiClient:
 
                 matched_cast_uuid = None
                 if self.hass:
+                    from homeassistant.helpers import (
+                        device_registry as dr,
+                        entity_registry as er,
+                    )
+
+                    ent_reg = er.async_get(self.hass)
+                    dev_reg = dr.async_get(self.hass)
+
                     dname = str(getattr(device, "device_name", "")).strip().lower()
                     slug = dname.replace(" ", "_")
-                    for state in self.hass.states.async_all():
+
+                    # 1. First pass: look through media_player states for matching name or IP
+                    for state in self.hass.states.async_all("media_player"):
                         fname = (
                             state.attributes.get("friendly_name", "").strip().lower()
                         )
-                        if fname == dname or slug in state.entity_id:
-                            if not dev_ip:
+                        state_ip = (
+                            state.attributes.get("ip_address")
+                            or state.attributes.get("ip")
+                            or state.attributes.get("host")
+                        )
+                        ip_matches = bool(dev_ip and state_ip and str(state_ip) == str(dev_ip))
+                        name_matches = bool(fname == dname or (slug and slug in state.entity_id))
+
+                        if ip_matches or name_matches:
+                            if not dev_ip and state_ip:
+                                dev_ip = str(state_ip)
+
+                            ent_entry = ent_reg.async_get(state.entity_id)
+                            if ent_entry and ent_entry.device_id:
+                                ha_dev = dev_reg.async_get(ent_entry.device_id)
+                                if ha_dev:
+                                    for domain, ident in ha_dev.identifiers:
+                                        if domain == "cast":
+                                            matched_cast_uuid = str(ident).replace("-", "").strip()
+                                            break
+
+                        if dev_ip and matched_cast_uuid:
+                            break
+
+                    # 2. Second pass: search device registry directly for Cast devices by name if not found yet
+                    if not matched_cast_uuid:
+                        for d in dev_reg.devices.values():
+                            cast_id = None
+                            for domain, ident in d.identifiers:
+                                if domain == "cast":
+                                    cast_id = str(ident).replace("-", "").strip()
+                                    break
+                            if cast_id:
+                                dev_name = (d.name_by_user or d.name or "").strip().lower()
+                                if dev_name == dname:
+                                    matched_cast_uuid = cast_id
+                                    break
+
+                    # 3. Third pass: check other state entities for dev_ip fallback
+                    if not dev_ip:
+                        for state in self.hass.states.async_all():
+                            fname = (
+                                state.attributes.get("friendly_name", "").strip().lower()
+                            )
+                            if fname == dname or (slug and slug in state.entity_id):
                                 ip_cand = (
                                     state.attributes.get("ip_address")
                                     or state.attributes.get("ip")
@@ -364,30 +417,7 @@ class GlocaltokensApiClient:
                                 )
                                 if ip_cand:
                                     dev_ip = str(ip_cand)
-
-                            # If this entity is from the cast integration, extract cast UUID from device registry
-                            if state.entity_id.startswith("media_player."):
-                                try:
-                                    from homeassistant.helpers import (
-                                        device_registry as dr,
-                                        entity_registry as er,
-                                    )
-
-                                    ent_reg = er.async_get(self.hass)
-                                    dev_reg = dr.async_get(self.hass)
-                                    ent_entry = ent_reg.async_get(state.entity_id)
-                                    if ent_entry and ent_entry.device_id:
-                                        ha_dev = dev_reg.async_get(ent_entry.device_id)
-                                        if ha_dev:
-                                            for domain, ident in ha_dev.identifiers:
-                                                if domain == "cast":
-                                                    matched_cast_uuid = str(ident).replace("-", "")
-                                                    break
-                                except Exception:
-                                    pass
-
-                            if dev_ip and matched_cast_uuid:
-                                break
+                                    break
 
                 if device.device_id in existing_by_id:
                     dev = existing_by_id[device.device_id]

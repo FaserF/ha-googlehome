@@ -179,9 +179,7 @@ class GoogleHomeCloudLight(
         if not device:
             return False
         if self._is_nightlight:
-            if "nightlight_on" in device.state:
-                return bool(device.state["nightlight_on"])
-            return bool(device.state.get("on", False))
+            return bool(device.state.get("nightlight_on", False))
         return bool(device.state.get("on", False))
 
     @property

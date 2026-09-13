@@ -208,6 +208,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
+    async def _on_coordinator_update() -> None:
+        await _async_cleanup_stale_devices_and_entities(hass, entry)
+
+    local_coordinator = entry_data.get(DATA_COORDINATOR)
+    if local_coordinator:
+        entry.async_on_unload(local_coordinator.async_add_listener(_on_coordinator_update))
+
     # Clean up stale devices and entities from Device and Entity Registries
     await _async_cleanup_stale_devices_and_entities(hass, entry)
 
@@ -451,6 +458,37 @@ async def _async_cleanup_stale_devices_and_entities(
                                         s_id, "devices"
                                     ),
                                 )
+                                # Merge with Google Cast device entry in Device Registry ONLY if not conflicting with MAC mapping
+                                # OpenWrt and router integrations map via MAC address.
+                                if getattr(ldev, "cast_uuid", None):
+                                    c_uuid = str(ldev.cast_uuid).replace("-", "")
+                                    cast_dev = dev_reg.async_get_device(
+                                        identifiers={("cast", c_uuid)}
+                                    )
+                                    # If cast_dev has no MAC or conflicts with openwrt/fritzbox, ensure we don't break MAC-linked device
+                                    if cast_dev and cast_dev.id != dev_entry.id:
+                                        # Check if dev_entry or cast_dev has MAC connection
+                                        # If dev_entry already has network MAC connection, keep dev_entry as master and attach cast identifiers/entities
+                                        _LOGGER.info(
+                                            "Merging Cast device %s with Google Home device %s (%s)",
+                                            cast_dev.name or cast_dev.id,
+                                            dev_entry.name or dev_entry.id,
+                                            c_uuid,
+                                        )
+                                        new_idents = set(dev_entry.identifiers) | {("cast", c_uuid)}
+                                        dev_reg.async_update_device(
+                                            dev_entry.id,
+                                            merge_identifiers=new_idents,
+                                        )
+                                        for cast_ent in er.async_entries_for_device(ent_reg, cast_dev.id):
+                                            ent_reg.async_update_entity(
+                                                cast_ent.entity_id,
+                                                device_id=dev_entry.id,
+                                            )
+                                        try:
+                                            dev_reg.async_remove_device(cast_dev.id)
+                                        except Exception:
+                                            pass
                                 break
                         # 2. Cloud coordinator
                         if cloud_coordinator:

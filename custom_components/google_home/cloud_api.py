@@ -323,6 +323,14 @@ class GoogleHomeCloudClient:
                     state_dict["on"] = nl_is_on
                     state_dict["nightlight_on"] = nl_is_on
                 else:
+                    nl_bool_match = re.search(
+                        r'"(?:nightLight|night_light)":\s*(true|false)',
+                        m30_str,
+                        re.IGNORECASE,
+                    )
+                    if nl_bool_match:
+                        state_dict["nightlight_on"] = nl_bool_match.group(1).lower() == "true"
+
                     # 2) Standard onOff trait, but exclude ScreenOnOff or general device connectivity
                     on_match = re.search(
                         r'(?:key:\s*"onOff"|action\.devices\.traits\.OnOff)[^}]*?bool4:\s*(true|false)',
