@@ -347,8 +347,8 @@ class GlocaltokensApiClient:
                     else None
                 )
 
-                # If IP address not discovered yet via local mDNS, search existing Home Assistant states / Cast
-                if not dev_ip and self.hass:
+                matched_cast_uuid = None
+                if self.hass:
                     dname = str(getattr(device, "device_name", "")).strip().lower()
                     slug = dname.replace(" ", "_")
                     for state in self.hass.states.async_all():
@@ -356,13 +356,37 @@ class GlocaltokensApiClient:
                             state.attributes.get("friendly_name", "").strip().lower()
                         )
                         if fname == dname or slug in state.entity_id:
-                            ip_cand = (
-                                state.attributes.get("ip_address")
-                                or state.attributes.get("ip")
-                                or state.attributes.get("host")
-                            )
-                            if ip_cand:
-                                dev_ip = str(ip_cand)
+                            if not dev_ip:
+                                ip_cand = (
+                                    state.attributes.get("ip_address")
+                                    or state.attributes.get("ip")
+                                    or state.attributes.get("host")
+                                )
+                                if ip_cand:
+                                    dev_ip = str(ip_cand)
+
+                            # If this entity is from the cast integration, extract cast UUID from device registry
+                            if state.entity_id.startswith("media_player."):
+                                try:
+                                    from homeassistant.helpers import (
+                                        device_registry as dr,
+                                        entity_registry as er,
+                                    )
+
+                                    ent_reg = er.async_get(self.hass)
+                                    dev_reg = dr.async_get(self.hass)
+                                    ent_entry = ent_reg.async_get(state.entity_id)
+                                    if ent_entry and ent_entry.device_id:
+                                        ha_dev = dev_reg.async_get(ent_entry.device_id)
+                                        if ha_dev:
+                                            for domain, ident in ha_dev.identifiers:
+                                                if domain == "cast":
+                                                    matched_cast_uuid = str(ident).replace("-", "")
+                                                    break
+                                except Exception:
+                                    pass
+
+                            if dev_ip and matched_cast_uuid:
                                 break
 
                 if device.device_id in existing_by_id:
@@ -371,22 +395,25 @@ class GlocaltokensApiClient:
                     dev.auth_token = device.local_auth_token
                     if dev_ip:
                         dev.ip_address = dev_ip
+                    if matched_cast_uuid and not getattr(dev, "cast_uuid", None):
+                        dev.cast_uuid = matched_cast_uuid
                     dev.hardware = device.hardware
                     dev.structure_id = dev_structure_id
                     dev.structure_name = dev_structure_name
                     new_devices.append(dev)
                 else:
-                    new_devices.append(
-                        GoogleHomeDevice(
-                            device_id=device.device_id,
-                            name=device.device_name,
-                            auth_token=device.local_auth_token,
-                            ip_address=dev_ip,
-                            hardware=device.hardware,
-                            structure_id=dev_structure_id,
-                            structure_name=dev_structure_name,
-                        )
+                    new_dev = GoogleHomeDevice(
+                        device_id=device.device_id,
+                        name=device.device_name,
+                        auth_token=device.local_auth_token,
+                        ip_address=dev_ip,
+                        hardware=device.hardware,
+                        structure_id=dev_structure_id,
+                        structure_name=dev_structure_name,
                     )
+                    if matched_cast_uuid:
+                        new_dev.cast_uuid = matched_cast_uuid
+                    new_devices.append(new_dev)
             self.google_devices = new_devices
             _LOGGER.debug(
                 "Discovered %d compatible Google Home devices: %s",
@@ -549,6 +576,23 @@ class GlocaltokensApiClient:
 
                 build_info = eureka_data.get("build_info") or {}
                 device_info = eureka_data.get("device_info") or {}
+                setup_data = eureka_data.get("setup") or {}
+                cast_uuid = (
+                    eureka_data.get("ssdp_udn")
+                    or eureka_data.get("cast_uuid")
+                    or eureka_data.get("uuid")
+                    or device_info.get("ssdp_udn")
+                    or device_info.get("cast_uuid")
+                    or device_info.get("uuid")
+                    or setup_data.get("tos_accepted")
+                    if isinstance(setup_data.get("tos_accepted"), str) and len(setup_data.get("tos_accepted", "")) >= 32
+                    else None
+                )
+                if cast_uuid and isinstance(cast_uuid, str):
+                    if cast_uuid.lower().startswith("uuid:"):
+                        cast_uuid = cast_uuid[5:]
+                    cast_uuid = cast_uuid.replace("-", "").strip()
+
                 firmware = (
                     build_info.get("cast_build_revision")
                     or build_info.get("system_build_number")
@@ -584,6 +628,7 @@ class GlocaltokensApiClient:
                 device.set_system_info(
                     firmware=str(firmware) if firmware else None,
                     mac=str(net_mac) if net_mac else None,
+                    cast_uuid=cast_uuid if cast_uuid else None,
                 )
 
                 bt_data = eureka_data.get("bluetooth") or {}

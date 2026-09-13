@@ -77,8 +77,12 @@ class GoogleHomeBaseEntity(CoordinatorEntity[GoogleHomeDataUpdateCoordinator]):
         manufacturer = device.manufacturer if device else MANUFACTURER
         model = device.model_name if device else "Google Home / Nest"
 
+        identifiers = {(DOMAIN, self.device_id)}
+        if device and getattr(device, "cast_uuid", None):
+            identifiers.add(("cast", str(device.cast_uuid).replace("-", "")))
+
         return DeviceInfo(
-            identifiers={(DOMAIN, self.device_id)},
+            identifiers=identifiers,
             name=self.device_name,
             manufacturer=manufacturer,
             model=model,
