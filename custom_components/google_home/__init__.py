@@ -7,7 +7,7 @@ from typing import Any, cast
 
 from homeassistant.components import zeroconf
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -208,25 +208,22 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
-    async def _on_coordinator_update() -> None:
-        await _async_cleanup_stale_devices_and_entities(hass, entry)
+    @callback
+    def _on_coordinator_update() -> None:
+        hass.async_create_task(_async_cleanup_stale_devices_and_entities(hass, entry))
 
-    local_coordinator = entry_data.get(DATA_COORDINATOR)
-    if local_coordinator:
-        entry.async_on_unload(
-            local_coordinator.async_add_listener(_on_coordinator_update)
-        )
+    local_coord: GoogleHomeDataUpdateCoordinator | None = entry_data.get(
+        DATA_COORDINATOR
+    )
+    if local_coord:
+        entry.async_on_unload(local_coord.async_add_listener(_on_coordinator_update))
 
-    cloud_coordinator = entry_data.get(DATA_CLOUD_COORDINATOR)
-    if cloud_coordinator:
-        entry.async_on_unload(
-            cloud_coordinator.async_add_listener(_on_coordinator_update)
-        )
+    cloud_coord: Any | None = entry_data.get(DATA_CLOUD_COORDINATOR)
+    if cloud_coord:
+        entry.async_on_unload(cloud_coord.async_add_listener(_on_coordinator_update))
 
     # Clean up stale devices and entities only if at least one coordinator already has data
-    if (local_coordinator and local_coordinator.data) or (
-        cloud_coordinator and cloud_coordinator.data
-    ):
+    if (local_coord and local_coord.data) or (cloud_coord and cloud_coord.data):
         await _async_cleanup_stale_devices_and_entities(hass, entry)
 
     return True
