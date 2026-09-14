@@ -351,6 +351,8 @@ class GlocaltokensApiClient:
                 if self.hass:
                     from homeassistant.helpers import (
                         device_registry as dr,
+                    )
+                    from homeassistant.helpers import (
                         entity_registry as er,
                     )
 
@@ -370,8 +372,12 @@ class GlocaltokensApiClient:
                             or state.attributes.get("ip")
                             or state.attributes.get("host")
                         )
-                        ip_matches = bool(dev_ip and state_ip and str(state_ip) == str(dev_ip))
-                        name_matches = bool(fname == dname or (slug and slug in state.entity_id))
+                        ip_matches = bool(
+                            dev_ip and state_ip and str(state_ip) == str(dev_ip)
+                        )
+                        name_matches = bool(
+                            fname == dname or (slug and slug in state.entity_id)
+                        )
 
                         if ip_matches or name_matches:
                             if not dev_ip and state_ip:
@@ -383,7 +389,9 @@ class GlocaltokensApiClient:
                                 if ha_dev:
                                     for domain, ident in ha_dev.identifiers:
                                         if domain == "cast":
-                                            matched_cast_uuid = str(ident).replace("-", "").strip()
+                                            matched_cast_uuid = (
+                                                str(ident).replace("-", "").strip()
+                                            )
                                             break
 
                         if dev_ip and matched_cast_uuid:
@@ -398,7 +406,9 @@ class GlocaltokensApiClient:
                                     cast_id = str(ident).replace("-", "").strip()
                                     break
                             if cast_id:
-                                dev_name = (d.name_by_user or d.name or "").strip().lower()
+                                dev_name = (
+                                    (d.name_by_user or d.name or "").strip().lower()
+                                )
                                 if dev_name == dname:
                                     matched_cast_uuid = cast_id
                                     break
@@ -407,7 +417,9 @@ class GlocaltokensApiClient:
                     if not dev_ip:
                         for state in self.hass.states.async_all():
                             fname = (
-                                state.attributes.get("friendly_name", "").strip().lower()
+                                state.attributes.get("friendly_name", "")
+                                .strip()
+                                .lower()
                             )
                             if fname == dname or (slug and slug in state.entity_id):
                                 ip_cand = (
@@ -615,7 +627,8 @@ class GlocaltokensApiClient:
                     or device_info.get("cast_uuid")
                     or device_info.get("uuid")
                     or setup_data.get("tos_accepted")
-                    if isinstance(setup_data.get("tos_accepted"), str) and len(setup_data.get("tos_accepted", "")) >= 32
+                    if isinstance(setup_data.get("tos_accepted"), str)
+                    and len(setup_data.get("tos_accepted", "")) >= 32
                     else None
                 )
                 if cast_uuid and isinstance(cast_uuid, str):

@@ -773,7 +773,10 @@ class GoogleHomeClockNightlightSensor(
         if not device or not device.online:
             return "unavailable" if not device else "offline"
         state = device.state
-        is_on = bool(state.get("nightlight_on", False))
+        if "nightlight_on" in state:
+            is_on = bool(state["nightlight_on"])
+        else:
+            is_on = bool(state.get("on", state.get("is_on", False)))
         if not is_on:
             return "off"
         if "brightness" in state:

@@ -329,7 +329,9 @@ class GoogleHomeCloudClient:
                         re.IGNORECASE,
                     )
                     if nl_bool_match:
-                        state_dict["nightlight_on"] = nl_bool_match.group(1).lower() == "true"
+                        state_dict["nightlight_on"] = (
+                            nl_bool_match.group(1).lower() == "true"
+                        )
 
                     # 2) Standard onOff trait, but exclude ScreenOnOff or general device connectivity
                     on_match = re.search(
@@ -340,21 +342,30 @@ class GoogleHomeCloudClient:
                     if on_match:
                         # For speakers / smart clocks, OnOff trait in HomeGraph usually refers to the nightlight / display
                         # If device_type is SPEAKER and it has ScreenOnOff, ensure it is not just the screen/device status
-                        state_dict["on"] = on_match.group(1).lower() == "true"
+                        is_on_val = on_match.group(1).lower() == "true"
+                        state_dict["on"] = is_on_val
+                        if "nightlight_on" not in state_dict:
+                            state_dict["nightlight_on"] = is_on_val
                     elif (
                         '"on": true' in m30_str
                         or '"on":true' in m30_str
                         or "on: true" in m30_str
                     ):
                         state_dict["on"] = True
+                        if "nightlight_on" not in state_dict:
+                            state_dict["nightlight_on"] = True
                     elif (
                         '"on": false' in m30_str
                         or '"on":false' in m30_str
                         or "on: false" in m30_str
                     ):
                         state_dict["on"] = False
+                        if "nightlight_on" not in state_dict:
+                            state_dict["nightlight_on"] = False
                     else:
                         state_dict["on"] = False
+                        if "nightlight_on" not in state_dict:
+                            state_dict["nightlight_on"] = False
 
                 # Extract Brightness (0-100%)
                 bri_match = re.search(

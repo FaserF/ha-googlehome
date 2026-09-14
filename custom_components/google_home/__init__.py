@@ -213,10 +213,21 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     local_coordinator = entry_data.get(DATA_COORDINATOR)
     if local_coordinator:
-        entry.async_on_unload(local_coordinator.async_add_listener(_on_coordinator_update))
+        entry.async_on_unload(
+            local_coordinator.async_add_listener(_on_coordinator_update)
+        )
 
-    # Clean up stale devices and entities from Device and Entity Registries
-    await _async_cleanup_stale_devices_and_entities(hass, entry)
+    cloud_coordinator = entry_data.get(DATA_CLOUD_COORDINATOR)
+    if cloud_coordinator:
+        entry.async_on_unload(
+            cloud_coordinator.async_add_listener(_on_coordinator_update)
+        )
+
+    # Clean up stale devices and entities only if at least one coordinator already has data
+    if (local_coordinator and local_coordinator.data) or (
+        cloud_coordinator and cloud_coordinator.data
+    ):
+        await _async_cleanup_stale_devices_and_entities(hass, entry)
 
     return True
 
@@ -230,6 +241,13 @@ async def _async_cleanup_stale_devices_and_entities(
     data = hass.data.get(DOMAIN, {}).get(entry.entry_id, {})
     local_coordinator = data.get(DATA_COORDINATOR)
     cloud_coordinator = data.get(DATA_CLOUD_COORDINATOR)
+
+    # If neither coordinator has data yet, do not prune to avoid deleting valid entities
+    if not (
+        (local_coordinator and local_coordinator.data)
+        or (cloud_coordinator and cloud_coordinator.data)
+    ):
+        return
 
     active_device_ids: set[str] = set()
     active_structure_ids: set[str] = set()
@@ -475,12 +493,16 @@ async def _async_cleanup_stale_devices_and_entities(
                                             dev_entry.name or dev_entry.id,
                                             c_uuid,
                                         )
-                                        new_idents = set(dev_entry.identifiers) | {("cast", c_uuid)}
+                                        new_idents = set(dev_entry.identifiers) | {
+                                            ("cast", c_uuid)
+                                        }
                                         dev_reg.async_update_device(
                                             dev_entry.id,
                                             merge_identifiers=new_idents,
                                         )
-                                        for cast_ent in er.async_entries_for_device(ent_reg, cast_dev.id):
+                                        for cast_ent in er.async_entries_for_device(
+                                            ent_reg, cast_dev.id
+                                        ):
                                             ent_reg.async_update_entity(
                                                 cast_ent.entity_id,
                                                 device_id=dev_entry.id,

@@ -28,8 +28,7 @@ def _load_translations(lang: str) -> dict[str, str]:
     commands: dict[str, str] = {}
     try:
         if file_path.exists():
-            with open(file_path, encoding="utf-8") as f:
-                commands = json.load(f)
+            commands = json.loads(file_path.read_text(encoding="utf-8"))
     except Exception as err:
         _LOGGER.warning("Could not load assistant commands file %s: %s", file_path, err)
 

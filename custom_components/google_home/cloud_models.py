@@ -362,7 +362,11 @@ class CloudHomeDevice:
 
         # 0. Smart Clock Nightlight / Dedicated Nightlight devices:
         if self.is_nightlight:
-            nl_on = state.get("nightlight_on")
+            nl_on = (
+                state.get("nightlight_on")
+                if "nightlight_on" in state
+                else state.get("on", state.get("is_on"))
+            )
             if nl_on:
                 bri = state.get("brightness")
                 return f"on ({bri}%)" if bri is not None else "on"
