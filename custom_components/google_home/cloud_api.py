@@ -311,7 +311,7 @@ class GoogleHomeCloudClient:
                 # Specific onOff parsing: extract exact boolean value
                 import re
 
-                # Match patterns specifically for onOff state:
+                # Match patterns specifically for onOff / NightLight state:
                 # 1) Specific NightLight trait
                 nl_match = re.search(
                     r"(?:action\.devices\.traits\.NightLight|nightLight)[^}]*?bool4:\s*(true|false)",
@@ -333,39 +333,46 @@ class GoogleHomeCloudClient:
                             nl_bool_match.group(1).lower() == "true"
                         )
 
-                    # 2) Standard onOff trait, but exclude ScreenOnOff or general device connectivity
+                    # 2) Standard onOff trait in HomeGraph protobuf message30:
+                    # e.g.: key: "onOff" ... bool4: true/false or action.devices.traits.OnOff ... bool4: true/false
                     on_match = re.search(
                         r'(?:key:\s*"onOff"|action\.devices\.traits\.OnOff)[^}]*?bool4:\s*(true|false)',
                         m30_str,
                         re.IGNORECASE | re.DOTALL,
                     )
                     if on_match:
-                        # For speakers / smart clocks, OnOff trait in HomeGraph usually refers to the nightlight / display
-                        # If device_type is SPEAKER and it has ScreenOnOff, ensure it is not just the screen/device status
                         is_on_val = on_match.group(1).lower() == "true"
                         state_dict["on"] = is_on_val
                         if "nightlight_on" not in state_dict:
-                            state_dict["nightlight_on"] = is_on_val
-                    elif (
-                        '"on": true' in m30_str
-                        or '"on":true' in m30_str
-                        or "on: true" in m30_str
-                    ):
-                        state_dict["on"] = True
-                        if "nightlight_on" not in state_dict:
-                            state_dict["nightlight_on"] = True
-                    elif (
-                        '"on": false' in m30_str
-                        or '"on":false' in m30_str
-                        or "on: false" in m30_str
-                    ):
-                        state_dict["on"] = False
-                        if "nightlight_on" not in state_dict:
-                            state_dict["nightlight_on"] = False
+                            # Only inherit into nightlight_on if the device is actually a nightlight / light device
+                            is_clock_or_light = (
+                                "action.devices.traits.NightLight" in traits_list
+                                or "action.devices.types.LIGHT" in device_type
+                                or any(
+                                    k in (hardware_model or "").lower()
+                                    or k in name.lower()
+                                    for k in ("clock", "uhr", "cd-")
+                                )
+                            )
+                            if is_clock_or_light:
+                                state_dict["nightlight_on"] = is_on_val
                     else:
-                        state_dict["on"] = False
-                        if "nightlight_on" not in state_dict:
-                            state_dict["nightlight_on"] = False
+                        # Exact JSON on field matches only (e.g. '"on": true' or '"on": false')
+                        json_on_match = re.search(
+                            r'"on":\s*(true|false)', m30_str, re.IGNORECASE
+                        )
+                        if json_on_match:
+                            json_is_on = json_on_match.group(1).lower() == "true"
+                            state_dict["on"] = json_is_on
+                            if (
+                                "nightlight_on" not in state_dict
+                                and "action.devices.traits.NightLight" in traits_list
+                            ):
+                                state_dict["nightlight_on"] = json_is_on
+                        else:
+                            state_dict["on"] = False
+                            if "nightlight_on" not in state_dict:
+                                state_dict["nightlight_on"] = False
 
                 # Extract Brightness (0-100%)
                 bri_match = re.search(
