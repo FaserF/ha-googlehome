@@ -51,12 +51,67 @@ async def async_setup_entry(
         entry.entry_id
     ][DATA_CLOUD_COORDINATOR]
 
+    from homeassistant.helpers import device_registry as dr
+    from homeassistant.helpers import entity_registry as er
+
     registered_ids: set[str] = set()
+
+    def _has_cast_media_player(dev: object) -> bool:
+        """Return True if a Cast media_player already exists for this device."""
+        from homeassistant.helpers.device_registry import (
+            CONNECTION_NETWORK_MAC,
+            format_mac,
+        )
+
+        dev_reg = dr.async_get(hass)
+        ent_reg = er.async_get(hass)
+
+        ha_device = None
+
+        # 1. Try MAC address lookup
+        mac = getattr(dev, "mac_address", None)
+        if mac:
+            try:
+                ha_device = dev_reg.async_get_device_by_connection(
+                    (CONNECTION_NETWORK_MAC, format_mac(mac))
+                )
+            except Exception:
+                ha_device = None
+
+        # 2. Fallback: find HA device via google_home identifier by searching
+        # entity registry for an existing google_home entity with this device_id
+        if not ha_device:
+            dev_id = getattr(dev, "device_id", None)
+            if dev_id:
+                # Look up by iterating entities for this config entry
+                for ent in er.async_entries_for_config_entry(ent_reg, entry.entry_id):
+                    if ent.domain == "media_player" and ent.unique_id == f"google_home_cloud_media_{dev_id}":
+                        if ent.device_id:
+                            ha_device = dev_reg.async_get(ent.device_id)
+                        break
+
+        if not ha_device:
+            return False
+
+        # Check if any media_player entity on this HA device is from the cast platform
+        for ent in er.async_entries_for_device(ent_reg, ha_device.id):
+            if ent.domain == "media_player" and ent.platform == "cast":
+                _LOGGER.debug(
+                    "Skipping google_home media_player for %s — cast entity %s already exists",
+                    getattr(dev, "name", ""),
+                    ent.entity_id,
+                )
+                return True
+        return False
 
     def _create_entities() -> list[GoogleHomeCloudMediaPlayer]:
         new_ents = []
         for dev in coordinator.data or []:
             if dev.is_media_player and dev.device_id not in registered_ids:
+                if _has_cast_media_player(dev):
+                    # Cast entity already covers this device — don't duplicate
+                    registered_ids.add(dev.device_id)
+                    continue
                 registered_ids.add(dev.device_id)
                 new_ents.append(
                     GoogleHomeCloudMediaPlayer(

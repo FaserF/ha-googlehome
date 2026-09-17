@@ -529,17 +529,32 @@ class GoogleHomeOptionsFlowHandler(OptionsFlow):
             except Exception as err:
                 _LOGGER.debug("Could not query homes in options flow: %s", err)
 
-        homes_options: list[SelectOptionDict] = [
-            SelectOptionDict(value=hid, label=hname)
-            for hid, hname in homes_dict.items()
-        ]
+        # Group IDs by home name so user sees each home once
+        name_to_ids: dict[str, list[str]] = {}
+        for hid, hname in homes_dict.items():
+            name_to_ids.setdefault(hname, []).append(hid)
 
-        # Ensure any currently configured homes are included as options
+        homes_options: list[SelectOptionDict] = []
+        for hname, _ids in name_to_ids.items():
+            # Use the home name itself (or primary ID) as canonical value
+            homes_options.append(SelectOptionDict(value=hname, label=hname))
+
+        # Ensure any currently configured homes are included as options (supporting both legacy ID and name)
         if current_homes and isinstance(current_homes, list):
             existing_values = {opt["value"] for opt in homes_options}
+            normalized_current_homes: list[str] = []
             for ch in current_homes:
-                if ch not in existing_values:
-                    homes_options.append(SelectOptionDict(value=ch, label=ch))
+                if not ch:
+                    continue
+                matched_name = str(homes_dict.get(ch, ch))
+                if matched_name not in normalized_current_homes:
+                    normalized_current_homes.append(matched_name)
+                if matched_name not in existing_values:
+                    homes_options.append(
+                        SelectOptionDict(value=matched_name, label=matched_name)
+                    )
+                    existing_values.add(matched_name)
+            current_homes = normalized_current_homes
 
         has_assistant_sdk = self.hass.services.has_service(
             "google_assistant_sdk", "send_text_command"

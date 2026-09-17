@@ -222,8 +222,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if cloud_coord:
         entry.async_on_unload(cloud_coord.async_add_listener(_on_coordinator_update))
 
-    # Clean up stale devices and entities only if at least one coordinator already has data
-    if (local_coord and local_coord.data) or (cloud_coord and cloud_coord.data):
+    # Clean up stale devices and entities only if all enabled coordinators already have data
+    both_ready = (local_coord is None or bool(local_coord.data)) and (
+        cloud_coord is None or bool(cloud_coord.data)
+    )
+    if both_ready and (local_coord is not None or cloud_coord is not None):
         await _async_cleanup_stale_devices_and_entities(hass, entry)
 
     return True
@@ -239,29 +242,37 @@ async def _async_cleanup_stale_devices_and_entities(
     local_coordinator = data.get(DATA_COORDINATOR)
     cloud_coordinator = data.get(DATA_CLOUD_COORDINATOR)
 
-    # If neither coordinator has data yet, do not prune to avoid deleting valid entities
-    if not (
-        (local_coordinator and local_coordinator.data)
-        or (cloud_coordinator and cloud_coordinator.data)
-    ):
+    # If any enabled coordinator is still in the process of its initial refresh, do not prune
+    if local_coordinator is not None and local_coordinator.last_update_success is False and not local_coordinator.data:
+        pass  # Failed initial refresh, proceed with available cloud data
+    elif local_coordinator is not None and not local_coordinator.data:
+        return
+    if cloud_coordinator is not None and not cloud_coordinator.data:
+        return
+    if local_coordinator is None and cloud_coordinator is None:
         return
 
     active_device_ids: set[str] = set()
     active_structure_ids: set[str] = set()
 
+    alias_map: dict[str, str] = {}
+    if cloud_coordinator and hasattr(cloud_coordinator.client, "_structure_alias_map"):
+        alias_map = cloud_coordinator.client._structure_alias_map
+
     if local_coordinator and local_coordinator.data:
         for dev in local_coordinator.data:
             active_device_ids.add(dev.device_id)
             if dev.structure_id:
-                active_structure_ids.add(dev.structure_id)
+                active_structure_ids.add(alias_map.get(dev.structure_id, dev.structure_id))
 
     if cloud_coordinator and cloud_coordinator.data:
         for cdev in cloud_coordinator.data:
             active_device_ids.add(cdev.device_id)
             if cdev.structure_id:
-                active_structure_ids.add(cdev.structure_id)
-                active_device_ids.add(f"{entry.entry_id}_structure_{cdev.structure_id}")
-                active_device_ids.add(f"structure_{cdev.structure_id}")
+                canon_sid = alias_map.get(cdev.structure_id, cdev.structure_id)
+                active_structure_ids.add(canon_sid)
+                active_device_ids.add(f"{entry.entry_id}_structure_{canon_sid}")
+                active_device_ids.add(f"structure_{canon_sid}")
 
     for sid in active_structure_ids:
         active_device_ids.add(f"{entry.entry_id}_structure_{sid}")
@@ -434,7 +445,7 @@ async def _async_cleanup_stale_devices_and_entities(
 
                 # Resolve structure_id to 64-char hex ID if present in available_homes
                 if cloud_coordinator and struct_id:
-                    avail_homes = cloud_coordinator.client._get_available_homes_sync()
+                    avail_homes = await cloud_coordinator.client.async_get_available_homes()
                     struct_name = avail_homes.get(struct_id)
                     if struct_name:
                         for s_hex, s_n in avail_homes.items():
@@ -458,7 +469,7 @@ async def _async_cleanup_stale_devices_and_entities(
                             if ldev:
                                 s_id = ldev.structure_id
                                 if cloud_coordinator and s_id:
-                                    avail_homes = cloud_coordinator.client._get_available_homes_sync()
+                                    avail_homes = await cloud_coordinator.client.async_get_available_homes()
                                     s_name = avail_homes.get(s_id)
                                     if s_name:
                                         for s_hex, s_n in avail_homes.items():
@@ -474,16 +485,17 @@ async def _async_cleanup_stale_devices_and_entities(
                                     ),
                                 )
                                 # Merge with Google Cast device entry in Device Registry ONLY if not conflicting with MAC mapping
-                                # OpenWrt and router integrations map via MAC address.
                                 if getattr(ldev, "cast_uuid", None):
                                     c_uuid = str(ldev.cast_uuid).replace("-", "")
-                                    cast_dev = dev_reg.async_get_device(
-                                        identifiers={("cast", c_uuid)}
-                                    )
-                                    # If cast_dev has no MAC or conflicts with openwrt/fritzbox, ensure we don't break MAC-linked device
+                                    cast_dev = None
+                                    try:
+                                        cast_dev = dev_reg.async_get_device_by_identifier(
+                                            ("cast", c_uuid)
+                                        )
+                                    except TypeError:
+                                        # HA version requires config_entry_id — skip merge
+                                        pass
                                     if cast_dev and cast_dev.id != dev_entry.id:
-                                        # Check if dev_entry or cast_dev has MAC connection
-                                        # If dev_entry already has network MAC connection, keep dev_entry as master and attach cast identifiers/entities
                                         _LOGGER.info(
                                             "Merging Cast device %s with Google Home device %s (%s)",
                                             cast_dev.name or cast_dev.id,
@@ -495,7 +507,7 @@ async def _async_cleanup_stale_devices_and_entities(
                                         }
                                         dev_reg.async_update_device(
                                             dev_entry.id,
-                                            merge_identifiers=new_idents,
+                                            new_identifiers=new_idents,
                                         )
                                         for cast_ent in er.async_entries_for_device(
                                             ent_reg, cast_dev.id
@@ -515,7 +527,9 @@ async def _async_cleanup_stale_devices_and_entities(
                             if cdev:
                                 s_id = cdev.structure_id
                                 if s_id:
-                                    avail_homes = cloud_coordinator.client._get_available_homes_sync()
+                                    # Use already-cached structure data from coordinator to avoid
+                                    # blocking I/O in the event loop
+                                    avail_homes = await cloud_coordinator.client.async_get_available_homes()
                                     s_name = avail_homes.get(s_id)
                                     if s_name:
                                         for s_hex, s_n in avail_homes.items():

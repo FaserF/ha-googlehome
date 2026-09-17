@@ -330,8 +330,11 @@ class GlocaltokensApiClient:
                     dev_structure_id = first_hid
                     dev_structure_name = available_homes[first_hid]
 
-                # Filter by selected_homes if specified
-                if self.selected_homes and dev_structure_id not in self.selected_homes:
+                # Filter by selected_homes if specified (allow match by structure ID or structure name)
+                if self.selected_homes and not (
+                    dev_structure_id in self.selected_homes
+                    or dev_structure_name in self.selected_homes
+                ):
                     _LOGGER.debug(
                         "Skipping local speaker %s because its home %s (%s) is not in selected_homes: %s",
                         getattr(device, "device_name", ""),
@@ -387,10 +390,10 @@ class GlocaltokensApiClient:
                             if ent_entry and ent_entry.device_id:
                                 ha_dev = dev_reg.async_get(ent_entry.device_id)
                                 if ha_dev:
-                                    for domain, ident in ha_dev.identifiers:
-                                        if domain == "cast":
+                                    for identifier in ha_dev.identifiers:
+                                        if len(identifier) >= 2 and identifier[0] == "cast":
                                             matched_cast_uuid = (
-                                                str(ident).replace("-", "").strip()
+                                                str(identifier[1]).replace("-", "").strip()
                                             )
                                             break
 
@@ -401,9 +404,9 @@ class GlocaltokensApiClient:
                     if not matched_cast_uuid:
                         for d in dev_reg.devices.values():
                             cast_id = None
-                            for domain, ident in d.identifiers:
-                                if domain == "cast":
-                                    cast_id = str(ident).replace("-", "").strip()
+                            for identifier in d.identifiers:
+                                if len(identifier) >= 2 and identifier[0] == "cast":
+                                    cast_id = str(identifier[1]).replace("-", "").strip()
                                     break
                             if cast_id:
                                 dev_name = (

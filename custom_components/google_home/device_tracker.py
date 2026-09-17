@@ -50,10 +50,21 @@ async def async_setup_entry(
                 homes.update(coordinator.client._get_available_homes_sync())
             except Exception:
                 pass
-        # 2. Add any structures found on individual devices
+        alias_map = getattr(coordinator.client, "_structure_alias_map", {})
+        # 2. Add any structures found on individual devices, normalized to canonical ID
         for dev in coordinator.data or []:
             if dev.structure_id:
-                homes.setdefault(dev.structure_id, dev.structure_name or "Google Home")
+                canonical_id = alias_map.get(dev.structure_id, dev.structure_id)
+                homes.setdefault(canonical_id, dev.structure_name or "Google Home")
+
+        # Deduplicate homes by structure name so only one canonical device exists per home
+        name_to_canonical: dict[str, str] = {}
+        for sid, sname in homes.items():
+            if sname not in name_to_canonical:
+                name_to_canonical[sname] = sid
+            elif len(sid) == 64 and len(name_to_canonical[sname]) != 64:
+                name_to_canonical[sname] = sid
+        homes = {sid: sname for sname, sid in name_to_canonical.items()}
 
         if not homes:
             homes["default_home"] = "Google Home"

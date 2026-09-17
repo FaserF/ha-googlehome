@@ -47,6 +47,8 @@ class GoogleHomeCloudClient:
             android_id=android_id,
             verbose=False,
         )
+        # Populated by _get_available_homes_sync; maps short/prefix UUID → canonical 64-char hex
+        self._structure_alias_map: dict[str, str] = {}
 
     async def async_get_available_homes(self) -> dict[str, str]:
         """Fetch dictionary of available home_id -> home_name from HomeGraph."""
@@ -65,51 +67,133 @@ class GoogleHomeCloudClient:
                 raw = homegraph.SerializeToString()
                 import re
 
-                # Extract all 64-char hex strings and StructureTrait names from raw bytes
-                hex_64_ids = [
-                    m.group(0).decode("utf-8")
-                    for m in re.finditer(rb"[0-9a-fA-F]{64}", raw)
-                ]
-                # Unique preserve order
-                unique_64_ids: list[str] = []
-                for x in hex_64_ids:
-                    if x not in unique_64_ids:
-                        unique_64_ids.append(x)
-
-                found_names: list[str] = []
-                for match in re.finditer(
-                    rb"StructureTrait[^\x00-\x1F]*\x12[\x01-\x20]\n\x04name\x12[\x01-\x20]\x1a[\x01-\x20]([^\x00-\x1F]+)",
-                    raw,
-                ):
-                    struct_name = match.group(1).decode("utf-8", errors="ignore")
-                    if struct_name not in found_names:
-                        found_names.append(struct_name)
-
-                # Pair 64-char structure IDs with home names
-                for idx, s_name in enumerate(found_names):
-                    if idx < len(unique_64_ids):
-                        s_hex = unique_64_ids[idx]
-                        homes[s_hex] = s_name
-                        # Also alias the internal non-64 hid if matching name
-                        if s_name == hname:
-                            homes[hid] = s_name
-
-                # Correlate any room prefix UUIDs to the known names as aliases
+                # --- Step 1: collect distinct prefix UUIDs from room_ids ---
+                # room_id format: "{prefix_uuid}.{room_uuid}"
+                # The prefix_uuid is the canonical structure identifier used in
+                # room → device mappings.  We collect them in insertion order.
+                prefix_uuids: list[str] = []
+                prefix_to_room_bytes: dict[str, list[bytes]] = {}
                 for r in getattr(homegraph.home, "rooms", []):
                     rid = getattr(r, "room_id", "")
                     if "." in rid:
-                        prefix_uuid = rid.split(".")[0]
-                        if prefix_uuid not in homes:
-                            r_bytes = r.SerializeToString()
-                            for s_id, s_name in list(homes.items()):
-                                if (
-                                    s_name.encode() in r_bytes
-                                    or s_id.encode() in r_bytes
-                                ):
-                                    homes[prefix_uuid] = s_name
-                                    break
+                        p = rid.split(".")[0]
+                        if p not in prefix_to_room_bytes:
+                            prefix_uuids.append(p)
+                            prefix_to_room_bytes[p] = []
+                        prefix_to_room_bytes[p].append(r.SerializeToString())
 
-                return homes
+                # --- Step 2: match StructureTrait names to prefix UUIDs ---
+                # Each room's serialized bytes contain its structure name
+                # (via StructureTrait embedded in the protobuf blob).
+                struct_name_re = re.compile(
+                    rb"StructureTrait[^\x00-\x1F]*\x12[\x01-\x20]\n\x04name\x12[\x01-\x20]\x1a[\x01-\x20]([^\x00-\x1F]+)"
+                )
+
+                prefix_to_name: dict[str, str] = {}
+                # Search each room's bytes for a StructureTrait name
+                for p, room_bytes_list in prefix_to_room_bytes.items():
+                    for rb in room_bytes_list:
+                        m = struct_name_re.search(rb)
+                        if m:
+                            sname = m.group(1).decode("utf-8", errors="ignore").strip()
+                            if sname:
+                                prefix_to_name[p] = sname
+                                break
+
+                # Fallback: search full raw payload for StructureTrait names
+                # and pair by order with ordered prefix_uuids list
+                if len(prefix_to_name) < len(prefix_uuids):
+                    all_names: list[str] = []
+                    for match in struct_name_re.finditer(raw):
+                        sname = match.group(1).decode("utf-8", errors="ignore").strip()
+                        if sname and sname != hname and sname not in all_names:
+                            all_names.append(sname)
+                    for idx, p in enumerate(prefix_uuids):
+                        if p not in prefix_to_name and idx < len(all_names):
+                            prefix_to_name[p] = all_names[idx]
+
+                # --- Step 3: find 64-char hex IDs for each prefix UUID ---
+                # The 64-char hex for a structure appears in the raw bytes near
+                # or alongside the prefix UUID bytes.
+                hex64_re = re.compile(rb"[0-9a-fA-F]{64}")
+                all_hex64: list[tuple[int, str]] = [
+                    (m.start(), m.group(0).decode())
+                    for m in hex64_re.finditer(raw)
+                ]
+
+                prefix_to_hex64: dict[str, str] = {}
+                for p in prefix_uuids:
+                    p_bytes = p.encode()
+                    # Find positions of this prefix UUID in raw
+                    for pm in re.finditer(re.escape(p_bytes), raw):
+                        pm_pos = pm.start()
+                        # Closest 64-char hex within 4096 bytes
+                        best: tuple[int, str] | None = None
+                        best_dist = 99999999
+                        for hpos, hval in all_hex64:
+                            dist = abs(hpos - pm_pos)
+                            if dist < best_dist and dist < 4096:
+                                best_dist = dist
+                                best = (hpos, hval)
+                        if best:
+                            prefix_to_hex64[p] = best[1]
+                            break
+
+                # Build the homes dict: canonical 64-char hex → structure name
+                # (also keep hid → hname for the primary home)
+                for p in prefix_uuids:
+                    sname = prefix_to_name.get(p)
+                    if not sname:
+                        continue
+                    hex64 = prefix_to_hex64.get(p)
+                    if hex64:
+                        homes[hex64] = sname
+                        _LOGGER.debug(
+                            "Structure '%s' → hex %s... (via prefix %s...)",
+                            sname, hex64[:8], p[:8],
+                        )
+                    else:
+                        # No 64-char hex found; use prefix UUID as key
+                        homes[p] = sname
+                        _LOGGER.debug(
+                            "Structure '%s' → prefix %s... (no 64-char hex found)",
+                            sname, p[:8],
+                        )
+
+                # Build alias map: prefix UUID → canonical key (64-char or prefix)
+                self._structure_alias_map = {}
+                for p in prefix_uuids:
+                    hex64 = prefix_to_hex64.get(p)
+                    canonical = hex64 if hex64 and hex64 in homes else p
+                    if canonical != p:
+                        self._structure_alias_map[p] = canonical
+
+                # Also alias short hid → canonical if name matches
+                for sid, sname in list(homes.items()):
+                    if len(sid) != 64 and sid not in self._structure_alias_map:
+                        for hex64, hname64 in homes.items():
+                            if len(hex64) == 64 and hname64 == sname and hex64 != sid:
+                                self._structure_alias_map[sid] = hex64
+                                break
+
+                # Deduplicate: one entry per unique name (prefer 64-char hex key)
+                name_to_canonical: dict[str, str] = {}
+                for sid, sname in homes.items():
+                    if sname not in name_to_canonical:
+                        name_to_canonical[sname] = sid
+                    elif len(sid) == 64 and len(name_to_canonical[sname]) != 64:
+                        # Upgrade to 64-char key
+                        old = name_to_canonical[sname]
+                        name_to_canonical[sname] = sid
+                        self._structure_alias_map[old] = sid
+
+                deduped = {sid: sname for sname, sid in name_to_canonical.items()}
+
+                _LOGGER.debug(
+                    "Available homes (deduped): %s",
+                    {k[:8] + "...": v for k, v in deduped.items()},
+                )
+                return deduped
 
         except Exception as exc:
             _LOGGER.debug("Could not fetch available homes: %s", exc)
@@ -132,6 +216,8 @@ class GoogleHomeCloudClient:
             return []
 
         available_homes = self._get_available_homes_sync()
+        # Alias map built during _get_available_homes_sync; short/prefix UUID → canonical 64-hex
+        alias_map: dict[str, str] = getattr(self, "_structure_alias_map", {})
         default_home_id = getattr(homegraph.home, "home_id", "") or "default_home"
         default_home_name = getattr(homegraph.home, "home_name", "") or "Google Home"
 
@@ -142,7 +228,9 @@ class GoogleHomeCloudClient:
         for room in getattr(homegraph.home, "rooms", []):
             rid = getattr(room, "room_id", "") or getattr(room, "id", "")
             rname = getattr(room, "name", "") or getattr(room, "room_name", "")
-            struct_id = rid.split(".")[0] if "." in rid else default_home_id
+            raw_struct_id = rid.split(".")[0] if "." in rid else default_home_id
+            # Resolve prefix UUID → canonical 64-char hex
+            struct_id = alias_map.get(raw_struct_id, raw_struct_id)
             r_bytes = room.SerializeToString()
             for r_dev in getattr(homegraph.home, "devices", []):
                 r_dev_id = getattr(getattr(r_dev, "device_info", None), "device_id", "")
@@ -172,7 +260,9 @@ class GoogleHomeCloudClient:
             item_structure_id = device_structure_map.get(dev_id)
             if not item_structure_id:
                 raw_item = item.SerializeToString()
-                for hid in available_homes:
+                # Prefer 64-char hex keys (canonical); sort by descending key length so
+                # longer (canonical) keys are tried before short UUID aliases.
+                for hid in sorted(available_homes, key=lambda k: -len(k)):
                     if hid.encode() in raw_item:
                         item_structure_id = hid
                         break
@@ -189,20 +279,25 @@ class GoogleHomeCloudClient:
                     ):
                         if "." in rid:
                             p_uuid = rid.split(".")[0]
-                            if p_uuid in available_homes:
-                                item_structure_id = p_uuid
+                            # Resolve prefix UUID → canonical via alias_map
+                            resolved = alias_map.get(p_uuid, p_uuid)
+                            if resolved in available_homes:
+                                item_structure_id = resolved
                                 break
 
             if not item_structure_id:
-                # Default to primary structure only if not specifically configured
-                item_structure_id = default_home_id
+                # Resolve default home_id to canonical if possible
+                item_structure_id = alias_map.get(default_home_id, default_home_id)
 
             item_structure_name = available_homes.get(
                 item_structure_id, default_home_name
             )
 
-            # Filter by selected_homes if set
-            if self.selected_homes and item_structure_id not in self.selected_homes:
+            # Filter by selected_homes if set (allow match by structure ID or structure name)
+            if self.selected_homes and not (
+                item_structure_id in self.selected_homes
+                or item_structure_name in self.selected_homes
+            ):
                 _LOGGER.debug(
                     "Skipping device %s because its home %s (%s) is not in selected_homes: %s",
                     getattr(item, "device_name", ""),
@@ -320,7 +415,6 @@ class GoogleHomeCloudClient:
                 )
                 if nl_match:
                     nl_is_on = nl_match.group(1).lower() == "true"
-                    state_dict["on"] = nl_is_on
                     state_dict["nightlight_on"] = nl_is_on
                 else:
                     nl_bool_match = re.search(
@@ -332,47 +426,46 @@ class GoogleHomeCloudClient:
                         state_dict["nightlight_on"] = (
                             nl_bool_match.group(1).lower() == "true"
                         )
-
-                    # 2) Standard onOff trait in HomeGraph protobuf message30:
-                    # e.g.: key: "onOff" ... bool4: true/false or action.devices.traits.OnOff ... bool4: true/false
-                    on_match = re.search(
-                        r'(?:key:\s*"onOff"|action\.devices\.traits\.OnOff)[^}]*?bool4:\s*(true|false)',
-                        m30_str,
-                        re.IGNORECASE | re.DOTALL,
-                    )
-                    if on_match:
-                        is_on_val = on_match.group(1).lower() == "true"
-                        state_dict["on"] = is_on_val
-                        if "nightlight_on" not in state_dict:
-                            # Only inherit into nightlight_on if the device is actually a nightlight / light device
-                            is_clock_or_light = (
-                                "action.devices.traits.NightLight" in traits_list
-                                or "action.devices.types.LIGHT" in device_type
-                                or any(
-                                    k in (hardware_model or "").lower()
-                                    or k in name.lower()
-                                    for k in ("clock", "uhr", "cd-")
-                                )
-                            )
-                            if is_clock_or_light:
-                                state_dict["nightlight_on"] = is_on_val
                     else:
-                        # Exact JSON on field matches only (e.g. '"on": true' or '"on": false')
-                        json_on_match = re.search(
-                            r'"on":\s*(true|false)', m30_str, re.IGNORECASE
-                        )
-                        if json_on_match:
-                            json_is_on = json_on_match.group(1).lower() == "true"
-                            state_dict["on"] = json_is_on
-                            if (
-                                "nightlight_on" not in state_dict
-                                and "action.devices.traits.NightLight" in traits_list
-                            ):
-                                state_dict["nightlight_on"] = json_is_on
+                        # If the device is a Smart Clock / Speaker, do NOT infer nightlight from general OnOff/Cast power!
+                        # Only real dedicated lights (not speakers) may inherit nightlight_on from OnOff
+                        if "action.devices.types.LIGHT" in device_type:
+                            # Will be populated below if onOff is found
+                            pass
                         else:
-                            state_dict["on"] = False
-                            if "nightlight_on" not in state_dict:
-                                state_dict["nightlight_on"] = False
+                            state_dict["nightlight_on"] = False
+
+                # 2) Standard onOff trait in HomeGraph protobuf message30:
+                on_match = re.search(
+                    r'(?:key:\s*"onOff"|action\.devices\.traits\.OnOff)[^}]*?bool4:\s*(true|false)',
+                    m30_str,
+                    re.IGNORECASE | re.DOTALL,
+                )
+                if on_match:
+                    is_on_val = on_match.group(1).lower() == "true"
+                    state_dict["on"] = is_on_val
+                    if (
+                        "nightlight_on" not in state_dict
+                        and "action.devices.types.LIGHT" in device_type
+                    ):
+                        state_dict["nightlight_on"] = is_on_val
+                else:
+                    # Exact JSON on field matches only (e.g. '"on": true' or '"on": false')
+                    json_on_match = re.search(
+                        r'"on":\s*(true|false)', m30_str, re.IGNORECASE
+                    )
+                    if json_on_match:
+                        json_is_on = json_on_match.group(1).lower() == "true"
+                        state_dict["on"] = json_is_on
+                        if (
+                            "nightlight_on" not in state_dict
+                            and "action.devices.traits.NightLight" in traits_list
+                        ):
+                            state_dict["nightlight_on"] = json_is_on
+                    else:
+                        state_dict["on"] = False
+                        if "nightlight_on" not in state_dict:
+                            state_dict["nightlight_on"] = False
 
                 # Extract Brightness (0-100%)
                 bri_match = re.search(

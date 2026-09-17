@@ -134,10 +134,12 @@ async def async_setup_entry(
                 except Exception:
                     pass
 
+            alias_map = getattr(cloud_coordinator.client, "_structure_alias_map", {})
             for dev in cloud_coordinator.data or []:
                 if dev.structure_id:
+                    canonical_id = alias_map.get(dev.structure_id, dev.structure_id)
                     homes.setdefault(
-                        dev.structure_id, dev.structure_name or "Google Home"
+                        canonical_id, dev.structure_name or "Google Home"
                     )
                 if dev.is_automation_routine:
                     continue
@@ -175,6 +177,15 @@ async def async_setup_entry(
                                 device_id=dev.device_id,
                             )
                         )
+
+            # Deduplicate homes by structure name so only one canonical device exists per home
+            name_to_canonical: dict[str, str] = {}
+            for sid, sname in homes.items():
+                if sname not in name_to_canonical:
+                    name_to_canonical[sname] = sid
+                elif len(sid) == 64 and len(name_to_canonical[sname]) != 64:
+                    name_to_canonical[sname] = sid
+            homes = {sid: sname for sname, sid in name_to_canonical.items()}
 
             # Structure-level sensors: Home Briefs (Gemini activity summaries) and Face Library (Nest Aware)
             for sid, sname in homes.items():
@@ -773,10 +784,7 @@ class GoogleHomeClockNightlightSensor(
         if not device or not device.online:
             return "unavailable" if not device else "offline"
         state = device.state
-        if "nightlight_on" in state:
-            is_on = bool(state["nightlight_on"])
-        else:
-            is_on = bool(state.get("on", state.get("is_on", False)))
+        is_on = bool(state.get("nightlight_on", False))
         if not is_on:
             return "off"
         if "brightness" in state:
