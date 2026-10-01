@@ -45,7 +45,10 @@ async def async_setup_entry(
         new_trackers = []
         homes: dict[str, str] = {}
         # 1. Query all available homes directly from the client cache
-        if hasattr(coordinator.client, "_cached_homes") and coordinator.client._cached_homes:
+        if (
+            hasattr(coordinator.client, "_cached_homes")
+            and coordinator.client._cached_homes
+        ):
             homes.update(coordinator.client._cached_homes)
         alias_map = getattr(coordinator.client, "_structure_alias_map", {})
         # 2. Add any structures found on individual devices, normalized to canonical ID
