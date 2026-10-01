@@ -51,6 +51,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Google Home from a config entry."""
     hass.data.setdefault(DOMAIN, {})
 
+    # Suppress noisy ERROR-level messages from the glocaltokens library when
+    # the master token is invalid/expired - these are expected auth failures
+    # that are already handled by our AuthenticationFailed exception path.
+    logging.getLogger("glocaltokens").setLevel(logging.CRITICAL)
+
     username = cast("str | None", entry.data.get(CONF_USERNAME))
     password = cast("str | None", entry.data.get(CONF_PASSWORD))
     master_token = cast(

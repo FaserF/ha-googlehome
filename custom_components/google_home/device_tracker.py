@@ -44,12 +44,9 @@ async def async_setup_entry(
     def _create_trackers() -> list[GoogleHomePresenceTracker]:
         new_trackers = []
         homes: dict[str, str] = {}
-        # 1. Query all available homes directly from the client
-        if hasattr(coordinator.client, "_get_available_homes_sync"):
-            try:
-                homes.update(coordinator.client._get_available_homes_sync())
-            except Exception:
-                pass
+        # 1. Query all available homes directly from the client cache
+        if hasattr(coordinator.client, "_cached_homes") and coordinator.client._cached_homes:
+            homes.update(coordinator.client._cached_homes)
         alias_map = getattr(coordinator.client, "_structure_alias_map", {})
         # 2. Add any structures found on individual devices, normalized to canonical ID
         for dev in coordinator.data or []:
