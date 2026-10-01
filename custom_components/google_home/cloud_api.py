@@ -49,10 +49,16 @@ class GoogleHomeCloudClient:
         )
         # Populated by _get_available_homes_sync; maps short/prefix UUID → canonical 64-char hex
         self._structure_alias_map: dict[str, str] = {}
+        self._cached_homes: dict[str, str] = {}
 
     async def async_get_available_homes(self) -> dict[str, str]:
         """Fetch dictionary of available home_id -> home_name from HomeGraph."""
-        return await self.hass.async_add_executor_job(self._get_available_homes_sync)
+        if self._cached_homes:
+            return self._cached_homes
+        homes = await self.hass.async_add_executor_job(self._get_available_homes_sync)
+        if homes:
+            self._cached_homes = homes
+        return homes
 
     def _get_available_homes_sync(self) -> dict[str, str]:
         """Synchronously get available structures/homes from HomeGraph payload."""
@@ -117,8 +123,7 @@ class GoogleHomeCloudClient:
                 # or alongside the prefix UUID bytes.
                 hex64_re = re.compile(rb"[0-9a-fA-F]{64}")
                 all_hex64: list[tuple[int, str]] = [
-                    (m.start(), m.group(0).decode())
-                    for m in hex64_re.finditer(raw)
+                    (m.start(), m.group(0).decode()) for m in hex64_re.finditer(raw)
                 ]
 
                 prefix_to_hex64: dict[str, str] = {}
@@ -150,14 +155,17 @@ class GoogleHomeCloudClient:
                         homes[hex64] = sname
                         _LOGGER.debug(
                             "Structure '%s' → hex %s... (via prefix %s...)",
-                            sname, hex64[:8], p[:8],
+                            sname,
+                            hex64[:8],
+                            p[:8],
                         )
                     else:
                         # No 64-char hex found; use prefix UUID as key
                         homes[p] = sname
                         _LOGGER.debug(
                             "Structure '%s' → prefix %s... (no 64-char hex found)",
-                            sname, p[:8],
+                            sname,
+                            p[:8],
                         )
 
                 # Build alias map: prefix UUID → canonical key (64-char or prefix)
@@ -188,6 +196,8 @@ class GoogleHomeCloudClient:
                         self._structure_alias_map[old] = sid
 
                 deduped = {sid: sname for sname, sid in name_to_canonical.items()}
+                if deduped:
+                    self._cached_homes = deduped
 
                 _LOGGER.debug(
                     "Available homes (deduped): %s",
@@ -197,6 +207,8 @@ class GoogleHomeCloudClient:
 
         except Exception as exc:
             _LOGGER.debug("Could not fetch available homes: %s", exc)
+        if homes:
+            self._cached_homes = homes
         return homes
 
     async def async_get_cloud_devices(self) -> list[CloudHomeDevice]:

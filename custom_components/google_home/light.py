@@ -334,9 +334,9 @@ class GoogleHomeCloudLight(
                         brightness=pct,
                     )
                     await self._async_send_assistant_command(
-                        cmd, target_media_player=True
+                        cmd, target_media_player=bool(target_mp)
                     )
-                elif not already_on:
+                else:
                     action = (
                         "turn_on_nightlight"
                         if target_mp
@@ -348,7 +348,7 @@ class GoogleHomeCloudLight(
                         dev_name,
                     )
                     await self._async_send_assistant_command(
-                        cmd, target_media_player=True
+                        cmd, target_media_player=bool(target_mp)
                     )
 
             else:
@@ -440,27 +440,24 @@ class GoogleHomeCloudLight(
             )
 
         if third_party_mode == THIRD_PARTY_MODE_ASSISTANT_SDK and device:
-            if not already_off:
-                dev_name = device.name
-                target_mp = self._find_target_media_player()
-                if is_nightlight:
-                    action = (
-                        "turn_off_nightlight"
-                        if target_mp
-                        else "turn_off_nightlight_named"
-                    )
-                    cmd = format_command(
-                        self.hass,
-                        action,
-                        dev_name,
-                    )
-                    await self._async_send_assistant_command(
-                        cmd, target_media_player=True
-                    )
-                else:
-                    await self._async_send_assistant_command(
-                        format_command(self.hass, "turn_off", dev_name)
-                    )
+            dev_name = device.name
+            target_mp = self._find_target_media_player()
+            if is_nightlight:
+                action = (
+                    "turn_off_nightlight" if target_mp else "turn_off_nightlight_named"
+                )
+                cmd = format_command(
+                    self.hass,
+                    action,
+                    dev_name,
+                )
+                await self._async_send_assistant_command(
+                    cmd, target_media_player=bool(target_mp)
+                )
+            elif not already_off:
+                await self._async_send_assistant_command(
+                    format_command(self.hass, "turn_off", dev_name)
+                )
 
         elif third_party_mode == THIRD_PARTY_MODE_DIRECT_CLOUD and device:
             if "action.devices.traits.NightLight" in (device.traits or []):

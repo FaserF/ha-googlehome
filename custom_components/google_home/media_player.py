@@ -72,7 +72,7 @@ async def async_setup_entry(
         mac = getattr(dev, "mac_address", None)
         if mac:
             try:
-                ha_device = dev_reg.async_get_device_by_connection(
+                ha_device = dev_reg.async_get_device_by_connection(  # type: ignore[call-arg]
                     (CONNECTION_NETWORK_MAC, format_mac(mac))
                 )
             except Exception:
@@ -85,7 +85,10 @@ async def async_setup_entry(
             if dev_id:
                 # Look up by iterating entities for this config entry
                 for ent in er.async_entries_for_config_entry(ent_reg, entry.entry_id):
-                    if ent.domain == "media_player" and ent.unique_id == f"google_home_cloud_media_{dev_id}":
+                    if (
+                        ent.domain == "media_player"
+                        and ent.unique_id == f"google_home_cloud_media_{dev_id}"
+                    ):
                         if ent.device_id:
                             ha_device = dev_reg.async_get(ent.device_id)
                         break

@@ -391,9 +391,14 @@ class GlocaltokensApiClient:
                                 ha_dev = dev_reg.async_get(ent_entry.device_id)
                                 if ha_dev:
                                     for identifier in ha_dev.identifiers:
-                                        if len(identifier) >= 2 and identifier[0] == "cast":
+                                        if (
+                                            len(identifier) >= 2
+                                            and identifier[0] == "cast"
+                                        ):
                                             matched_cast_uuid = (
-                                                str(identifier[1]).replace("-", "").strip()
+                                                str(identifier[1])
+                                                .replace("-", "")
+                                                .strip()
                                             )
                                             break
 
@@ -406,7 +411,9 @@ class GlocaltokensApiClient:
                             cast_id = None
                             for identifier in d.identifiers:
                                 if len(identifier) >= 2 and identifier[0] == "cast":
-                                    cast_id = str(identifier[1]).replace("-", "").strip()
+                                    cast_id = (
+                                        str(identifier[1]).replace("-", "").strip()
+                                    )
                                     break
                             if cast_id:
                                 dev_name = (

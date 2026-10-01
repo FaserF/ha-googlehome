@@ -128,19 +128,17 @@ async def async_setup_entry(
         def _create_cloud_sensor_entities() -> list[SensorEntity]:
             new_ents: list[SensorEntity] = []
             homes: dict[str, str] = {}
-            if hasattr(cloud_coordinator.client, "_get_available_homes_sync"):
-                try:
-                    homes.update(cloud_coordinator.client._get_available_homes_sync())
-                except Exception:
-                    pass
+            if (
+                hasattr(cloud_coordinator.client, "_cached_homes")
+                and cloud_coordinator.client._cached_homes
+            ):
+                homes.update(cloud_coordinator.client._cached_homes)
 
             alias_map = getattr(cloud_coordinator.client, "_structure_alias_map", {})
             for dev in cloud_coordinator.data or []:
                 if dev.structure_id:
                     canonical_id = alias_map.get(dev.structure_id, dev.structure_id)
-                    homes.setdefault(
-                        canonical_id, dev.structure_name or "Google Home"
-                    )
+                    homes.setdefault(canonical_id, dev.structure_name or "Google Home")
                 if dev.is_automation_routine:
                     continue
                 if dev.is_control_bridge and dev.device_id not in cloud_registered_ids:

@@ -243,7 +243,11 @@ async def _async_cleanup_stale_devices_and_entities(
     cloud_coordinator = data.get(DATA_CLOUD_COORDINATOR)
 
     # If any enabled coordinator is still in the process of its initial refresh, do not prune
-    if local_coordinator is not None and local_coordinator.last_update_success is False and not local_coordinator.data:
+    if (
+        local_coordinator is not None
+        and local_coordinator.last_update_success is False
+        and not local_coordinator.data
+    ):
         pass  # Failed initial refresh, proceed with available cloud data
     elif local_coordinator is not None and not local_coordinator.data:
         return
@@ -263,7 +267,9 @@ async def _async_cleanup_stale_devices_and_entities(
         for dev in local_coordinator.data:
             active_device_ids.add(dev.device_id)
             if dev.structure_id:
-                active_structure_ids.add(alias_map.get(dev.structure_id, dev.structure_id))
+                active_structure_ids.add(
+                    alias_map.get(dev.structure_id, dev.structure_id)
+                )
 
     if cloud_coordinator and cloud_coordinator.data:
         for cdev in cloud_coordinator.data:
@@ -445,7 +451,9 @@ async def _async_cleanup_stale_devices_and_entities(
 
                 # Resolve structure_id to 64-char hex ID if present in available_homes
                 if cloud_coordinator and struct_id:
-                    avail_homes = await cloud_coordinator.client.async_get_available_homes()
+                    avail_homes = (
+                        await cloud_coordinator.client.async_get_available_homes()
+                    )
                     struct_name = avail_homes.get(struct_id)
                     if struct_name:
                         for s_hex, s_n in avail_homes.items():
@@ -489,8 +497,10 @@ async def _async_cleanup_stale_devices_and_entities(
                                     c_uuid = str(ldev.cast_uuid).replace("-", "")
                                     cast_dev = None
                                     try:
-                                        cast_dev = dev_reg.async_get_device_by_identifier(
-                                            ("cast", c_uuid)
+                                        cast_dev = (
+                                            dev_reg.async_get_device_by_identifier(  # type: ignore[call-arg]
+                                                ("cast", c_uuid)
+                                            )
                                         )
                                     except TypeError:
                                         # HA version requires config_entry_id — skip merge
