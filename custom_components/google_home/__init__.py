@@ -210,6 +210,32 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     err,
                 )
 
+    # Clean up stale fallback default_home presence tracker if real homes exist in cloud coordinator
+    if cloud_coordinator and (
+        cloud_coordinator.data
+        or getattr(cloud_coordinator.client, "_cached_homes", None)
+    ):
+        stale_default_home_ent = ent_reg.async_get_entity_id(
+            "device_tracker", DOMAIN, "google_home_presence_default_home"
+        )
+        if stale_default_home_ent:
+            _LOGGER.info(
+                "Removing stale fallback default_home presence entity: %s",
+                stale_default_home_ent,
+            )
+            ent_reg.async_remove(stale_default_home_ent)
+        dev_reg = dr.async_get(hass)
+        stale_dev = dev_reg.async_get_device(
+            identifiers={(DOMAIN, f"{entry.entry_id}_structure_default_home")}
+        )
+        if stale_dev:
+            _LOGGER.info(
+                "Removing stale fallback default_home device: %s (%s)",
+                stale_dev.name,
+                stale_dev.id,
+            )
+            dev_reg.async_remove_device(stale_dev.id)
+
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
@@ -340,7 +366,7 @@ async def _async_cleanup_stale_devices_and_entities(
                 ent_reg.async_remove(ent_entry.entity_id)
                 continue
 
-        if "structure_" in uid:
+        if "structure_" in uid or uid.startswith("google_home_presence_"):
             is_valid_structure_entity = any(sid in uid for sid in active_structure_ids)
             if not is_valid_structure_entity:
                 _LOGGER.info(

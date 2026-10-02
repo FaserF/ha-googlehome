@@ -66,7 +66,8 @@ async def async_setup_entry(
                 name_to_canonical[sname] = sid
         homes = {sid: sname for sname, sid in name_to_canonical.items()}
 
-        if not homes:
+        # Only create fallback default_home tracker if coordinator truly has no data at all
+        if not homes and not (coordinator.data or []):
             homes["default_home"] = "Google Home"
 
         for struct_id, struct_name in homes.items():
