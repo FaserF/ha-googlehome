@@ -506,7 +506,9 @@ class GoogleHomeFlowHandler(AddonFlowMixin, ConfigFlow, domain=DOMAIN):
                 except (AuthenticationFailed, InvalidMasterToken):
                     self._errors["base"] = "invalid_master_token"
                 except Exception as err:
-                    _LOGGER.exception("Error validating addon token during reauth: %s", err)
+                    _LOGGER.exception(
+                        "Error validating addon token during reauth: %s", err
+                    )
                     self._errors["base"] = "unknown"
                 else:
                     return self.async_update_reload_and_abort(
@@ -525,7 +527,9 @@ class GoogleHomeFlowHandler(AddonFlowMixin, ConfigFlow, domain=DOMAIN):
 
         data_schema = vol.Schema(
             {
-                vol.Required("reauth_action", default="apply_addon_token"): SelectSelector(
+                vol.Required(
+                    "reauth_action", default="apply_addon_token"
+                ): SelectSelector(
                     SelectSelectorConfig(
                         options=["apply_addon_token", "enter_manually"],
                         translation_key="reauth_action",
