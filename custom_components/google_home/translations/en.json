@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Google Home Setup",
-        "description": "{discovery_intro}Google requires authentication to communicate with your Google Home speakers and HomeGraph devices.\n\n### 🔐 Choose an authentication method:\n- **Token (Master Token / Web OAuth Token)**: 100% reliable, recommended by Google Home community.\n- **Google Home Token Hub Add-on**: Automatic setup via Add-on (auto-detected, edge & stable).",
+        "description": "{discovery_intro}{addon_info_hint}Google requires authentication to communicate with your Google Home speakers and HomeGraph devices.\n\n### 🔐 Choose an authentication method:\n- **Token (Master Token / Web OAuth Token)**: 100% reliable, recommended by Google Home community.\n- **Google Home Token Hub Add-on**: Automatic setup via Add-on (auto-detected, edge & stable).",
         "data": {
           "auth_method": "Authentication Method"
         }
@@ -61,6 +61,20 @@
         "description": "✅ **Master Token successfully acquired for {email}!**\n\nThe Google Home integration runs locally/cloud and does not require the Add-on to keep running.\n\nWhat would you like to do with the Add-on?",
         "data": {
           "addon_action": "Action for Add-on"
+        }
+      },
+      "reauth_addon": {
+        "title": "New Master Token Detected",
+        "description": "A new active Google Home Master Token for **{username}** was detected from the Google Home Token Hub Add-on.\n\nWould you like to automatically apply this token to restore integration functionality?",
+        "data": {
+          "reauth_action": "Action"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Reauthenticate Google Home",
+        "description": "Your Google Home master token for **{username}** has expired or is invalid.\n\nPlease generate a new token and enter it below:\n1. Open [{setup_url}]({setup_url}) and log in with your Google account.\n2. In Developer Tools -> Application -> Cookies ({cookies_url}), copy the **oauth_token** value (or provide an `aas_et/...` master token).\n3. Paste the token below.",
+        "data": {
+          "master_token": "Token (oauth2_4/... or aas_et/...)"
         }
       }
     },
@@ -171,6 +185,12 @@
         "stop": "Stop Add-on (Recommended - saves RAM/CPU, token is saved)",
         "uninstall": "Uninstall Add-on (No longer needed)",
         "keep_running": "Keep Add-on running"
+      }
+    },
+    "reauth_action": {
+      "options": {
+        "apply_addon_token": "Apply new Master Token from Add-on (Recommended)",
+        "enter_manually": "Enter token manually"
       }
     },
     "existing_action": {

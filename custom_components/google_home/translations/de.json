@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Google Home Einrichtung",
-        "description": "{discovery_intro}Google verlangt eine Authentifizierung, um deine Google Home & Nest Lautsprecher und Cloud-Geräte abzufragen.\n\n### 🔐 Wähle deine Anmeldemethode:\n- **Token (Master-Token / Web-OAuth-Token)**: 100% zuverlässig, von der Community empfohlen.\n- **Google Home Token Hub Add-on**: Automatische Einrichtung über das Add-on (Erkennung für Edge & Stable).",
+        "description": "{discovery_intro}{addon_info_hint}Google verlangt eine Authentifizierung, um deine Google Home & Nest Lautsprecher und Cloud-Geräte abzufragen.\n\n### 🔐 Wähle deine Anmeldemethode:\n- **Token (Master-Token / Web-OAuth-Token)**: 100% zuverlässig, von der Community empfohlen.\n- **Google Home Token Hub Add-on**: Automatische Einrichtung über das Add-on (Erkennung für Edge & Stable).",
         "data": {
           "auth_method": "Anmeldemethode"
         }
@@ -61,6 +61,13 @@
         "description": "✅ **Master-Token für {email} erfolgreich gespeichert!**\n\nDie Integration ist eingerichtet und benötigt das Add-on im Dauerbetrieb nicht mehr.\n\nWas möchtest du mit dem Add-on tun?",
         "data": {
           "addon_action": "Aktion für Add-on"
+        }
+      },
+      "reauth_addon": {
+        "title": "Neuen Master-Token gefunden",
+        "description": "Im **Google Home Token Hub Add-on** wurde ein neuer aktiver Master-Token für **{username}** gefunden.\n\nMöchtest du diesen Master-Token direkt und automatisch übernehmen?",
+        "data": {
+          "reauth_action": "Aktion"
         }
       },
       "reauth_confirm": {
@@ -179,6 +186,12 @@
         "stop": "Add-on stoppen (Empfohlen - spart RAM/CPU, Token bleibt gesichert)",
         "uninstall": "Add-on deinstallieren (Wird nicht mehr benötigt)",
         "keep_running": "Add-on weiterlaufen lassen"
+      }
+    },
+    "reauth_action": {
+      "options": {
+        "apply_addon_token": "Neuen Master-Token aus dem Add-on übernehmen (Empfohlen)",
+        "enter_manually": "Token manuell eingeben"
       }
     },
     "existing_action": {

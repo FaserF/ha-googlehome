@@ -205,6 +205,38 @@ class GoogleHomeFlowHandler(AddonFlowMixin, ConfigFlow, domain=DOMAIN):
         if self.source == "user":
             self._async_abort_discovery_flows()
 
+        addon_info_hint = ""
+        found_host, addon_session = await self._async_probe_addon()
+
+        # If an active master token was already generated in the addon, offer 1-click adoption
+        if user_input is None and not self._master_token:
+            if (
+                found_host
+                and addon_session
+                and addon_session.get("master_token")
+                and addon_session.get("email")
+            ):
+                _LOGGER.info(
+                    "Detected active Google Home Token Hub session for %s at %s - offering 1-click adoption",
+                    addon_session.get("email"),
+                    found_host,
+                )
+                self._addon_host = found_host
+                self._username = addon_session.get("email")
+                self._master_token = addon_session.get("master_token")
+                return await self.async_step_addon_existing()
+
+        if found_host:
+            addon_info_hint = (
+                "ℹ️ **Google Home Token Hub Add-on detected** (running without active token yet).\n"
+                "- Open the [Google Home Token Hub Add-on UI](/hassio/ingress/googlehome) to generate your Master Token with 2FA support.\n\n"
+            )
+        else:
+            addon_info_hint = (
+                "💡 **Tip**: You can use the [Google Home Token Hub Add-on](https://github.com/FaserF/hassio-addons/tree/master/googlehome) "
+                "to easily generate your token and 2FA keys directly inside Home Assistant, or proceed manually with a token below.\n\n"
+            )
+
         if user_input is not None:
             method = user_input.get(CONF_AUTH_METHOD, AUTH_METHOD_TOKEN)
             if method == AUTH_METHOD_TOKEN:
@@ -239,6 +271,7 @@ class GoogleHomeFlowHandler(AddonFlowMixin, ConfigFlow, domain=DOMAIN):
             errors=self._errors,
             description_placeholders={
                 "discovery_intro": discovery_intro,
+                "addon_info_hint": addon_info_hint,
                 "setup_url": "https://accounts.google.com/EmbeddedSetup",
                 "cookies_url": "https://accounts.google.com",
             },
@@ -249,10 +282,19 @@ class GoogleHomeFlowHandler(AddonFlowMixin, ConfigFlow, domain=DOMAIN):
     ) -> ConfigFlowResult:
         """Handle Token authentication (Master Token or Web OAuth Token)."""
         self._errors = {}
+
+        # If not already probed, check if add-on has token available for pre-filling
+        if not self._master_token:
+            found_host, addon_session = await self._async_probe_addon()
+            if found_host and addon_session and addon_session.get("master_token"):
+                self._master_token = addon_session.get("master_token")
+                if not self._username and addon_session.get("email"):
+                    self._username = addon_session.get("email")
+
         data_schema = vol.Schema(
             {
-                vol.Required(CONF_USERNAME): str,
-                vol.Required(CONF_MASTER_TOKEN): str,
+                vol.Required(CONF_USERNAME, default=self._username or ""): str,
+                vol.Required(CONF_MASTER_TOKEN, default=self._master_token or ""): str,
             }
         )
 
@@ -422,16 +464,94 @@ class GoogleHomeFlowHandler(AddonFlowMixin, ConfigFlow, domain=DOMAIN):
     async def async_step_reauth(self, entry_data: dict[str, Any]) -> ConfigFlowResult:
         """Handle reauthentication triggered by Home Assistant."""
         self._username = entry_data.get(CONF_USERNAME)
+        # Check if Google Home Token Hub Add-on has a freshly generated master token
+        found_host, addon_session = await self._async_probe_addon()
+        if (
+            found_host
+            and addon_session
+            and addon_session.get("master_token")
+            and (
+                not self._username
+                or addon_session.get("email", "").strip().lower()
+                == self._username.strip().lower()
+            )
+        ):
+            self._addon_host = found_host
+            self._master_token = addon_session.get("master_token")
+            if not self._username:
+                self._username = addon_session.get("email")
+            return await self.async_step_reauth_addon()
+
         return await self.async_step_reauth_confirm()
+
+    async def async_step_reauth_addon(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Confirm applying the new Master Token discovered from Google Home Token Hub Add-on."""
+        self._errors = {}
+        reauth_entry = self._get_reauth_entry()
+
+        if user_input is not None:
+            choice = user_input.get("reauth_action", "apply_addon_token")
+            if choice == "apply_addon_token" and self._master_token:
+                session = async_get_clientsession(self.hass)
+                client = GlocaltokensApiClient(
+                    hass=self.hass,
+                    session=session,
+                    username=self._username or "",
+                    master_token=self._master_token,
+                )
+                try:
+                    await client.get_access_token()
+                except (AuthenticationFailed, InvalidMasterToken):
+                    self._errors["base"] = "invalid_master_token"
+                except Exception as err:
+                    _LOGGER.exception("Error validating addon token during reauth: %s", err)
+                    self._errors["base"] = "unknown"
+                else:
+                    return self.async_update_reload_and_abort(
+                        reauth_entry,
+                        data={
+                            **reauth_entry.data,
+                            CONF_MASTER_TOKEN: self._master_token,
+                        },
+                        options={
+                            **reauth_entry.options,
+                            CONF_MASTER_TOKEN: self._master_token,
+                        },
+                    )
+            else:
+                return await self.async_step_reauth_confirm()
+
+        data_schema = vol.Schema(
+            {
+                vol.Required("reauth_action", default="apply_addon_token"): SelectSelector(
+                    SelectSelectorConfig(
+                        options=["apply_addon_token", "enter_manually"],
+                        translation_key="reauth_action",
+                        mode=SelectSelectorMode.DROPDOWN,
+                    )
+                ),
+            }
+        )
+
+        return self.async_show_form(
+            step_id="reauth_addon",
+            data_schema=data_schema,
+            errors=self._errors,
+            description_placeholders={
+                "username": self._username or "Google Account",
+            },
+        )
 
     async def async_step_reauth_confirm(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Confirm re-authentication and update token."""
+        """Confirm re-authentication and update token manually."""
         self._errors = {}
         data_schema = vol.Schema(
             {
-                vol.Required(CONF_MASTER_TOKEN): str,
+                vol.Required(CONF_MASTER_TOKEN, default=self._master_token or ""): str,
             }
         )
 
