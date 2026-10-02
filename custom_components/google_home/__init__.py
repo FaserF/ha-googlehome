@@ -136,6 +136,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             _LOGGER.warning("Initial local refresh warning: %s", err)
 
         entry_data[DATA_CLIENT] = client
+        coordinator.config_entry = entry
         entry_data[DATA_COORDINATOR] = coordinator
 
     # 2. Setup Cloud Subsystem
@@ -156,6 +157,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             client=cloud_client,
             update_interval=cloud_update_interval,
         )
+        cloud_coordinator.config_entry = entry
         try:
             await cloud_coordinator.async_config_entry_first_refresh()
         except ConfigEntryAuthFailed:

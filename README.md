@@ -338,6 +338,9 @@ The integration fires native events on the Home Assistant Event Bus that you can
   - **Creating Timers/Alarms via Home Assistant**: Google does **not** expose an API endpoint (neither local nor cloud HomeGraph) to create/set timers or alarms programmatically on Google Home / Nest speakers. Creating timers/alarms must be spoken directly to the speaker or scheduled natively via Google Assistant voice input.
 - **Third-Party Devices in Google Home**:
   - Devices synced into Google Home from proprietary cloud integrations (e.g. Tuya, Smart Life, Dreame) can either be monitored as read-only sensors or controlled via Home Assistant's Google Assistant SDK integration or direct cloud commands depending on the selected Third-Party Mode in the Options Flow.
+- **Smart Clock Nightlight (Lenovo Smart Clock, etc.) State Tracking**:
+  - Google's HomeGraph cloud protobuf does not expose a separate telemetry state for the built-in nightlight on Smart Clock speakers (the general `OnOff` state in HomeGraph represents media player/playback power, not the nightlight).
+  - The integration tracks and persists the **last known state triggered via Home Assistant** (stored in persistent Home Assistant storage). When you toggle the nightlight or adjust brightness from Home Assistant (via Google Assistant SDK or direct cloud commands), the integration remembers and preserves this state across coordinator polls and Home Assistant restarts. Physical touches directly on the clock or external voice commands issued outside Home Assistant cannot be reported back by Google's cloud API.
 
 ---
 

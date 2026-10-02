@@ -304,11 +304,18 @@ class GoogleHomeCloudLight(
         if device:
             if is_nightlight:
                 device.state["nightlight_on"] = True
-                device.state["on"] = True
             else:
                 device.state["on"] = True
             if brightness is not None:
                 device.state["brightness"] = int(round(brightness * 100 / 255))
+
+        if is_nightlight:
+            bri_pct = (
+                int(round(brightness * 100 / 255)) if brightness is not None else None
+            )
+            await self.coordinator.async_set_nightlight_state(
+                self.device_id, is_on=True, brightness=bri_pct
+            )
 
         config_entry = getattr(self.coordinator, "config_entry", None)
         third_party_mode = DEFAULT_THIRD_PARTY_ENTITY_MODE
@@ -425,9 +432,13 @@ class GoogleHomeCloudLight(
         if device:
             if is_nightlight:
                 device.state["nightlight_on"] = False
-                device.state["on"] = False
             else:
                 device.state["on"] = False
+
+        if is_nightlight:
+            await self.coordinator.async_set_nightlight_state(
+                self.device_id, is_on=False
+            )
 
         config_entry = getattr(self.coordinator, "config_entry", None)
         third_party_mode = DEFAULT_THIRD_PARTY_ENTITY_MODE
