@@ -8,6 +8,7 @@ from typing import Any, cast
 from homeassistant.components import zeroconf
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -43,6 +44,7 @@ from .const import (
     get_structure_url,
 )
 from .coordinator import GoogleHomeDataUpdateCoordinator
+from .exceptions import AuthenticationFailed, InvalidMasterToken, TwoFactorRequired
 
 _LOGGER: logging.Logger = logging.getLogger(__package__)
 
@@ -124,6 +126,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         )
         try:
             await coordinator.async_config_entry_first_refresh()
+        except ConfigEntryAuthFailed:
+            raise
+        except (AuthenticationFailed, InvalidMasterToken, TwoFactorRequired) as err:
+            raise ConfigEntryAuthFailed(
+                f"Google Home authentication expired or invalid: {err}"
+            ) from err
         except Exception as err:
             _LOGGER.warning("Initial local refresh warning: %s", err)
 
@@ -150,6 +158,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         )
         try:
             await cloud_coordinator.async_config_entry_first_refresh()
+        except ConfigEntryAuthFailed:
+            raise
+        except (AuthenticationFailed, InvalidMasterToken, TwoFactorRequired) as err:
+            raise ConfigEntryAuthFailed(
+                f"Google Home Cloud authentication expired or invalid: {err}"
+            ) from err
         except Exception as err:
             _LOGGER.warning("Initial cloud refresh warning: %s", err)
 

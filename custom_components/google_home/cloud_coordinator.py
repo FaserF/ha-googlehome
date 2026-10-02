@@ -7,10 +7,12 @@ from datetime import timedelta
 from typing import TYPE_CHECKING
 
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .cloud_models import CloudHomeDevice
 from .const import DOMAIN
+from .exceptions import AuthenticationFailed, InvalidMasterToken, TwoFactorRequired
 
 if TYPE_CHECKING:
     from .cloud_api import GoogleHomeCloudClient
@@ -51,6 +53,12 @@ class GoogleHomeCloudDataUpdateCoordinator(
                 for dev in devices:
                     self._device_cache[dev.device_id] = dev
             return devices
+        except ConfigEntryAuthFailed:
+            raise
+        except (AuthenticationFailed, InvalidMasterToken, TwoFactorRequired) as err:
+            raise ConfigEntryAuthFailed(
+                f"Google Home Cloud authentication expired or invalid: {err}"
+            ) from err
         except Exception as err:
             raise UpdateFailed(
                 f"Error updating Google Home Cloud HomeGraph: {err}"

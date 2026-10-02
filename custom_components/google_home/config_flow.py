@@ -419,6 +419,74 @@ class GoogleHomeFlowHandler(AddonFlowMixin, ConfigFlow, domain=DOMAIN):
             data_schema=vol.Schema(schema_dict),
         )
 
+    async def async_step_reauth(self, entry_data: dict[str, Any]) -> ConfigFlowResult:
+        """Handle reauthentication triggered by Home Assistant."""
+        self._username = entry_data.get(CONF_USERNAME)
+        return await self.async_step_reauth_confirm()
+
+    async def async_step_reauth_confirm(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Confirm re-authentication and update token."""
+        self._errors = {}
+        data_schema = vol.Schema(
+            {
+                vol.Required(CONF_MASTER_TOKEN): str,
+            }
+        )
+
+        if user_input is not None:
+            new_token = user_input.get(CONF_MASTER_TOKEN, "").strip()
+            username = self._username or ""
+            reauth_entry = self._get_reauth_entry()
+
+            if not new_token:
+                self._errors["base"] = "missing_credentials"
+            else:
+                session = async_get_clientsession(self.hass)
+                client = GlocaltokensApiClient(
+                    hass=self.hass,
+                    session=session,
+                    username=username,
+                    master_token=new_token,
+                )
+                try:
+                    if new_token.startswith("oauth2_4/") or new_token.startswith("1//"):
+                        new_token = await client.exchange_web_token(new_token)
+                        client.master_token = new_token
+                        client._client.master_token = new_token
+                    await client.get_access_token()
+                except (AuthenticationFailed, InvalidMasterToken):
+                    self._errors["base"] = "invalid_master_token"
+                except Exception as err:
+                    _LOGGER.exception(
+                        "Unexpected error during reauthentication: %s", err
+                    )
+                    self._errors["base"] = "unknown"
+                else:
+                    return self.async_update_reload_and_abort(
+                        reauth_entry,
+                        data={
+                            **reauth_entry.data,
+                            CONF_MASTER_TOKEN: new_token,
+                        },
+                        options={
+                            **reauth_entry.options,
+                            CONF_MASTER_TOKEN: new_token,
+                        },
+                    )
+
+        return self.async_show_form(
+            step_id="reauth_confirm",
+            data_schema=data_schema,
+            errors=self._errors,
+            description_placeholders={
+                "username": self._username or "",
+                "setup_url": "https://accounts.google.com/EmbeddedSetup",
+                "cookies_url": "https://accounts.google.com",
+            },
+        )
+
     @staticmethod
     @callback
     def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlow:

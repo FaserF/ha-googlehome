@@ -62,6 +62,13 @@
         "data": {
           "addon_action": "Aktion für Add-on"
         }
+      },
+      "reauth_confirm": {
+        "title": "Google Home neu authentifizieren",
+        "description": "Dein Google Home Master-Token für **{username}** ist abgelaufen oder ungültig.\n\nBitte erstelle einen neuen Token und gib ihn unten ein:\n1. Öffne [{setup_url}]({setup_url}) im Browser und melde dich an.\n2. In Entwicklertools -> Anwendung -> Cookies ({cookies_url}) den Wert von **oauth_token** kopieren (oder einen `aas_et/...` Master-Token verwenden).\n3. Den Token unten einfügen.",
+        "data": {
+          "master_token": "Token (oauth2_4/... oder aas_et/...)"
+        }
       }
     },
     "error": {
@@ -77,6 +84,7 @@
       "unknown": "Ein unerwarteter Fehler ist aufgetreten. Bitte prüfe die Home Assistant Logs."
     },
     "abort": {
+      "reauth_successful": "Die Neu-Authentifizierung war erfolgreich. Deine Google Home Geräte wurden aktualisiert.",
       "single_instance_allowed": "Es ist nur eine einzige Instanz der Google Home Integration erlaubt.",
       "already_configured": "Google Home ist bereits eingerichtet.",
       "already_in_progress": "Eine Google Home Einrichtung ist bereits im Gange. Bitte zuerst abschließen oder abbrechen.",

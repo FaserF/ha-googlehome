@@ -271,6 +271,8 @@ class GlocaltokensApiClient:
     ) -> list[GoogleHomeDevice]:
         """Get google device authentication tokens and discovered IP addresses."""
         if not self.google_devices or force_reload:
+            # Check and validate access token upfront so expired master token raises AuthenticationFailed
+            await self.get_access_token()
 
             def _get_google_devices() -> list[Device]:
                 return self._client.get_google_devices(
@@ -407,7 +409,7 @@ class GlocaltokensApiClient:
 
                     # 2. Second pass: search device registry directly for Cast devices by name if not found yet
                     if not matched_cast_uuid:
-                        for d in dev_reg.devices.values():
+                        for d in dev_reg.devices.values():  # type: ignore[attr-defined]
                             cast_id = None
                             for identifier in d.identifiers:
                                 if len(identifier) >= 2 and identifier[0] == "cast":

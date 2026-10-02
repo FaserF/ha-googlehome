@@ -7,9 +7,11 @@ from datetime import timedelta
 from typing import TYPE_CHECKING
 
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .const import DOMAIN, EVENT_ALARM_TRIGGERED, EVENT_TIMER_FINISHED
+from .exceptions import AuthenticationFailed, InvalidMasterToken, TwoFactorRequired
 from .models import GoogleHomeAlarmStatus, GoogleHomeDevice, GoogleHomeTimerStatus
 
 if TYPE_CHECKING:
@@ -48,6 +50,12 @@ class GoogleHomeDataUpdateCoordinator(DataUpdateCoordinator[list[GoogleHomeDevic
                     self._device_cache[dev.device_id] = dev
             self._check_and_fire_events(devices)
             return devices
+        except ConfigEntryAuthFailed:
+            raise
+        except (AuthenticationFailed, InvalidMasterToken, TwoFactorRequired) as err:
+            raise ConfigEntryAuthFailed(
+                f"Google Home authentication expired or invalid: {err}"
+            ) from err
         except Exception as err:
             raise UpdateFailed(f"Error updating Google Home devices: {err}") from err
 

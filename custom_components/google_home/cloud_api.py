@@ -9,6 +9,7 @@ from glocaltokens.client import GLocalAuthenticationTokens
 from homeassistant.core import HomeAssistant
 
 from .cloud_models import CloudHomeDevice
+from .exceptions import AuthenticationFailed
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -220,10 +221,29 @@ class GoogleHomeCloudClient:
         try:
             homegraph = self._auth_client.get_homegraph()
         except Exception as exc:
+            err_str = str(exc).lower()
+            if any(
+                k in err_str
+                for k in (
+                    "badauthentication",
+                    "could not get access token",
+                    "invalidmastertoken",
+                    "unauthenticated",
+                    "permission_denied",
+                )
+            ):
+                raise AuthenticationFailed(
+                    f"Authentication failed fetching HomeGraph: {exc}"
+                ) from exc
             _LOGGER.error("Failed to fetch Google Home Cloud HomeGraph: %s", exc)
             return []
 
         if not homegraph or not hasattr(homegraph, "home") or not homegraph.home:
+            # If homegraph is empty, verify if get_access_token failed
+            if not self._auth_client.get_access_token():
+                raise AuthenticationFailed(
+                    "Could not obtain access token from master token"
+                )
             _LOGGER.debug("HomeGraph returned empty or invalid response")
             return []
 

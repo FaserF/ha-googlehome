@@ -90,7 +90,7 @@ async def async_setup_entry(
                         and ent.unique_id == f"google_home_cloud_media_{dev_id}"
                     ):
                         if ent.device_id:
-                            ha_device = dev_reg.async_get(ent.device_id)
+                            ha_device = dev_reg.async_get(ent.device_id)  # type: ignore[assignment]
                         break
 
         if not ha_device:

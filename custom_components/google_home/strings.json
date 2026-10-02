@@ -62,6 +62,13 @@
         "data": {
           "addon_action": "Action for Add-on"
         }
+      },
+      "reauth_confirm": {
+        "title": "Reauthenticate Google Home",
+        "description": "Your Google Home master token for **{username}** has expired or is invalid.\n\nPlease generate a new token and enter it below:\n1. Open [{setup_url}]({setup_url}) and log in with your Google account.\n2. In Developer Tools -> Application -> Cookies ({cookies_url}), copy the **oauth_token** value (or provide an `aas_et/...` master token).\n3. Paste the token below.",
+        "data": {
+          "master_token": "Token (oauth2_4/... or aas_et/...)"
+        }
       }
     },
     "error": {
@@ -77,6 +84,7 @@
       "unknown": "An unexpected error occurred. Please check Home Assistant logs."
     },
     "abort": {
+      "reauth_successful": "Re-authentication was successful. Your Google Home devices are now updated.",
       "single_instance_allowed": "Only a single Google Home integration instance is allowed.",
       "already_configured": "Google Home is already configured.",
       "already_in_progress": "A Google Home setup is already in progress. Please complete or cancel it first.",
