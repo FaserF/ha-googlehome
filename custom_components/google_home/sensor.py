@@ -21,12 +21,15 @@ from .cloud_coordinator import GoogleHomeCloudDataUpdateCoordinator
 from .cloud_models import CloudHomeDevice
 from .const import (
     ALARM_AND_TIMER_ID_LENGTH,
+    CONF_OPERATION_MODE,
     CONF_THIRD_PARTY_ENTITY_MODE,
     DATA_CLOUD_COORDINATOR,
     DATA_COORDINATOR,
     DEFAULT_THIRD_PARTY_ENTITY_MODE,
     DOMAIN,
     MANUFACTURER,
+    MODE_HYBRID,
+    MODE_LOCAL,
     SERVICE_ATTR_ALARM_ID,
     SERVICE_ATTR_MESSAGE,
     SERVICE_ATTR_SKIP_REFRESH,
@@ -123,6 +126,11 @@ async def async_setup_entry(
             ),
         )
 
+        operation_mode = entry.options.get(
+            CONF_OPERATION_MODE,
+            entry.data.get(CONF_OPERATION_MODE, MODE_HYBRID),
+        )
+
         registered_struct_sensor_ids: set[str] = set()
 
         def _create_cloud_sensor_entities() -> list[SensorEntity]:
@@ -156,11 +164,31 @@ async def async_setup_entry(
                         third_party_mode == THIRD_PARTY_MODE_READONLY
                         and dev.is_third_party
                     )
+                    # Check if a control entity exists for this device (when not purely local mode)
+                    has_control_entity = (
+                        operation_mode != MODE_LOCAL
+                        and (
+                            not dev.is_third_party
+                            or third_party_mode != THIRD_PARTY_MODE_READONLY
+                        )
+                        and (
+                            dev.is_fan
+                            or dev.is_light
+                            or dev.is_switch
+                            or dev.is_cover
+                            or dev.is_vacuum
+                            or dev.is_climate
+                            or dev.is_lock
+                            or dev.is_security_system
+                            or dev.is_media_player
+                        )
+                    )
                     new_ents.append(
                         GoogleHomeCloudStatusSensor(
                             coordinator=cloud_coordinator,
                             device_id=dev.device_id,
                             as_diagnostic=not is_primary,
+                            enabled_by_default=not has_control_entity,
                         )
                     )
                     # For smart clocks with secondary nightlight trait, also create a dedicated Nightlight status sensor
@@ -169,10 +197,15 @@ async def async_setup_entry(
                         or k in (dev.name or "").lower()
                         for k in ("clock", "uhr", "cd-")
                     ) or "action.devices.traits.NightLight" in (dev.traits or []):
+                        has_nightlight_control = operation_mode != MODE_LOCAL and (
+                            not dev.is_third_party
+                            or third_party_mode != THIRD_PARTY_MODE_READONLY
+                        )
                         new_ents.append(
                             GoogleHomeClockNightlightSensor(
                                 coordinator=cloud_coordinator,
                                 device_id=dev.device_id,
+                                enabled_by_default=not has_nightlight_control,
                             )
                         )
 
@@ -578,11 +611,13 @@ class GoogleHomeCloudStatusSensor(
         coordinator: GoogleHomeCloudDataUpdateCoordinator,
         device_id: str,
         as_diagnostic: bool = False,
+        enabled_by_default: bool = True,
     ) -> None:
         """Initialize."""
         super().__init__(coordinator)
         self.device_id = device_id
         self._attr_unique_id = f"{device_id}_cloud_status"
+        self._attr_entity_registry_enabled_default = enabled_by_default
         if as_diagnostic:
             self._attr_entity_category = EntityCategory.DIAGNOSTIC
 
@@ -765,11 +800,13 @@ class GoogleHomeClockNightlightSensor(
         self,
         coordinator: GoogleHomeCloudDataUpdateCoordinator,
         device_id: str,
+        enabled_by_default: bool = True,
     ) -> None:
         """Initialize."""
         super().__init__(coordinator)
         self.device_id = device_id
         self._attr_unique_id = f"{device_id}_cloud_nightlight_status"
+        self._attr_entity_registry_enabled_default = enabled_by_default
 
     def get_device(self) -> CloudHomeDevice | None:
         """Get device from coordinator."""

@@ -605,6 +605,89 @@ async def _async_cleanup_stale_devices_and_entities(
                                 )
                                 break
 
+    _async_sync_redundant_status_sensors(ent_reg, entry)
+
+
+def _async_sync_redundant_status_sensors(
+    ent_reg: er.EntityRegistry,
+    entry: ConfigEntry,
+) -> None:
+    """Disable redundant cloud status sensors when control entities exist; re-enable if controls disappear."""
+    control_prefix_to_dev: dict[str, str] = {}
+    control_suffix_to_dev: dict[str, str] = {}
+    status_sensor_entries: dict[str, list[er.RegistryEntry]] = {}
+
+    for ent_entry in er.async_entries_for_config_entry(ent_reg, entry.entry_id):
+        uid = ent_entry.unique_id or ""
+        if uid.endswith("_cloud_status"):
+            dev_id = uid[: -len("_cloud_status")]
+            status_sensor_entries.setdefault(dev_id, []).append(ent_entry)
+            continue
+        if uid.endswith("_cloud_nightlight_status"):
+            dev_id = uid[: -len("_cloud_nightlight_status")]
+            status_sensor_entries.setdefault(dev_id, []).append(ent_entry)
+            continue
+
+        if uid.startswith("google_home_cloud_fan_"):
+            dev_id = uid[len("google_home_cloud_fan_") :]
+            control_prefix_to_dev[dev_id] = uid
+        elif uid.startswith("google_home_cloud_media_"):
+            dev_id = uid[len("google_home_cloud_media_") :]
+            control_prefix_to_dev[dev_id] = uid
+        else:
+            for suffix in (
+                "_cloud_light",
+                "_cloud_fan",
+                "_cloud_switch",
+                "_cloud_cover",
+                "_cloud_vacuum",
+                "_cloud_climate",
+                "_cloud_lock",
+                "_cloud_alarm",
+                "_cloud_alarm_control_panel",
+                "_cloud_media",
+            ):
+                if uid.endswith(suffix):
+                    dev_id = uid[: -len(suffix)]
+                    control_suffix_to_dev[dev_id] = uid
+                    break
+
+    controlled_device_ids = set(control_prefix_to_dev.keys()) | set(
+        control_suffix_to_dev.keys()
+    )
+
+    for dev_id, status_ents in status_sensor_entries.items():
+        has_control = dev_id in controlled_device_ids
+
+        for status_ent in status_ents:
+            if has_control:
+                # Control entity exists: disable status sensor if active and not explicitly disabled/enabled by user
+                if not status_ent.disabled:
+                    _LOGGER.info(
+                        "Disabling redundant status sensor for controlled device %s: %s",
+                        dev_id,
+                        status_ent.entity_id,
+                    )
+                    ent_reg.async_update_entity(
+                        status_ent.entity_id,
+                        disabled_by=er.RegistryEntryDisabler.INTEGRATION,
+                    )
+            else:
+                # No control entity exists (e.g. local mode or readonly): re-enable if integration disabled it
+                if (
+                    status_ent.disabled
+                    and status_ent.disabled_by == er.RegistryEntryDisabler.INTEGRATION
+                ):
+                    _LOGGER.info(
+                        "Re-enabling status sensor as control entity is no longer present for device %s: %s",
+                        dev_id,
+                        status_ent.entity_id,
+                    )
+                    ent_reg.async_update_entity(
+                        status_ent.entity_id,
+                        disabled_by=None,
+                    )
+
 
 async def async_remove_config_entry_device(
     hass: HomeAssistant, entry: ConfigEntry, device_entry: dr.DeviceEntry
