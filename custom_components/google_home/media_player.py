@@ -205,21 +205,20 @@ class GoogleHomeCloudMediaPlayer(
             return MediaPlayerState.OFF
 
         # If on state is explicitly tracked
-        if "on" in cdev.state:
-            if not cdev.state["on"]:
-                return MediaPlayerState.OFF
+        if cdev.state.get("on") is False:
+            return MediaPlayerState.OFF
 
-        activity = cdev.state.get("activityState", "").upper()
-        if activity in ("PLAYING", "ACTIVE"):
-            return MediaPlayerState.PLAYING
-        if activity in ("PAUSED", "STANDBY"):
-            return MediaPlayerState.PAUSED
+        for key in ("playbackState", "activityState", "mediaState"):
+            activity = str(cdev.state.get(key) or "").upper()
+            if activity in ("PLAYING", "ACTIVE", "FAST_FORWARDING", "REWINDING"):
+                return MediaPlayerState.PLAYING
+            if activity in ("PAUSED", "STANDBY"):
+                return MediaPlayerState.PAUSED
+            if activity in ("BUFFERING",):
+                return MediaPlayerState.BUFFERING
 
-        # If device is explicitly on without active playback, return ON; otherwise OFF
-        if cdev.state.get("on") is True:
-            return MediaPlayerState.ON
-
-        return MediaPlayerState.OFF
+        # Speakers like Nest Mini have no OnOff trait: online means powered on.
+        return MediaPlayerState.ON
 
     @property
     def volume_level(self) -> float | None:
