@@ -495,7 +495,9 @@ class GoogleHomeCloudClient:
                         ):
                             state_dict["nightlight_on"] = json_is_on
                     else:
-                        state_dict["on"] = False
+                        # Only default 'on' to False if device actually has the OnOff trait
+                        if "action.devices.traits.OnOff" in traits_list:
+                            state_dict["on"] = False
                         if "nightlight_on" not in state_dict:
                             state_dict["nightlight_on"] = False
 
@@ -642,12 +644,40 @@ class GoogleHomeCloudClient:
                 if mute_match:
                     state_dict["isMuted"] = mute_match.group(1).lower() == "true"
 
-                if "transportControl" in m30_str:
-                    # Check if there is an explicit playing/playback state rather than just connectivity/static field
-                    if "playbackState: 1" in m30_str or "playing" in m30_str.lower():
-                        state_dict["activityState"] = "playing"
-                    elif "paused" in m30_str.lower():
-                        state_dict["activityState"] = "paused"
+                # Extract Media playback / transport state
+                pb_match = re.search(
+                    r'(?:playbackState|activityState|mediaState)[^}]*?(?:string\d+|val\d+|value):\s*"([^"]+)"',
+                    m30_str,
+                    re.IGNORECASE,
+                )
+                if pb_match:
+                    state_dict["activityState"] = pb_match.group(1).lower()
+                else:
+                    pb_int_match = re.search(
+                        r"(?:playbackState|activityState)[^}]*?(?:int\d+|val\d+|num\d+|value):\s*(\d+)",
+                        m30_str,
+                        re.IGNORECASE,
+                    )
+                    if pb_int_match:
+                        val = pb_int_match.group(1)
+                        # Google HomeGraph standard playback states: 1=PLAYING, 2=PAUSED, 3=STOPPED/STANDBY, 4=BUFFERING
+                        if val == "1":
+                            state_dict["activityState"] = "playing"
+                        elif val == "2":
+                            state_dict["activityState"] = "paused"
+                        elif val == "3":
+                            state_dict["activityState"] = "standby"
+                        elif val == "4":
+                            state_dict["activityState"] = "buffering"
+                    elif "transportControl" in m30_str or "mediaState" in m30_str:
+                        # Check if there is an explicit playing/playback state rather than just connectivity/static field
+                        if (
+                            "playbackState: 1" in m30_str
+                            or "playing" in m30_str.lower()
+                        ):
+                            state_dict["activityState"] = "playing"
+                        elif "paused" in m30_str.lower():
+                            state_dict["activityState"] = "paused"
 
             dev = CloudHomeDevice(
                 device_id=dev_id,

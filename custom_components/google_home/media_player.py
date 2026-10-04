@@ -204,9 +204,10 @@ class GoogleHomeCloudMediaPlayer(
         if not cdev or not cdev.online:
             return MediaPlayerState.OFF
 
-        # If on state is explicitly tracked
-        if cdev.state.get("on") is False:
-            return MediaPlayerState.OFF
+        # If on state is explicitly tracked for devices supporting OnOff trait
+        if "action.devices.traits.OnOff" in (cdev.traits or []):
+            if cdev.state.get("on") is False:
+                return MediaPlayerState.OFF
 
         for key in ("playbackState", "activityState", "mediaState"):
             activity = str(cdev.state.get(key) or "").upper()
