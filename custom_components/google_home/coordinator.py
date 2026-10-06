@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import logging
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from aiohttp import ClientTimeout
@@ -19,7 +18,6 @@ from .const import (
     EVENT_ALARM_TRIGGERED,
     EVENT_TIMER_FINISHED,
     FIRMWARE_CHECK_INTERVAL,
-    FIRMWARE_VERSIONS_FILE,
     FIRMWARE_VERSIONS_URL,
 )
 from .exceptions import AuthenticationFailed, InvalidMasterToken, TwoFactorRequired
@@ -96,8 +94,7 @@ class GoogleHomeDataUpdateCoordinator(DataUpdateCoordinator[list[GoogleHomeDevic
             self._apply_firmware_to_device(dev, prod_versions)
 
     async def _async_load_firmware_catalog(self) -> None:
-        """Load firmware catalog from GitHub raw URL, falling back to local JSON."""
-        # 1. Try fetching latest scraped JSON from GitHub
+        """Load firmware catalog from GitHub raw URL."""
         session = async_get_clientsession(self.hass)
         try:
             async with session.get(
@@ -113,30 +110,9 @@ class GoogleHomeDataUpdateCoordinator(DataUpdateCoordinator[list[GoogleHomeDevic
                             "Loaded %s firmware definitions from GitHub",
                             len(data["production"]),
                         )
-                        return
         except Exception as exc:
             _LOGGER.debug(
                 "Could not fetch remote firmware versions from GitHub: %s", exc
-            )
-
-        # 2. Fallback to local bundled JSON if available
-        def _read_local_file() -> dict[str, Any] | None:
-            try:
-                local_path = Path(__file__).resolve().parent / FIRMWARE_VERSIONS_FILE
-                if local_path.is_file():
-                    with open(local_path, encoding="utf-8") as f:
-                        return json.load(f)
-            except Exception as err:
-                _LOGGER.debug("Failed reading local firmware file: %s", err)
-            return None
-
-        local_data = await self.hass.async_add_executor_job(_read_local_file)
-        if local_data and isinstance(local_data, dict) and "production" in local_data:
-            self._firmware_data = local_data
-            self._last_firmware_fetch = datetime.now(UTC)
-            _LOGGER.debug(
-                "Loaded %s firmware definitions from local bundled file",
-                len(local_data["production"]),
             )
 
     def _apply_firmware_to_device(

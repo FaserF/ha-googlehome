@@ -123,7 +123,7 @@ async def async_setup_entry(
                     if ent.device_id:
                         d = dev_reg.async_get(ent.device_id)
                         if d and d not in candidate_devices:
-                            candidate_devices.append(d)
+                            candidate_devices.append(d)  # type: ignore[arg-type]
                     break
 
         for ha_dev in candidate_devices:

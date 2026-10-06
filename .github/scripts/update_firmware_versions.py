@@ -89,10 +89,7 @@ def main() -> int:
         }
 
         output_path = (
-            Path(__file__).resolve().parent.parent.parent
-            / "custom_components"
-            / "google_home"
-            / "firmware_versions.json"
+            Path(__file__).resolve().parent.parent.parent / "firmware_versions.json"
         )
         with open(output_path, "w", encoding="utf-8") as f:
             json.dump(out_payload, f, indent=2, ensure_ascii=False)

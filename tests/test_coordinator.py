@@ -89,8 +89,10 @@ def test_coordinator_apply_firmware_to_device(mock_hass, mock_client):
     assert dev_hub.release_notes == "Critical fixes"
 
 
-def test_coordinator_sync_firmware_versions_loads_local(mock_hass, mock_client):
-    """Test coordinator loads local bundled firmware json on update."""
+def test_coordinator_sync_firmware_versions_loads_remote(
+    mock_hass, mock_client, monkeypatch
+):
+    """Test coordinator loads firmware json from remote URL on update."""
     coord = GoogleHomeDataUpdateCoordinator(
         hass=mock_hass,
         client=mock_client,
@@ -106,9 +108,25 @@ def test_coordinator_sync_firmware_versions_loads_local(mock_hass, mock_client):
     )
     dev.set_system_info(firmware="3.75.123456")
 
-    # Force async_add_executor_job to run callable synchronously for test
-    mock_hass.async_add_executor_job = AsyncMock(
-        side_effect=lambda func, *args: func(*args)
+    remote_payload = '{"production": {"Google Nest Audio": {"firmware_version": "3.78.540761", "release_notes": "Fixes"}}}'
+
+    mock_resp = MagicMock()
+    mock_resp.status = 200
+    mock_resp.text = AsyncMock(return_value=remote_payload)
+
+    class MockContextManager:
+        async def __aenter__(self):
+            return mock_resp
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            return None
+
+    mock_session = MagicMock()
+    mock_session.get = MagicMock(return_value=MockContextManager())
+
+    monkeypatch.setattr(
+        "custom_components.google_home.coordinator.async_get_clientsession",
+        lambda hass: mock_session,
     )
 
     asyncio.run(coord._async_sync_firmware_versions([dev]))
@@ -116,3 +134,4 @@ def test_coordinator_sync_firmware_versions_loads_local(mock_hass, mock_client):
     assert coord._firmware_data is not None
     assert "production" in coord._firmware_data
     assert dev.latest_firmware_version == "3.78.540761"
+    assert dev.release_notes == "Fixes"

@@ -70,10 +70,10 @@ jobs:
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          if git diff --quiet custom_components/google_home/firmware_versions.json; then
+          if git diff --quiet firmware_versions.json; then
             echo "No firmware changes detected."
           else
-            git add custom_components/google_home/firmware_versions.json
+            git add firmware_versions.json
             git commit -m "chore(firmware): update latest Google Home firmware versions [skip ci]"
             git push
           fi
