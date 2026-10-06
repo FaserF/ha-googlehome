@@ -153,3 +153,26 @@ def test_device_alarms_and_timers_sorting():
     next_alarm = dev.get_next_alarm()
     assert next_alarm is not None
     assert next_alarm.alarm_id == "alarm/active"
+
+
+def test_google_home_device_firmware_update():
+    """Test firmware update fields and methods on GoogleHomeDevice."""
+    dev = GoogleHomeDevice(
+        device_id="audio1",
+        name="Nest Audio",
+        auth_token="token_xyz",
+        ip_address="192.168.1.100",
+        hardware="Nest Audio",
+    )
+    dev.set_system_info(
+        firmware="3.78.540761",
+        mac="14:c1:4e:41:95:f8",
+        cast_uuid="uuid123",
+        ota_status="idle",
+        latest_firmware="3.78.540761",
+        release_summary="Improves network traffic and Wi-Fi stability.",
+    )
+    assert dev.firmware_version == "3.78.540761"
+    assert dev.latest_firmware_version == "3.78.540761"
+    assert dev.ota_status == "idle"
+    assert dev.release_summary == "Improves network traffic and Wi-Fi stability."

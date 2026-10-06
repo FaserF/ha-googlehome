@@ -164,6 +164,11 @@
       "delete_all_timers": {
         "name": "Delete All Timers"
       }
+    },
+    "update": {
+      "firmware_update": {
+        "name": "Firmware Update"
+      }
     }
   },
   "selector": {

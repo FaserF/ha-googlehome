@@ -118,6 +118,7 @@ PLATFORMS: Final = [
     "switch",
     "number",
     "button",
+    "update",
     "light",
     "fan",
     "device_tracker",
@@ -130,6 +131,10 @@ PLATFORMS: Final = [
     "alarm_control_panel",
     "scene",
 ]
+
+DOCS_FIRMWARE_RELEASE_NOTES_URL: Final = (
+    "https://support.google.com/googlehome/answer/7365257?hl=en"
+)
 
 SERVICE_REBOOT: Final = "reboot_device"
 SERVICE_DELETE_ALARM: Final = "delete_alarm"
@@ -154,7 +159,7 @@ API_ENDPOINT_ALARM_DELETE: Final = "setup/assistant/alarms/delete"
 API_ENDPOINT_DO_NOT_DISTURB: Final = "setup/assistant/notifications"
 API_ENDPOINT_NIGHT_MODE: Final = "setup/assistant/alarms/volume"
 API_ENDPOINT_NIGHT_MODE_SETTINGS: Final = "setup/night_mode_params"
-API_ENDPOINT_DEVICE_INFO: Final = "setup/eureka_info?params=version,name,build_info,device_info,net,wifi,wlan,bluetooth,setup,settings,opt_in,audio"
+API_ENDPOINT_DEVICE_INFO: Final = "setup/eureka_info?params=version,name,build_info,device_info,net,wifi,wlan,bluetooth,setup,settings,opt_in,audio,ota"
 API_ENDPOINT_BLUETOOTH_STATUS: Final = "setup/bluetooth/status"
 API_ENDPOINT_REBOOT: Final = "setup/reboot"
 

@@ -680,10 +680,30 @@ class GlocaltokensApiClient:
                     or eureka_data.get("mac_address")
                     or device_info.get("mac_address")
                 )
+                # Extract OTA status if reported by device
+                ota_data = (
+                    eureka_data.get("ota")
+                    or eureka_data.get("setup", {}).get("ota")
+                    or {}
+                )
+                ota_status = None
+                if isinstance(ota_data, dict):
+                    ota_status = (
+                        ota_data.get("status")
+                        or ota_data.get("download_progress")
+                        or ota_data.get("state")
+                    )
+                elif isinstance(ota_data, str):
+                    ota_status = ota_data
+
+                fw_str = str(firmware) if firmware else None
+
                 device.set_system_info(
-                    firmware=str(firmware) if firmware else None,
+                    firmware=fw_str,
                     mac=str(net_mac) if net_mac else None,
                     cast_uuid=cast_uuid if cast_uuid else None,
+                    ota_status=str(ota_status) if ota_status else None,
+                    latest_firmware=fw_str,
                 )
 
                 bt_data = eureka_data.get("bluetooth") or {}
