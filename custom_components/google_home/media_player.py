@@ -66,45 +66,81 @@ async def async_setup_entry(
         dev_reg = dr.async_get(hass)
         ent_reg = er.async_get(hass)
 
-        ha_device = None
+        candidate_devices: list[dr.DeviceEntry] = []
 
         # 1. Try MAC address lookup
         mac = getattr(dev, "mac_address", None)
         if mac:
             try:
-                ha_device = dev_reg.async_get_device_by_connection(  # type: ignore[call-arg]
+                d = dev_reg.async_get_device_by_connection(  # type: ignore[call-arg]
                     (CONNECTION_NETWORK_MAC, format_mac(mac))
                 )
+                if d and d not in candidate_devices:
+                    candidate_devices.append(d)
             except Exception:
-                ha_device = None
+                pass
 
-        # 2. Fallback: find HA device via google_home identifier by searching
+        # 2. Check local coordinator for matching cast_uuid
+        entry_data = hass.data.get(DOMAIN, {}).get(entry.entry_id, {})
+        local_coord = entry_data.get("coordinator")
+        dev_id = getattr(dev, "device_id", None)
+        dev_name = (getattr(dev, "name", "") or "").lower()
+
+        cast_uuids: set[str] = set()
+        if local_coord and local_coord.data:
+            for ldev in local_coord.data:
+                if (ldev.device_id and ldev.device_id == dev_id) or (
+                    ldev.name and ldev.name.lower() == dev_name
+                ):
+                    if getattr(ldev, "cast_uuid", None):
+                        cast_uuids.add(str(ldev.cast_uuid).replace("-", ""))
+                    if ldev.mac_address:
+                        try:
+                            d = dev_reg.async_get_device_by_connection(  # type: ignore[call-arg]
+                                (CONNECTION_NETWORK_MAC, format_mac(ldev.mac_address))
+                            )
+                            if d and d not in candidate_devices:
+                                candidate_devices.append(d)
+                        except Exception:
+                            pass
+
+        for c_uuid in cast_uuids:
+            try:
+                d = dev_reg.async_get_device_by_identifier(("cast", c_uuid))  # type: ignore[call-arg]
+                if d and d not in candidate_devices:
+                    candidate_devices.append(d)
+            except Exception:
+                pass
+
+        # 3. Fallback: find HA device via google_home identifier by searching
         # entity registry for an existing google_home entity with this device_id
-        if not ha_device:
-            dev_id = getattr(dev, "device_id", None)
-            if dev_id:
-                # Look up by iterating entities for this config entry
-                for ent in er.async_entries_for_config_entry(ent_reg, entry.entry_id):
-                    if (
-                        ent.domain == "media_player"
-                        and ent.unique_id == f"google_home_cloud_media_{dev_id}"
-                    ):
-                        if ent.device_id:
-                            ha_device = dev_reg.async_get(ent.device_id)  # type: ignore[assignment]
-                        break
+        if dev_id:
+            for ent in er.async_entries_for_config_entry(ent_reg, entry.entry_id):
+                if (
+                    ent.domain == "media_player"
+                    and ent.unique_id == f"google_home_cloud_media_{dev_id}"
+                ):
+                    if ent.device_id:
+                        d = dev_reg.async_get(ent.device_id)
+                        if d and d not in candidate_devices:
+                            candidate_devices.append(d)
+                    break
 
-        if not ha_device:
-            return False
+        for ha_dev in candidate_devices:
+            for ent in er.async_entries_for_device(ent_reg, ha_dev.id):
+                if ent.domain == "media_player" and ent.platform == "cast":
+                    _LOGGER.debug(
+                        "Skipping google_home media_player for %s — cast entity %s already exists",
+                        getattr(dev, "name", ""),
+                        ent.entity_id,
+                    )
+                    return True
 
-        # Check if any media_player entity on this HA device is from the cast platform
-        for ent in er.async_entries_for_device(ent_reg, ha_device.id):
+        # Check all cast entities in entity registry whose unique_id or name matches
+        for ent in ent_reg.entities.values():
             if ent.domain == "media_player" and ent.platform == "cast":
-                _LOGGER.debug(
-                    "Skipping google_home media_player for %s — cast entity %s already exists",
-                    getattr(dev, "name", ""),
-                    ent.entity_id,
-                )
-                return True
+                if ent.unique_id and ent.unique_id in cast_uuids:
+                    return True
         return False
 
     def _create_entities() -> list[GoogleHomeCloudMediaPlayer]:
@@ -234,6 +270,21 @@ class GoogleHomeCloudMediaPlayer(
                 return fv / 100 if fv > 1.0 else fv
             except (ValueError, TypeError):
                 pass
+
+        # Fallback to local coordinator volume if available
+        config_entry = getattr(self.coordinator, "config_entry", None)
+        entry_id = getattr(config_entry, "entry_id", None) if config_entry else None
+        if entry_id and entry_id in self.hass.data.get(DOMAIN, {}):
+            local_coord = self.hass.data[DOMAIN][entry_id].get("coordinator")
+            if local_coord and local_coord.data:
+                dev_name = (cdev.name or "").lower()
+                for ldev in local_coord.data:
+                    if (ldev.device_id and ldev.device_id == cdev.device_id) or (
+                        ldev.name and ldev.name.lower() == dev_name
+                    ):
+                        lvl = ldev.get_device_volume()
+                        if lvl is not None:
+                            return float(lvl) / 100.0 if lvl > 1.0 else float(lvl)
         return None
 
     @property
