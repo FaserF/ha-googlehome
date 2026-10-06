@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
 from typing import Final
 
 NAME: Final = "Google Home"
@@ -135,6 +136,12 @@ PLATFORMS: Final = [
 DOCS_FIRMWARE_RELEASE_NOTES_URL: Final = (
     "https://support.google.com/googlehome/answer/7365257?hl=en"
 )
+FIRMWARE_VERSIONS_FILE: Final = "firmware_versions.json"
+FIRMWARE_VERSIONS_URL: Final = (
+    "https://raw.githubusercontent.com/FaserF/ha-googlehome/main/"
+    "custom_components/google_home/firmware_versions.json"
+)
+FIRMWARE_CHECK_INTERVAL: Final = timedelta(hours=24)
 
 SERVICE_REBOOT: Final = "reboot_device"
 SERVICE_DELETE_ALARM: Final = "delete_alarm"

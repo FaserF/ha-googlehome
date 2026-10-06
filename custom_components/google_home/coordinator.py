@@ -2,15 +2,26 @@
 
 from __future__ import annotations
 
+import json
 import logging
-from datetime import timedelta
-from typing import TYPE_CHECKING
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
+from aiohttp import ClientTimeout
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .const import DOMAIN, EVENT_ALARM_TRIGGERED, EVENT_TIMER_FINISHED
+from .const import (
+    DOMAIN,
+    EVENT_ALARM_TRIGGERED,
+    EVENT_TIMER_FINISHED,
+    FIRMWARE_CHECK_INTERVAL,
+    FIRMWARE_VERSIONS_FILE,
+    FIRMWARE_VERSIONS_URL,
+)
 from .exceptions import AuthenticationFailed, InvalidMasterToken, TwoFactorRequired
 from .models import GoogleHomeAlarmStatus, GoogleHomeDevice, GoogleHomeTimerStatus
 
@@ -34,6 +45,8 @@ class GoogleHomeDataUpdateCoordinator(DataUpdateCoordinator[list[GoogleHomeDevic
         self._device_cache: dict[str, GoogleHomeDevice] = {}
         self._previous_active_timers: dict[str, set[str]] = {}
         self._previous_active_alarms: dict[str, set[str]] = {}
+        self._firmware_data: dict[str, Any] = {}
+        self._last_firmware_fetch: datetime | None = None
         super().__init__(
             hass,
             _LOGGER,
@@ -48,6 +61,7 @@ class GoogleHomeDataUpdateCoordinator(DataUpdateCoordinator[list[GoogleHomeDevic
             if devices:
                 for dev in devices:
                     self._device_cache[dev.device_id] = dev
+            await self._async_sync_firmware_versions(devices)
             self._check_and_fire_events(devices)
             return devices
         except ConfigEntryAuthFailed:
@@ -58,6 +72,96 @@ class GoogleHomeDataUpdateCoordinator(DataUpdateCoordinator[list[GoogleHomeDevic
             ) from err
         except Exception as err:
             raise UpdateFailed(f"Error updating Google Home devices: {err}") from err
+
+    async def _async_sync_firmware_versions(
+        self, devices: list[GoogleHomeDevice]
+    ) -> None:
+        """Fetch remote firmware versions and match them against known devices."""
+        now = datetime.now(UTC)
+        # Fetch remote firmware catalog once every 24 hours or on startup
+        if (
+            not self._firmware_data
+            or self._last_firmware_fetch is None
+            or (now - self._last_firmware_fetch) > FIRMWARE_CHECK_INTERVAL
+        ):
+            await self._async_load_firmware_catalog()
+
+        prod_versions: dict[str, dict[str, str]] = self._firmware_data.get(
+            "production", {}
+        )
+        if not prod_versions:
+            return
+
+        for dev in devices:
+            self._apply_firmware_to_device(dev, prod_versions)
+
+    async def _async_load_firmware_catalog(self) -> None:
+        """Load firmware catalog from GitHub raw URL, falling back to local JSON."""
+        # 1. Try fetching latest scraped JSON from GitHub
+        session = async_get_clientsession(self.hass)
+        try:
+            async with session.get(
+                FIRMWARE_VERSIONS_URL, timeout=ClientTimeout(total=10)
+            ) as resp:
+                if resp.status == 200:
+                    text = await resp.text()
+                    data = json.loads(text)
+                    if isinstance(data, dict) and "production" in data:
+                        self._firmware_data = data
+                        self._last_firmware_fetch = datetime.now(UTC)
+                        _LOGGER.debug(
+                            "Loaded %s firmware definitions from GitHub",
+                            len(data["production"]),
+                        )
+                        return
+        except Exception as exc:
+            _LOGGER.debug(
+                "Could not fetch remote firmware versions from GitHub: %s", exc
+            )
+
+        # 2. Fallback to local bundled JSON if available
+        def _read_local_file() -> dict[str, Any] | None:
+            try:
+                local_path = Path(__file__).resolve().parent / FIRMWARE_VERSIONS_FILE
+                if local_path.is_file():
+                    with open(local_path, encoding="utf-8") as f:
+                        return json.load(f)
+            except Exception as err:
+                _LOGGER.debug("Failed reading local firmware file: %s", err)
+            return None
+
+        local_data = await self.hass.async_add_executor_job(_read_local_file)
+        if local_data and isinstance(local_data, dict) and "production" in local_data:
+            self._firmware_data = local_data
+            self._last_firmware_fetch = datetime.now(UTC)
+            _LOGGER.debug(
+                "Loaded %s firmware definitions from local bundled file",
+                len(local_data["production"]),
+            )
+
+    def _apply_firmware_to_device(
+        self,
+        dev: GoogleHomeDevice,
+        prod_versions: dict[str, dict[str, str]],
+    ) -> None:
+        """Find matching firmware entry for device based on hardware or name."""
+        hw = (dev.hardware or "").lower()
+        nm = (dev.name or "").lower()
+
+        # Sort by length descending to match specific models before general ones
+        sorted_keys = sorted(prod_versions.keys(), key=lambda k: -len(k))
+        for key in sorted_keys:
+            # e.g. "Google Nest Audio" -> target "nest audio"
+            target = key.lower().replace("google ", "").strip()
+            if target in hw or target in nm:
+                info = prod_versions[key]
+                latest_ver = info.get("firmware_version")
+                notes = info.get("release_notes")
+                if latest_ver:
+                    dev.latest_firmware_version = latest_ver
+                if notes:
+                    dev.release_notes = notes
+                break
 
     def _check_and_fire_events(self, devices: list[GoogleHomeDevice]) -> None:
         """Check for expired timers and triggered alarms and fire HA bus events."""

@@ -32,6 +32,7 @@ def test_update_entity_properties(mock_coordinator):
         cast_uuid="uuid123",
         ota_status="idle",
         latest_firmware="3.78.540761",
+        release_notes="Improves network traffic",
     )
     mock_coordinator.get_device = MagicMock(return_value=dev)
 
@@ -50,6 +51,7 @@ def test_update_entity_properties(mock_coordinator):
     notes = asyncio.run(entity.async_release_notes())
     assert notes is not None
     assert "3.78.540761" in notes
+    assert "Improves network traffic" in notes
     assert entity.in_progress is False
     assert entity.extra_state_attributes["hardware"] == "Nest Audio"
     assert entity.extra_state_attributes["ota_status"] == "idle"

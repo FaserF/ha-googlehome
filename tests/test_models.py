@@ -170,7 +170,9 @@ def test_google_home_device_firmware_update():
         cast_uuid="uuid123",
         ota_status="idle",
         latest_firmware="3.78.540761",
+        release_notes="Improves network traffic",
     )
     assert dev.firmware_version == "3.78.540761"
     assert dev.latest_firmware_version == "3.78.540761"
+    assert dev.release_notes == "Improves network traffic"
     assert dev.ota_status == "idle"

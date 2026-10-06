@@ -52,6 +52,7 @@ class GoogleHomeDevice:
         self.structure_name = structure_name
         self.firmware_version: str | None = None
         self.latest_firmware_version: str | None = None
+        self.release_notes: str | None = None
         self.ota_status: str | None = None
         self.mac_address: str | None = None
         self.cast_uuid: str | None = None
@@ -113,6 +114,7 @@ class GoogleHomeDevice:
         cast_uuid: str | None = None,
         ota_status: str | None = None,
         latest_firmware: str | None = None,
+        release_notes: str | None = None,
     ) -> None:
         """Set firmware version, MAC address, Cast UUID, and OTA status."""
         if firmware:
@@ -125,6 +127,8 @@ class GoogleHomeDevice:
             self.ota_status = ota_status
         if latest_firmware:
             self.latest_firmware_version = latest_firmware
+        if release_notes:
+            self.release_notes = release_notes
 
     def set_alarms(self, alarms: list[AlarmJsonDict]) -> None:
         """Store alarms as GoogleHomeAlarm objects."""

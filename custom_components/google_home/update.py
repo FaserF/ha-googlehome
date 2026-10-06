@@ -129,12 +129,20 @@ class GoogleHomeUpdateEntity(GoogleHomeBaseEntity, UpdateEntity):
     async def async_release_notes(self) -> str | None:
         """Return release notes for the Google Home firmware release."""
         device = self.get_device()
-        fw = device.firmware_version if device else None
-        return (
-            f"Google Smart Speaker & Display Firmware: **{fw}**\n\n"
+        fw = (
+            device.latest_firmware_version
+            if device and device.latest_firmware_version
+            else (device.firmware_version if device else None)
+        )
+        notes = device.release_notes if device and device.release_notes else ""
+        content = f"### Google Home Firmware {fw}\n\n"
+        if notes:
+            content += f"**Changes in this version:**\n{notes}\n\n"
+        content += (
             f"Details and recent changelogs are published on the official "
             f"[Google Home & Nest Support page]({DOCS_FIRMWARE_RELEASE_NOTES_URL})."
         )
+        return content
 
     @property
     def in_progress(self) -> bool:

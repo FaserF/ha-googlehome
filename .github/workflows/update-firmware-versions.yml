@@ -1,0 +1,79 @@
+name: Update Firmware Versions
+
+on:
+  schedule:
+    # Run every night at 03:00 UTC
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: update-firmware-versions
+  cancel-in-progress: true
+
+jobs:
+  update-firmware:
+    name: Scrape & Update Firmware Versions
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@v7.0.0
+        with:
+          python-version: '3.14.8'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install beautifulsoup4
+
+      - name: Run firmware scraper
+        id: scraper
+        continue-on-error: true
+        run: |
+          python .github/scripts/update_firmware_versions.py
+
+      - name: Handle scraper failure (Create issue if none exists)
+        if: steps.scraper.outcome == 'failure'
+        uses: actions/github-script@v9.0.0
+        with:
+          script: |
+            const issueTitle = "Bug: Automated Google Home firmware scraping failed";
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: "open",
+            });
+
+            const existingIssue = issues.data.find(i => i.title === issueTitle);
+            if (existingIssue) {
+              console.log(`An open issue already exists (#${existingIssue.number}). Skipping creation.`);
+            } else {
+              console.log("No existing open issue found. Creating new issue...");
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: issueTitle,
+                body: `The nightly workflow \`update-firmware-versions.yml\` failed to scrape firmware versions from [Google Support](https://support.google.com/googlehome/answer/7365257?hl=en).\n\nThe HTML structure of the Google Support page may have changed or the request was blocked.\n\nPlease inspect \`.github/scripts/update_firmware_versions.py\` and update the parsing logic.`,
+                labels: ["bug", "automated-workflow"]
+              });
+            }
+            core.setFailed("Scraper script execution failed. Please check the logs.");
+
+      - name: Commit & push updated firmware versions
+        if: steps.scraper.outcome == 'success'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          if git diff --quiet custom_components/google_home/firmware_versions.json; then
+            echo "No firmware changes detected."
+          else
+            git add custom_components/google_home/firmware_versions.json
+            git commit -m "chore(firmware): update latest Google Home firmware versions [skip ci]"
+            git push
+          fi
