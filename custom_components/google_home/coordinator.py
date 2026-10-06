@@ -144,9 +144,7 @@ class GoogleHomeDataUpdateCoordinator(DataUpdateCoordinator[list[GoogleHomeDevic
                 notes = info.get("release_notes")
                 # Cast build strings (e.g. "1.68.cast_20251119_...") are
                 # incompatible with catalog semver — skip to avoid false updates.
-                if latest_ver and not self._is_cast_build_string(
-                    dev.firmware_version
-                ):
+                if latest_ver and not self._is_cast_build_string(dev.firmware_version):
                     dev.latest_firmware_version = latest_ver
                 if notes:
                     dev.release_notes = notes
