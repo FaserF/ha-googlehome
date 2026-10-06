@@ -115,6 +115,15 @@ class GoogleHomeDataUpdateCoordinator(DataUpdateCoordinator[list[GoogleHomeDevic
                 "Could not fetch remote firmware versions from GitHub: %s", exc
             )
 
+    @staticmethod
+    def _is_cast_build_string(version: str | None) -> bool:
+        """Return True if the version string is a Cast build revision (e.g. 1.68.cast_...).
+
+        Cast build strings cannot be compared to catalog semver versions and should
+        not trigger update notifications.
+        """
+        return bool(version and "cast_" in version.lower())
+
     def _apply_firmware_to_device(
         self,
         dev: GoogleHomeDevice,
@@ -133,7 +142,11 @@ class GoogleHomeDataUpdateCoordinator(DataUpdateCoordinator[list[GoogleHomeDevic
                 info = prod_versions[key]
                 latest_ver = info.get("firmware_version")
                 notes = info.get("release_notes")
-                if latest_ver:
+                # Cast build strings (e.g. "1.68.cast_20251119_...") are
+                # incompatible with catalog semver — skip to avoid false updates.
+                if latest_ver and not self._is_cast_build_string(
+                    dev.firmware_version
+                ):
                     dev.latest_firmware_version = latest_ver
                 if notes:
                     dev.release_notes = notes

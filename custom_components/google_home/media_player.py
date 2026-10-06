@@ -121,9 +121,9 @@ async def async_setup_entry(
                     and ent.unique_id == f"google_home_cloud_media_{dev_id}"
                 ):
                     if ent.device_id:
-                        d = dev_reg.async_get(ent.device_id)
-                        if d and d not in candidate_devices:
-                            candidate_devices.append(d)  # type: ignore[arg-type]
+                        d_entry: Any = dev_reg.async_get(ent.device_id)
+                        if d_entry and d_entry not in candidate_devices:
+                            candidate_devices.append(d_entry)
                     break
 
         for ha_dev in candidate_devices:

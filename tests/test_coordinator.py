@@ -80,6 +80,18 @@ def test_coordinator_apply_firmware_to_device(mock_hass, mock_client):
     )
     dev_hub.set_system_info(firmware="30.000000")
 
+    dev_cast = GoogleHomeDevice(
+        device_id="dev3",
+        name="Küche Lautsprecher",
+        auth_token="token",
+        ip_address="192.168.1.12",
+        hardware="Google Nest Mini",
+    )
+    dev_cast.set_system_info(
+        firmware="1.68.cast_20251119_1643_RC14.834495410",
+        latest_firmware="1.68.cast_20251119_1643_RC14.834495410",
+    )
+
     coord._apply_firmware_to_device(dev_audio, prod_versions)
     assert dev_audio.latest_firmware_version == "3.78.540761"
     assert dev_audio.release_notes == "Improves network traffic"
@@ -87,6 +99,9 @@ def test_coordinator_apply_firmware_to_device(mock_hass, mock_client):
     coord._apply_firmware_to_device(dev_hub, prod_versions)
     assert dev_hub.latest_firmware_version == "31.20260429.103.8712900"
     assert dev_hub.release_notes == "Critical fixes"
+
+    coord._apply_firmware_to_device(dev_cast, prod_versions)
+    assert dev_cast.latest_firmware_version == "1.68.cast_20251119_1643_RC14.834495410"
 
 
 def test_coordinator_sync_firmware_versions_loads_remote(
