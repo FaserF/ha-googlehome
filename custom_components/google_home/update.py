@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import TYPE_CHECKING, Any
 
@@ -91,6 +92,16 @@ class GoogleHomeUpdateEntity(GoogleHomeBaseEntity, UpdateEntity):
         | UpdateEntityFeature.RELEASE_NOTES
     )
 
+    def __init__(
+        self,
+        coordinator: GoogleHomeDataUpdateCoordinator,
+        device_id: str,
+        device_name: str,
+    ) -> None:
+        """Initialize the update entity."""
+        super().__init__(coordinator, device_id, device_name)
+        self._is_installing: bool = False
+
     @property
     def label(self) -> str:
         """Label to use for unique_id and translation."""
@@ -128,6 +139,8 @@ class GoogleHomeUpdateEntity(GoogleHomeBaseEntity, UpdateEntity):
     @property
     def in_progress(self) -> bool:
         """Update installation progress boolean."""
+        if self._is_installing:
+            return True
         device = self.get_device()
         if not device or not device.ota_status:
             return False
@@ -188,6 +201,19 @@ class GoogleHomeUpdateEntity(GoogleHomeBaseEntity, UpdateEntity):
             self.device_name,
             device.ip_address,
         )
-        res = await self.client.reboot_device(device=device)
-        _LOGGER.debug("Reboot response from %s: %s", self.device_name, res)
-        await self.coordinator.async_request_refresh()
+        self._is_installing = True
+        self.async_write_ha_state()
+
+        try:
+            res = await self.client.reboot_device(device=device)
+            _LOGGER.debug("Reboot response from %s: %s", self.device_name, res)
+        finally:
+            # Schedule delayed check after reboot to reset installing state and re-poll device
+            async def _post_reboot_check() -> None:
+                await asyncio.sleep(20)
+                self._is_installing = False
+                await self.coordinator.async_request_refresh()
+
+            self.hass.async_create_background_task(
+                _post_reboot_check(), f"{self.entity_id}_post_reboot_check"
+            )

@@ -86,7 +86,7 @@ def test_update_entity_progress_and_pending_update(mock_coordinator):
 
 
 def test_update_entity_async_install(mock_coordinator):
-    """Test calling async_install reboots device to trigger OTA check."""
+    """Test calling async_install sets installing state and reboots device."""
     dev = GoogleHomeDevice(
         device_id="audio_test",
         name="Nest Audio",
@@ -101,7 +101,13 @@ def test_update_entity_async_install(mock_coordinator):
         device_id=dev.device_id,
         device_name=dev.name,
     )
+    entity.hass = MagicMock()
+    entity.async_write_ha_state = MagicMock()
 
     asyncio.run(entity.async_install())
     mock_coordinator.client.reboot_device.assert_awaited_once_with(device=dev)
-    mock_coordinator.async_request_refresh.assert_awaited_once()
+    assert entity.in_progress is True
+    entity.hass.async_create_background_task.assert_called_once()
+    # Close unawaited task coroutine created in test mock
+    task_coro = entity.hass.async_create_background_task.call_args[0][0]
+    task_coro.close()

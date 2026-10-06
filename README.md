@@ -36,6 +36,7 @@ Choose the best mode during setup or change it anytime in the Options Flow:
 | **Next Alarm / Timer Timestamps** | ✅ Yes | ❌ No | ✅ Yes |
 | **Speaker Volume & Alarm Volume** | ✅ Yes (Local & Restored) | ❌ No | ✅ Yes (Local & Restored) |
 | **Do Not Disturb & Night Mode** | ✅ Yes | ❌ No | ✅ Yes |
+| **Firmware Update Entity (`update`)** | ✅ Yes (Local Version & Status) | ❌ No | ✅ Yes (Local Version & Status) |
 | **Smart Clock Nightlight (`light` & Brightness)** | ❌ No | 🗣️ Via [Assistant SDK](https://www.home-assistant.io/integrations/google_assistant_sdk/) | 🗣️ Via [Assistant SDK](https://www.home-assistant.io/integrations/google_assistant_sdk/) |
 | **Reboot Speaker & Diagnostics** | ✅ Yes (IP, Wi-Fi RSSI, Bluetooth) | ❌ No | ✅ Yes |
 | **Cloud Device Live Telemetry & Status Sensors** | ❌ No | ✅ Yes (State, Brightness, Fan Speed %, Covers, etc.) | ✅ Yes |
@@ -62,7 +63,9 @@ Choose the best mode during setup or change it anytime in the Options Flow:
   - Multi-select filter allows you to synchronize only specific homes into Home Assistant.
 
 - **🌐 Full Google Home Ecosystem Support (Local & Cloud HomeGraph)**:
-  - **Google Home & Nest Speakers**: Live Media & Speech Volume Slider (0-100% with live local sync), Alarm Volume Slider, Timers, Alarms, Next Alarm/Timer timestamps, Do Not Disturb, Night Mode, Reboot, Wi-Fi RSSI, Bluetooth MAC diagnostics, and call pickup status.
+  - **Google Home & Nest Speakers**: Live Media & Speech Volume Slider (0-100% with live local sync), Alarm Volume Slider, Timers, Alarms, Next Alarm/Timer timestamps, Do Not Disturb, Night Mode, Reboot, Wi-Fi RSSI, Bluetooth MAC diagnostics, call pickup status, and **Firmware Update (`update`)**:
+    - Displays installed Cast / System firmware version, active OTA download progress/state, and direct links to the official [Google Home Release Notes](https://support.google.com/googlehome/answer/7365257?hl=en).
+    - **Update Installation Limitation**: Google Home and Nest devices do not provide an open public API to force an OTA flash. Clicking **"Install"** initiates a device reboot, which triggers Google's automated OTA check and download process upon boot. If Google has not yet rolled out the staged update to your device's specific unit or serial number, the update will simply reappear on the next coordinator poll. This is expected Google Home behavior rather than an integration bug.
   - **Smart Clocks & Nightlights**: Specialized Lenovo Smart Clock and smart clock nightlight support (`light.wohnzimmer_uhr` with On/Off & Brightness), display brightness diagnostics, and alarm synchronization.
   - **Lights & Dimmers**: On/Off, Brightness, Color temperature, and RGB color control (`light`).
   - **Fans & Air Purifiers**: Power, oscillation, and percentage speed controls (`fan`).
