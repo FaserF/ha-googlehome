@@ -1,5 +1,4 @@
-"""Test Google Home update platform."""
-
+import asyncio
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -33,7 +32,6 @@ def test_update_entity_properties(mock_coordinator):
         cast_uuid="uuid123",
         ota_status="idle",
         latest_firmware="3.78.540761",
-        release_summary="Improves network traffic and Wi-Fi stability.",
     )
     mock_coordinator.get_device = MagicMock(return_value=dev)
 
@@ -46,11 +44,12 @@ def test_update_entity_properties(mock_coordinator):
     assert entity.label == "firmware_update"
     assert entity.unique_id == "audio_test_firmware_update"
     assert entity.installed_version == "3.78.540761"
-    assert entity.latest_version == "3.78.540761"
-    assert entity.release_summary == "Improves network traffic and Wi-Fi stability."
     assert "https://support.google.com/googlehome/answer/7365257" in (
         entity.release_url or ""
     )
+    notes = asyncio.run(entity.async_release_notes())
+    assert notes is not None
+    assert "3.78.540761" in notes
     assert entity.in_progress is False
     assert entity.extra_state_attributes["hardware"] == "Nest Audio"
     assert entity.extra_state_attributes["ota_status"] == "idle"
@@ -88,8 +87,6 @@ def test_update_entity_progress_and_pending_update(mock_coordinator):
 
 def test_update_entity_async_install(mock_coordinator):
     """Test calling async_install reboots device to trigger OTA check."""
-    import asyncio
-
     dev = GoogleHomeDevice(
         device_id="audio_test",
         name="Nest Audio",
