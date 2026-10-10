@@ -65,6 +65,9 @@ THIRD_PARTY_MODE_DIRECT_CLOUD: Final = "control_entities"
 THIRD_PARTY_MODE_ASSISTANT_SDK: Final = "assistant_sdk_control"
 DEFAULT_THIRD_PARTY_ENTITY_MODE: Final = THIRD_PARTY_MODE_READONLY
 
+CONF_MUTE_SDK_NIGHTLIGHT: Final = "mute_sdk_nightlight"
+DEFAULT_MUTE_SDK_NIGHTLIGHT: Final = True
+
 
 def get_structure_url(structure_id: str | None, path: str = "devices") -> str:
     """Return dynamic Google Home web URL for a specific home structure."""

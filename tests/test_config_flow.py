@@ -5,9 +5,11 @@ from custom_components.google_home.const import (
     AUTH_METHOD_ADDON,
     AUTH_METHOD_CREDENTIALS,
     AUTH_METHOD_TOKEN,
+    CONF_MUTE_SDK_NIGHTLIGHT,
     DEFAULT_ADDON_HOST,
     DEFAULT_ADDON_PORT,
     DEFAULT_LOCAL_UPDATE_INTERVAL,
+    DEFAULT_MUTE_SDK_NIGHTLIGHT,
     DEFAULT_UPDATE_INTERVAL,
     DOMAIN,
 )
@@ -26,3 +28,5 @@ def test_constants():
     assert "605cee21_googlehome" in ADDON_CONTAINER_HOSTS
     assert "edfe50eb_googlehome" in ADDON_CONTAINER_HOSTS
     assert "127.0.0.1" in ADDON_CONTAINER_HOSTS
+    assert CONF_MUTE_SDK_NIGHTLIGHT == "mute_sdk_nightlight"
+    assert DEFAULT_MUTE_SDK_NIGHTLIGHT is True

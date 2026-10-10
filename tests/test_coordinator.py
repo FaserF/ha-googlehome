@@ -64,7 +64,7 @@ def test_coordinator_apply_firmware_to_device(mock_hass, mock_client):
 
     dev_audio = GoogleHomeDevice(
         device_id="dev1",
-        name="Schlafzimmer Audio",
+        name="Schlafzimmer Speaker",
         auth_token="token",
         ip_address="192.168.1.10",
         hardware="Nest Audio",
@@ -73,7 +73,7 @@ def test_coordinator_apply_firmware_to_device(mock_hass, mock_client):
 
     dev_hub = GoogleHomeDevice(
         device_id="dev2",
-        name="Küche Display",
+        name="Kitchen Display",
         auth_token="token",
         ip_address="192.168.1.11",
         hardware="Nest Hub (2nd gen)",
@@ -82,7 +82,7 @@ def test_coordinator_apply_firmware_to_device(mock_hass, mock_client):
 
     dev_cast = GoogleHomeDevice(
         device_id="dev3",
-        name="Küche Lautsprecher",
+        name="Kitchen Nest Mini",
         auth_token="token",
         ip_address="192.168.1.12",
         hardware="Google Nest Mini",

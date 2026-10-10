@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
@@ -19,8 +20,10 @@ from .assistant_helper import format_command
 from .cloud_coordinator import GoogleHomeCloudDataUpdateCoordinator
 from .cloud_models import CloudHomeDevice
 from .const import (
+    CONF_MUTE_SDK_NIGHTLIGHT,
     CONF_THIRD_PARTY_ENTITY_MODE,
     DATA_CLOUD_COORDINATOR,
+    DEFAULT_MUTE_SDK_NIGHTLIGHT,
     DEFAULT_THIRD_PARTY_ENTITY_MODE,
     DOMAIN,
     MANUFACTURER,
@@ -269,28 +272,106 @@ class GoogleHomeCloudLight(
         return None
 
     async def _async_send_assistant_command(
-        self, command: str, target_media_player: bool = False
+        self,
+        command: str,
+        target_media_player: bool = False,
+        is_nightlight: bool = False,
     ) -> None:
         """Forward command via Google Assistant SDK with optional media_player target."""
-        if self.hass.services.has_service("google_assistant_sdk", "send_text_command"):
-            try:
-                service_data: dict[str, Any] = {"command": command}
-                if target_media_player:
-                    target_mp = self._find_target_media_player()
-                    if target_mp:
-                        service_data["media_player"] = target_mp
+        if not self.hass.services.has_service(
+            "google_assistant_sdk", "send_text_command"
+        ):
+            return
 
-                _LOGGER.debug(
-                    "Sending Assistant SDK command: %s (data=%s)", command, service_data
-                )
-                await self.hass.services.async_call(
-                    "google_assistant_sdk",
-                    "send_text_command",
-                    service_data,
-                    blocking=False,
-                )
-            except Exception as ex:
-                _LOGGER.warning("Error invoking google_assistant_sdk: %s", ex)
+        target_mp = self._find_target_media_player() if target_media_player else None
+
+        # Check config option for muting nightlight command
+        config_entry = getattr(self.coordinator, "config_entry", None)
+        mute_enabled = DEFAULT_MUTE_SDK_NIGHTLIGHT
+        if config_entry:
+            mute_enabled = config_entry.options.get(
+                CONF_MUTE_SDK_NIGHTLIGHT,
+                config_entry.data.get(
+                    CONF_MUTE_SDK_NIGHTLIGHT, DEFAULT_MUTE_SDK_NIGHTLIGHT
+                ),
+            )
+
+        should_mute = bool(is_nightlight and mute_enabled and target_mp)
+        prev_volume: float | None = None
+        prev_muted: bool | None = None
+        did_mute = False
+
+        if should_mute and target_mp:
+            mp_state = self.hass.states.get(target_mp)
+            # Only mute if not currently playing media
+            if mp_state and mp_state.state != "playing":
+                prev_volume = mp_state.attributes.get("volume_level")
+                prev_muted = mp_state.attributes.get("is_volume_muted")
+
+                try:
+                    if self.hass.services.has_service("media_player", "volume_mute"):
+                        await self.hass.services.async_call(
+                            "media_player",
+                            "volume_mute",
+                            {"entity_id": target_mp, "is_volume_muted": True},
+                            blocking=True,
+                        )
+                        did_mute = True
+                    elif prev_volume is not None and self.hass.services.has_service(
+                        "media_player", "volume_set"
+                    ):
+                        await self.hass.services.async_call(
+                            "media_player",
+                            "volume_set",
+                            {"entity_id": target_mp, "volume_level": 0.0},
+                            blocking=True,
+                        )
+                        did_mute = True
+                except Exception as ex:
+                    _LOGGER.debug("Could not mute media player %s: %s", target_mp, ex)
+
+        try:
+            service_data: dict[str, Any] = {"command": command}
+            if target_mp:
+                service_data["media_player"] = target_mp
+
+            _LOGGER.debug(
+                "Sending Assistant SDK command: %s (data=%s)", command, service_data
+            )
+            # Use blocking=True to wait until Google Assistant has processed and spoken the response
+            await self.hass.services.async_call(
+                "google_assistant_sdk",
+                "send_text_command",
+                service_data,
+                blocking=True,
+            )
+        except Exception as ex:
+            _LOGGER.warning("Error invoking google_assistant_sdk: %s", ex)
+        finally:
+            if did_mute and target_mp:
+                try:
+                    # Give assistant response a brief moment to finish audio output if needed
+                    await asyncio.sleep(1.0)
+                    if prev_muted is not None and self.hass.services.has_service(
+                        "media_player", "volume_mute"
+                    ):
+                        await self.hass.services.async_call(
+                            "media_player",
+                            "volume_mute",
+                            {"entity_id": target_mp, "is_volume_muted": prev_muted},
+                            blocking=True,
+                        )
+                    elif prev_volume is not None and self.hass.services.has_service(
+                        "media_player", "volume_set"
+                    ):
+                        await self.hass.services.async_call(
+                            "media_player",
+                            "volume_set",
+                            {"entity_id": target_mp, "volume_level": prev_volume},
+                            blocking=True,
+                        )
+                except Exception as ex:
+                    _LOGGER.debug("Could not restore volume on %s: %s", target_mp, ex)
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn on light."""
@@ -341,7 +422,9 @@ class GoogleHomeCloudLight(
                         brightness=pct,
                     )
                     await self._async_send_assistant_command(
-                        cmd, target_media_player=bool(target_mp)
+                        cmd,
+                        target_media_player=bool(target_mp),
+                        is_nightlight=True,
                     )
                 else:
                     action = (
@@ -355,7 +438,9 @@ class GoogleHomeCloudLight(
                         dev_name,
                     )
                     await self._async_send_assistant_command(
-                        cmd, target_media_player=bool(target_mp)
+                        cmd,
+                        target_media_player=bool(target_mp),
+                        is_nightlight=True,
                     )
 
             else:
@@ -463,7 +548,9 @@ class GoogleHomeCloudLight(
                     dev_name,
                 )
                 await self._async_send_assistant_command(
-                    cmd, target_media_player=bool(target_mp)
+                    cmd,
+                    target_media_player=bool(target_mp),
+                    is_nightlight=True,
                 )
             elif not already_off:
                 await self._async_send_assistant_command(

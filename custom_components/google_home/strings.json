@@ -23,7 +23,8 @@
           "operation_mode": "Operation Mode",
           "third_party_entity_mode": "Third-Party Devices Representation",
           "selected_homes": "Google Homes to synchronize",
-          "ignore_ha_synced_devices": "Ignore devices already synced from Home Assistant (prevents duplicate entities & automation loops)"
+          "ignore_ha_synced_devices": "Ignore devices already synced from Home Assistant (prevents duplicate entities & automation loops)",
+          "mute_sdk_nightlight": "Mute speaker during nightlight control via Assistant SDK (when no media is playing)"
         }
       },
       "addon": {
@@ -110,6 +111,7 @@
           "third_party_entity_mode": "Third-Party Devices Representation",
           "selected_homes": "Google Homes to synchronize",
           "ignore_ha_synced_devices": "Ignore devices synced from Home Assistant",
+          "mute_sdk_nightlight": "Mute speaker during nightlight control via Assistant SDK (when no media is playing)",
           "local_update_interval": "Local Speaker Polling Interval (seconds, min 60s, default 120s)",
           "cloud_update_interval": "Cloud HomeGraph Polling Interval (seconds, min 60s, default 300s)",
           "master_token": "Master Token (hidden - paste new aas_et/... or oauth2_4/... token to update)"

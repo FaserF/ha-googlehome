@@ -44,6 +44,7 @@ from .const import (
     CONF_IGNORE_HA_SYNCED_DEVICES,
     CONF_LOCAL_UPDATE_INTERVAL,
     CONF_MASTER_TOKEN,
+    CONF_MUTE_SDK_NIGHTLIGHT,
     CONF_OPERATION_MODE,
     CONF_SELECTED_HOMES,
     CONF_THIRD_PARTY_ENTITY_MODE,
@@ -56,6 +57,7 @@ from .const import (
     DEFAULT_CLOUD_UPDATE_INTERVAL,
     DEFAULT_IGNORE_HA_SYNCED_DEVICES,
     DEFAULT_LOCAL_UPDATE_INTERVAL,
+    DEFAULT_MUTE_SDK_NIGHTLIGHT,
     DEFAULT_THIRD_PARTY_ENTITY_MODE,
     DOMAIN,
     MODE_CLOUD,
@@ -360,6 +362,9 @@ class GoogleHomeFlowHandler(AddonFlowMixin, ConfigFlow, domain=DOMAIN):
                 CONF_IGNORE_HA_SYNCED_DEVICES, DEFAULT_IGNORE_HA_SYNCED_DEVICES
             )
             selected_homes = user_input.get(CONF_SELECTED_HOMES)
+            mute_sdk_nightlight = user_input.get(
+                CONF_MUTE_SDK_NIGHTLIGHT, DEFAULT_MUTE_SDK_NIGHTLIGHT
+            )
 
             # Use normalized Google Account email as unique_id to allow multiple distinct accounts
             # while preventing duplicates of the same account
@@ -380,6 +385,7 @@ class GoogleHomeFlowHandler(AddonFlowMixin, ConfigFlow, domain=DOMAIN):
                     CONF_MASTER_TOKEN: self._master_token,
                     CONF_OPERATION_MODE: mode,
                     CONF_THIRD_PARTY_ENTITY_MODE: third_party_mode,
+                    CONF_MUTE_SDK_NIGHTLIGHT: mute_sdk_nightlight,
                     CONF_IGNORE_HA_SYNCED_DEVICES: ignore_ha,
                     CONF_SELECTED_HOMES: selected_homes,
                     CONF_ADDON_HOST: self._addon_host,
@@ -453,6 +459,12 @@ class GoogleHomeFlowHandler(AddonFlowMixin, ConfigFlow, domain=DOMAIN):
             vol.Required(
                 CONF_IGNORE_HA_SYNCED_DEVICES,
                 default=DEFAULT_IGNORE_HA_SYNCED_DEVICES,
+            )
+        ] = BooleanSelector()
+        schema_dict[
+            vol.Required(
+                CONF_MUTE_SDK_NIGHTLIGHT,
+                default=DEFAULT_MUTE_SDK_NIGHTLIGHT,
             )
         ] = BooleanSelector()
 
@@ -675,6 +687,12 @@ class GoogleHomeOptionsFlowHandler(OptionsFlow):
                 CONF_IGNORE_HA_SYNCED_DEVICES, DEFAULT_IGNORE_HA_SYNCED_DEVICES
             ),
         )
+        current_mute_sdk_nightlight = self.config_entry.options.get(
+            CONF_MUTE_SDK_NIGHTLIGHT,
+            self.config_entry.data.get(
+                CONF_MUTE_SDK_NIGHTLIGHT, DEFAULT_MUTE_SDK_NIGHTLIGHT
+            ),
+        )
 
         current_homes = self.config_entry.options.get(
             CONF_SELECTED_HOMES,
@@ -828,6 +846,9 @@ class GoogleHomeOptionsFlowHandler(OptionsFlow):
             {
                 vol.Required(
                     CONF_IGNORE_HA_SYNCED_DEVICES, default=current_ignore_ha
+                ): BooleanSelector(),
+                vol.Required(
+                    CONF_MUTE_SDK_NIGHTLIGHT, default=current_mute_sdk_nightlight
                 ): BooleanSelector(),
                 vol.Required(
                     CONF_LOCAL_UPDATE_INTERVAL,

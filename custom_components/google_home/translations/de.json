@@ -23,7 +23,8 @@
           "operation_mode": "Betriebsmodus",
           "third_party_entity_mode": "Darstellung von Drittanbieter-Geräten",
           "selected_homes": "Zu synchronisierende Google Homes",
-          "ignore_ha_synced_devices": "Von Home Assistant synchronisierte Geräte ignorieren (verhindert Duplikate & Schleifen)"
+          "ignore_ha_synced_devices": "Von Home Assistant synchronisierte Geräte ignorieren (verhindert Duplikate & Schleifen)",
+          "mute_sdk_nightlight": "Lautsprecher bei Nachtlicht-Steuerung über Assistant SDK stummschalten (sofern keine Medienwiedergabe aktiv ist)"
         }
       },
       "addon": {
@@ -110,6 +111,7 @@
           "third_party_entity_mode": "Darstellung von Drittanbieter-Geräten",
           "selected_homes": "Zu synchronisierende Google Homes",
           "ignore_ha_synced_devices": "Von Home Assistant synchronisierte Geräte ignorieren",
+          "mute_sdk_nightlight": "Lautsprecher bei Nachtlicht-Steuerung über Assistant SDK stummschalten (sofern keine Medienwiedergabe aktiv ist)",
           "local_update_interval": "Lokales Lautsprecher-Abfrageintervall (Sekunden, min. 60s, default 120s)",
           "cloud_update_interval": "Cloud HomeGraph-Abfrageintervall (Sekunden, min. 60s, default 300s)",
           "master_token": "Master Token (versteckt - neuen aas_et/... oder oauth2_4/... Token einfügen zum Aktualisieren)"
