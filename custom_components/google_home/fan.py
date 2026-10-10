@@ -30,6 +30,7 @@ from .const import (
     THIRD_PARTY_MODE_ASSISTANT_SDK,
     THIRD_PARTY_MODE_DIRECT_CLOUD,
     THIRD_PARTY_MODE_READONLY,
+    clean_mac_address,
     get_structure_url,
 )
 
@@ -137,12 +138,14 @@ class GoogleHomeCloudFan(
 
         connections = set()
         if cdev and cdev.mac_address:
-            from homeassistant.helpers.device_registry import (
-                CONNECTION_NETWORK_MAC,
-                format_mac,
-            )
+            cleaned_mac = clean_mac_address(cdev.mac_address)
+            if cleaned_mac:
+                from homeassistant.helpers.device_registry import (
+                    CONNECTION_NETWORK_MAC,
+                    format_mac,
+                )
 
-            connections.add((CONNECTION_NETWORK_MAC, format_mac(cdev.mac_address)))
+                connections.add((CONNECTION_NETWORK_MAC, format_mac(cleaned_mac)))
 
         return DeviceInfo(
             identifiers={(DOMAIN, self._device_id)},

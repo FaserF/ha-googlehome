@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 
 from homeassistant.util.dt import as_local, utc_from_timestamp
 
-from .const import DATETIME_STR_FORMAT
+from .const import DATETIME_STR_FORMAT, clean_mac_address
 
 if TYPE_CHECKING:
     from .types import (
@@ -119,8 +119,9 @@ class GoogleHomeDevice:
         """Set firmware version, MAC address, Cast UUID, and OTA status."""
         if firmware:
             self.firmware_version = firmware
-        if mac:
-            self.mac_address = mac
+        cleaned_mac = clean_mac_address(mac)
+        if cleaned_mac:
+            self.mac_address = cleaned_mac
         if cast_uuid:
             self.cast_uuid = cast_uuid
         if ota_status is not None:
@@ -260,7 +261,7 @@ class GoogleHomeDevice:
 
     def set_bluetooth_mac(self, mac: str | None) -> None:
         """Set Bluetooth MAC address."""
-        self._bluetooth_mac = mac
+        self._bluetooth_mac = clean_mac_address(mac)
 
     def get_bluetooth_mac(self) -> str | None:
         """Return Bluetooth MAC address."""

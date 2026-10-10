@@ -53,6 +53,14 @@ def test_google_home_device_creation():
     assert dev.firmware_version == "1.56.281627"
     assert dev.mac_address == "00:1A:2B:3C:4D:5E"
 
+    # All-zero MAC should be treated as None and ignored (Issue #8)
+    dev.mac_address = None
+    dev.set_system_info(mac="00:00:00:00:00:00")
+    assert dev.mac_address is None
+
+    dev.set_bluetooth_mac("00:00:00:00:00:00")
+    assert dev.get_bluetooth_mac() is None
+
 
 def test_google_home_timer_parsing():
     """Test parsing timers."""

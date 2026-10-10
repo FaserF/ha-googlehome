@@ -24,6 +24,7 @@ from .const import (
     DOMAIN,
     MANUFACTURER,
     THIRD_PARTY_MODE_READONLY,
+    clean_mac_address,
     get_structure_url,
 )
 
@@ -144,12 +145,14 @@ class GoogleHomeCloudAlarmControlPanel(
         device = self.get_device()
         connections = set()
         if device and device.mac_address:
-            from homeassistant.helpers.device_registry import (
-                CONNECTION_NETWORK_MAC,
-                format_mac,
-            )
+            cleaned_mac = clean_mac_address(device.mac_address)
+            if cleaned_mac:
+                from homeassistant.helpers.device_registry import (
+                    CONNECTION_NETWORK_MAC,
+                    format_mac,
+                )
 
-            connections.add((CONNECTION_NETWORK_MAC, format_mac(device.mac_address)))
+                connections.add((CONNECTION_NETWORK_MAC, format_mac(cleaned_mac)))
 
         return DeviceInfo(
             identifiers={(DOMAIN, self.device_id)},

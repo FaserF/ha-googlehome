@@ -8,7 +8,13 @@ from typing import TYPE_CHECKING
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import ATTRIBUTION, DOMAIN, MANUFACTURER, get_structure_url
+from .const import (
+    ATTRIBUTION,
+    DOMAIN,
+    MANUFACTURER,
+    clean_mac_address,
+    get_structure_url,
+)
 from .coordinator import GoogleHomeDataUpdateCoordinator
 from .models import GoogleHomeDevice
 
@@ -70,7 +76,8 @@ class GoogleHomeBaseEntity(CoordinatorEntity[GoogleHomeDataUpdateCoordinator]):
                 format_mac,
             )
 
-            mac = device.mac_address or device.get_bluetooth_mac()
+            raw_mac = device.mac_address or device.get_bluetooth_mac()
+            mac = clean_mac_address(raw_mac)
             if mac:
                 connections.add((CONNECTION_NETWORK_MAC, format_mac(mac)))
 

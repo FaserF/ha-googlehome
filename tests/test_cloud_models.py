@@ -116,3 +116,17 @@ def test_cloud_device_automation_routine():
         traits=["action.devices.traits.Scene"],
     )
     assert routine.is_automation_routine is True
+
+
+def test_clean_mac_address():
+    """Test clean_mac_address utility (Issue #8)."""
+    from custom_components.google_home.const import clean_mac_address
+
+    assert clean_mac_address(None) is None
+    assert clean_mac_address("") is None
+    assert clean_mac_address("00:00:00:00:00:00") is None
+    assert clean_mac_address("00-00-00-00-00-00") is None
+    assert clean_mac_address("000000000000") is None
+    assert clean_mac_address("12:34:56:78:90:ab") == "12:34:56:78:90:ab"
+    assert clean_mac_address("AA:BB:CC:DD:EE:FF") == "AA:BB:CC:DD:EE:FF"
+    assert clean_mac_address("short:mac") is None

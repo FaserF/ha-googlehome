@@ -89,6 +89,17 @@ def get_structure_url(structure_id: str | None, path: str = "devices") -> str:
     return f"https://home.google.com/home/{fmt_id}"
 
 
+def clean_mac_address(mac: str | None) -> str | None:
+    """Return cleaned MAC address, or None if missing, invalid, or all zeros."""
+    if not mac:
+        return None
+    mac_str = str(mac).strip()
+    digits = mac_str.replace(":", "").replace("-", "")
+    if not digits.strip("0") or len(digits) < 12:
+        return None
+    return mac_str
+
+
 DATA_CLIENT: Final = "client"
 DATA_COORDINATOR: Final = "coordinator"
 DATA_CLOUD_CLIENT: Final = "cloud_client"

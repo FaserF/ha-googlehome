@@ -28,6 +28,7 @@ from .const import (
     MANUFACTURER,
     THIRD_PARTY_MODE_ASSISTANT_SDK,
     THIRD_PARTY_MODE_DIRECT_CLOUD,
+    clean_mac_address,
     get_structure_url,
 )
 
@@ -69,7 +70,7 @@ async def async_setup_entry(
         candidate_devices: list[dr.DeviceEntry] = []
 
         # 1. Try MAC address lookup
-        mac = getattr(dev, "mac_address", None)
+        mac = clean_mac_address(getattr(dev, "mac_address", None))
         if mac:
             try:
                 d = dev_reg.async_get_device_by_connection(  # type: ignore[call-arg]
@@ -94,10 +95,11 @@ async def async_setup_entry(
                 ):
                     if getattr(ldev, "cast_uuid", None):
                         cast_uuids.add(str(ldev.cast_uuid).replace("-", ""))
-                    if ldev.mac_address:
+                    l_mac = clean_mac_address(ldev.mac_address)
+                    if l_mac:
                         try:
                             d = dev_reg.async_get_device_by_connection(  # type: ignore[call-arg]
-                                (CONNECTION_NETWORK_MAC, format_mac(ldev.mac_address))
+                                (CONNECTION_NETWORK_MAC, format_mac(l_mac))
                             )
                             if d and d not in candidate_devices:
                                 candidate_devices.append(d)
@@ -307,12 +309,14 @@ class GoogleHomeCloudMediaPlayer(
 
         connections = set()
         if cdev and cdev.mac_address:
-            from homeassistant.helpers.device_registry import (
-                CONNECTION_NETWORK_MAC,
-                format_mac,
-            )
+            cleaned_mac = clean_mac_address(cdev.mac_address)
+            if cleaned_mac:
+                from homeassistant.helpers.device_registry import (
+                    CONNECTION_NETWORK_MAC,
+                    format_mac,
+                )
 
-            connections.add((CONNECTION_NETWORK_MAC, format_mac(cdev.mac_address)))
+                connections.add((CONNECTION_NETWORK_MAC, format_mac(cleaned_mac)))
 
         return DeviceInfo(
             identifiers={(DOMAIN, self._device_id)},

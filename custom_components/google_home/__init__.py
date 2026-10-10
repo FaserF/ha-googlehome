@@ -41,6 +41,7 @@ from .const import (
     MODE_HYBRID,
     MODE_LOCAL,
     PLATFORMS,
+    clean_mac_address,
     get_structure_url,
 )
 from .coordinator import GoogleHomeDataUpdateCoordinator
@@ -479,6 +480,24 @@ async def _async_cleanup_stale_devices_and_entities(
             # Remove the device itself
             dev_reg.async_remove_device(dev_entry.id)
         else:
+            # Clean up any zero/placeholder MAC connections from the device registry entry (issue #8)
+            cleaned_connections = {
+                (conn_type, conn_val)
+                for conn_type, conn_val in dev_entry.connections
+                if conn_type != dr.CONNECTION_NETWORK_MAC
+                or clean_mac_address(conn_val) is not None
+            }
+            if cleaned_connections != dev_entry.connections:
+                _LOGGER.info(
+                    "Removing placeholder/zero MAC connection from device %s (%s)",
+                    dev_entry.name,
+                    dev_entry.id,
+                )
+                dev_reg.async_update_device(
+                    dev_entry.id,
+                    merge_connections=cleaned_connections,
+                )
+
             # Check if this is a structure or an actual device
             is_structure = any(
                 ident[1].startswith(f"{entry.entry_id}_structure_")

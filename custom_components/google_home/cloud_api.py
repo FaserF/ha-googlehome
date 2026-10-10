@@ -9,6 +9,7 @@ from glocaltokens.client import GLocalAuthenticationTokens
 from homeassistant.core import HomeAssistant
 
 from .cloud_models import CloudHomeDevice
+from .const import clean_mac_address
 from .exceptions import AuthenticationFailed
 
 _LOGGER = logging.getLogger(__name__)
@@ -686,7 +687,7 @@ class GoogleHomeCloudClient:
                 hardware_model=hardware_model,
                 hardware_version=hardware_version if hardware_version else None,
                 firmware_version=firmware_version if firmware_version else None,
-                mac_address=mac_address if mac_address else None,
+                mac_address=clean_mac_address(mac_address),
                 room_name=room_name,
                 structure_id=item_structure_id if item_structure_id else None,
                 structure_name=item_structure_name if item_structure_name else None,
