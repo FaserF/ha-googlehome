@@ -82,15 +82,33 @@ def main() -> int:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
     try:
         data = fetch_and_parse_firmwares()
+        output_path = (
+            Path(__file__).resolve().parent.parent.parent / "firmware_versions.json"
+        )
+
+        # Check existing content to avoid unnecessary timestamp updates if firmware versions haven't changed
+        if output_path.exists():
+            try:
+                with open(output_path, encoding="utf-8") as f:
+                    existing_payload = json.load(f)
+                existing_prod = existing_payload.get("production", {})
+                existing_prev = existing_payload.get("preview", {})
+                if existing_prod == data.get(
+                    "production"
+                ) and existing_prev == data.get("preview"):
+                    _LOGGER.info(
+                        "Firmware versions are completely identical to existing file. Skipping write to avoid timestamp commit spam."
+                    )
+                    return 0
+            except Exception as err:
+                _LOGGER.debug("Could not parse existing firmware file: %s", err)
+
         out_payload = {
             "updated_at": datetime.now(UTC).isoformat(),
             "source": URL,
             **data,
         }
 
-        output_path = (
-            Path(__file__).resolve().parent.parent.parent / "firmware_versions.json"
-        )
         with open(output_path, "w", encoding="utf-8") as f:
             json.dump(out_payload, f, indent=2, ensure_ascii=False)
             f.write("\n")

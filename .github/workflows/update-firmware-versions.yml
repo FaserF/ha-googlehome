@@ -70,10 +70,25 @@ jobs:
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          if git diff --quiet firmware_versions.json; then
-            echo "No firmware changes detected."
-          else
+          # Ensure there are genuine firmware version changes (not just timestamp/whitespace)
+          HAS_VERSION_CHANGES=$(python -c '
+          import json, subprocess
+          try:
+              old_raw = subprocess.check_output(["git", "show", "HEAD:firmware_versions.json"], text=True)
+              old_data = json.loads(old_raw)
+              with open("firmware_versions.json", encoding="utf-8") as f:
+                  new_data = json.load(f)
+              prod_changed = old_data.get("production") != new_data.get("production")
+              prev_changed = old_data.get("preview") != new_data.get("preview")
+              print("true" if (prod_changed or prev_changed) else "false")
+          except Exception:
+              print("true")
+          ')
+          if [ "$HAS_VERSION_CHANGES" = "true" ] && ! git diff --quiet firmware_versions.json; then
             git add firmware_versions.json
             git commit -m "chore(firmware): update latest Google Home firmware versions [skip ci]"
             git push
+          else
+            echo "No meaningful firmware version changes detected (or only timestamp changed). Skipping commit."
+            git checkout firmware_versions.json || true
           fi
