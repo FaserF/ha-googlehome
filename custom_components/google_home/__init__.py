@@ -20,6 +20,7 @@ from .const import (
     CONF_ANDROID_ID,
     CONF_AUTH_METHOD,
     CONF_CLOUD_UPDATE_INTERVAL,
+    CONF_EXCLUDED_SERVICES,
     CONF_IGNORE_HA_SYNCED_DEVICES,
     CONF_LOCAL_UPDATE_INTERVAL,
     CONF_MASTER_TOKEN,
@@ -152,6 +153,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             android_id=android_id,
             ignore_ha_synced=ignore_ha_synced,
             selected_homes=selected_homes,
+            excluded_services=entry.options.get(
+                CONF_EXCLUDED_SERVICES, entry.data.get(CONF_EXCLUDED_SERVICES, [])
+            ),
         )
         cloud_coordinator = GoogleHomeCloudDataUpdateCoordinator(
             hass=hass,
@@ -270,14 +274,55 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if cloud_coord:
         entry.async_on_unload(cloud_coord.async_add_listener(_on_coordinator_update))
 
-    # Clean up stale devices and entities only if all enabled coordinators already have data
-    both_ready = (local_coord is None or bool(local_coord.data)) and (
-        cloud_coord is None or bool(cloud_coord.data)
-    )
-    if both_ready and (local_coord is not None or cloud_coord is not None):
+    # The cleanup helper also handles a successful refresh with every service excluded.
+    if local_coord is not None or cloud_coord is not None:
         await _async_cleanup_stale_devices_and_entities(hass, entry)
 
     return True
+
+
+@callback
+def _async_cleanup_excluded_services(
+    hass: HomeAssistant, entry: ConfigEntry, cloud_coordinator: Any
+) -> None:
+    """Remove only this entry's excluded cloud entities, preserving other integrations."""
+    if cloud_coordinator is None or not cloud_coordinator.last_update_success:
+        return
+    excluded_ids = cloud_coordinator.client.excluded_device_ids
+    if not excluded_ids:
+        return
+
+    ent_reg = er.async_get(hass)
+    dev_reg = dr.async_get(hass)
+    affected_devices: set[str] = set()
+    for entity in er.async_entries_for_config_entry(ent_reg, entry.entry_id):
+        uid = entity.unique_id
+        if any(
+            uid.startswith(f"{dev_id}_cloud_")
+            or uid
+            in (
+                f"google_home_cloud_fan_{dev_id}",
+                f"google_home_cloud_media_{dev_id}",
+            )
+            for dev_id in excluded_ids
+        ):
+            if entity.device_id:
+                affected_devices.add(entity.device_id)
+            ent_reg.async_remove(entity.entity_id)
+
+    # Disabled entities may have been removed previously; also find registry-only devices.
+    for device in dr.async_entries_for_config_entry(dev_reg, entry.entry_id):
+        if any((DOMAIN, dev_id) in device.identifiers for dev_id in excluded_ids):
+            affected_devices.add(device.id)
+
+    for device_id in affected_devices:
+        if not any(
+            entity.config_entry_id == entry.entry_id
+            for entity in er.async_entries_for_device(ent_reg, device_id)
+        ):
+            dev_reg.async_update_device(
+                device_id, remove_config_entry_id=entry.entry_id
+            )
 
 
 async def _async_cleanup_stale_devices_and_entities(
@@ -289,6 +334,9 @@ async def _async_cleanup_stale_devices_and_entities(
     data = hass.data.get(DOMAIN, {}).get(entry.entry_id, {})
     local_coordinator = data.get(DATA_COORDINATOR)
     cloud_coordinator = data.get(DATA_CLOUD_COORDINATOR)
+
+    # Run even when every cloud device is excluded and coordinator.data is empty.
+    _async_cleanup_excluded_services(hass, entry, cloud_coordinator)
 
     # If any enabled coordinator is still in the process of its initial refresh, do not prune
     if (

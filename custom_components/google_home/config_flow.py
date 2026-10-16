@@ -18,7 +18,7 @@ from homeassistant.config_entries import (
     ConfigFlowResult,
     OptionsFlow,
 )
-from homeassistant.core import callback
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.selector import (
     BooleanSelector,
@@ -37,6 +37,7 @@ from homeassistant.helpers.service_info.hassio import HassioServiceInfo
 
 from .addon_flow import AddonFlowMixin
 from .api import GlocaltokensApiClient
+from .cloud_api import GoogleHomeCloudClient
 from .const import (
     ADDON_CONTAINER_HOSTS,
     AUTH_METHOD_ADDON,
@@ -45,6 +46,7 @@ from .const import (
     CONF_ADDON_PORT,
     CONF_AUTH_METHOD,
     CONF_CLOUD_UPDATE_INTERVAL,
+    CONF_EXCLUDED_SERVICES,
     CONF_IGNORE_HA_SYNCED_DEVICES,
     CONF_LOCAL_UPDATE_INTERVAL,
     CONF_MASTER_TOKEN,
@@ -77,6 +79,41 @@ from .exceptions import (
 )
 
 _LOGGER: logging.Logger = logging.getLogger(__package__)
+
+
+async def _async_service_options(
+    hass: HomeAssistant,
+    username: str | None,
+    master_token: str | None,
+    excluded_services: list[str],
+    client: GoogleHomeCloudClient | None = None,
+) -> list[SelectOptionDict]:
+    """Offer unfiltered provider IDs and keep saved exclusions selectable on failure."""
+    services: dict[str, str] = {}
+    if client is not None or master_token:
+        try:
+            if client is None:
+                client = GoogleHomeCloudClient(
+                    hass=hass, username=username, master_token=master_token or ""
+                )
+            services = await client.async_get_available_services()
+        except Exception as err:
+            _LOGGER.debug("Could not discover linked services: %s", err)
+    for service_id in excluded_services:
+        services.setdefault(service_id, service_id)
+    return [
+        SelectOptionDict(
+            value=service_id,
+            label=(
+                f"{name} ({service_id})"
+                if list(services.values()).count(name) > 1
+                else name
+            ),
+        )
+        for service_id, name in sorted(
+            services.items(), key=lambda item: (item[1].casefold(), item[0])
+        )
+    ]
 
 
 class GoogleHomeFlowHandler(AddonFlowMixin, ConfigFlow, domain=DOMAIN):
@@ -392,6 +429,7 @@ class GoogleHomeFlowHandler(AddonFlowMixin, ConfigFlow, domain=DOMAIN):
                     CONF_MUTE_SDK_NIGHTLIGHT: mute_sdk_nightlight,
                     CONF_IGNORE_HA_SYNCED_DEVICES: ignore_ha,
                     CONF_SELECTED_HOMES: selected_homes,
+                    CONF_EXCLUDED_SERVICES: user_input.get(CONF_EXCLUDED_SERVICES, []),
                     CONF_ADDON_HOST: self._addon_host,
                     CONF_ADDON_PORT: self._addon_port,
                 },
@@ -413,6 +451,10 @@ class GoogleHomeFlowHandler(AddonFlowMixin, ConfigFlow, domain=DOMAIN):
             except Exception as err:
                 _LOGGER.debug("Could not query homes during config flow: %s", err)
 
+        service_options = await _async_service_options(
+            self.hass, self._username, self._master_token, []
+        )
+
         has_assistant_sdk = self.hass.services.has_service(
             "google_assistant_sdk", "send_text_command"
         )
@@ -429,6 +471,11 @@ class GoogleHomeFlowHandler(AddonFlowMixin, ConfigFlow, domain=DOMAIN):
             initial_third_party_options.append(THIRD_PARTY_MODE_ASSISTANT_SDK)
 
         schema_dict: dict[Any, Any] = {
+            vol.Optional(CONF_EXCLUDED_SERVICES, default=[]): SelectSelector(
+                SelectSelectorConfig(
+                    options=service_options, multiple=True, mode=SelectSelectorMode.LIST
+                )
+            ),
             vol.Required(CONF_OPERATION_MODE, default=MODE_HYBRID): SelectSelector(
                 SelectSelectorConfig(
                     options=[MODE_HYBRID, MODE_LOCAL, MODE_CLOUD],
@@ -642,6 +689,8 @@ class GoogleHomeOptionsFlowHandler(OptionsFlow):
     ) -> ConfigFlowResult:
         """Manage Google Home options."""
         errors: dict[str, str] = {}
+        username = self.config_entry.data.get(CONF_USERNAME, "")
+        session = async_get_clientsession(self.hass)
 
         if user_input is not None:
             selected_third_party_mode = user_input.get(
@@ -655,8 +704,6 @@ class GoogleHomeOptionsFlowHandler(OptionsFlow):
                     errors["base"] = "assistant_sdk_missing"
 
             new_token = user_input.get(CONF_MASTER_TOKEN, "").strip()
-            username = self.config_entry.data.get(CONF_USERNAME, "")
-            session = async_get_clientsession(self.hass)
 
             # If user entered an oauth2_4 web token, exchange it automatically
             if new_token and (
@@ -675,6 +722,7 @@ class GoogleHomeOptionsFlowHandler(OptionsFlow):
                     errors["base"] = "invalid_token"
 
             if not errors:
+                user_input.setdefault(CONF_EXCLUDED_SERVICES, [])
                 return self.async_create_entry(title="", data=user_input)
 
         current_token = self.config_entry.options.get(
@@ -709,6 +757,13 @@ class GoogleHomeOptionsFlowHandler(OptionsFlow):
         cloud_coord = entry_data.get(DATA_CLOUD_COORDINATOR)
         cloud_client = entry_data.get(DATA_CLOUD_CLIENT)
         local_client = entry_data.get(DATA_CLIENT)
+        current_excluded = self.config_entry.options.get(
+            CONF_EXCLUDED_SERVICES,
+            self.config_entry.data.get(CONF_EXCLUDED_SERVICES, []),
+        )
+        service_options = await _async_service_options(
+            self.hass, username, current_token, current_excluded, cloud_client
+        )
 
         # 1. From active cloud coordinator data
         if cloud_coord and cloud_coord.data:
@@ -801,6 +856,13 @@ class GoogleHomeOptionsFlowHandler(OptionsFlow):
         ]
 
         schema_dict: dict[Any, Any] = {
+            vol.Optional(
+                CONF_EXCLUDED_SERVICES, default=current_excluded
+            ): SelectSelector(
+                SelectSelectorConfig(
+                    options=service_options, multiple=True, mode=SelectSelectorMode.LIST
+                )
+            ),
             vol.Required(CONF_OPERATION_MODE, default=current_mode): SelectSelector(
                 SelectSelectorConfig(
                     options=[MODE_HYBRID, MODE_LOCAL, MODE_CLOUD],
