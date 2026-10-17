@@ -40,6 +40,7 @@ from .exceptions import (
     InvalidMasterToken,
     TwoFactorRequired,
 )
+from .firmware import extract_firmware_versions
 from .models import GoogleHomeDevice
 
 if TYPE_CHECKING:
@@ -628,7 +629,6 @@ class GlocaltokensApiClient:
                     rssi=rssi_int,
                 )
 
-                build_info = eureka_data.get("build_info") or {}
                 device_info = eureka_data.get("device_info") or {}
                 setup_data = eureka_data.get("setup") or {}
                 cast_uuid = (
@@ -648,21 +648,8 @@ class GlocaltokensApiClient:
                         cast_uuid = cast_uuid[5:]
                     cast_uuid = cast_uuid.replace("-", "").strip()
 
-                firmware = (
-                    build_info.get("cast_build_revision")
-                    or build_info.get("system_build_number")
-                    or build_info.get("build_version")
-                    or eureka_data.get("cast_build_revision")
-                    or eureka_data.get("system_build_number")
-                    or eureka_data.get("build_version")
-                    or device_info.get("cast_build_revision")
-                    or device_info.get("system_build_number")
-                    or device_info.get("build_version")
-                    or (
-                        str(eureka_data.get("version"))
-                        if isinstance(eureka_data.get("version"), str)
-                        else None
-                    )
+                firmware, cast_firmware, system_firmware = extract_firmware_versions(
+                    eureka_data
                 )
                 net_mac = (
                     (
@@ -700,6 +687,8 @@ class GlocaltokensApiClient:
 
                 device.set_system_info(
                     firmware=fw_str,
+                    cast_firmware=cast_firmware,
+                    system_firmware=system_firmware,
                     mac=str(net_mac) if net_mac else None,
                     cast_uuid=cast_uuid if cast_uuid else None,
                     ota_status=str(ota_status) if ota_status else None,
