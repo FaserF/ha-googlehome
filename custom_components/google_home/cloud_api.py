@@ -35,6 +35,7 @@ class GoogleHomeCloudClient:
         android_id: str | None = None,
         ignore_ha_synced: bool = True,
         selected_homes: list[str] | None = None,
+        excluded_services: list[str] | None = None,
     ) -> None:
         """Initialize cloud client."""
         self.hass = hass
@@ -43,6 +44,8 @@ class GoogleHomeCloudClient:
         self.android_id = android_id
         self.ignore_ha_synced = ignore_ha_synced
         self.selected_homes = selected_homes
+        self.excluded_services = set(excluded_services or ())
+        self.excluded_device_ids: set[str] = set()
         self._auth_client = GLocalAuthenticationTokens(
             username=username,
             master_token=master_token,
@@ -52,6 +55,46 @@ class GoogleHomeCloudClient:
         # Populated by _get_available_homes_sync; maps short/prefix UUID → canonical 64-char hex
         self._structure_alias_map: dict[str, str] = {}
         self._cached_homes: dict[str, str] = {}
+
+    @staticmethod
+    def _get_service_info(item: Any, project_names: dict[str, str]) -> tuple[str, str]:
+        """Read a device's linked service identity without relying on its name."""
+        info = getattr(getattr(item, "device_info", None), "agent_info", None)
+        service_id = (
+            getattr(info, "api_project_id", "")
+            or getattr(info, "agent_id", "")
+            or getattr(info, "unique_id", "")
+        )
+        service_name = (
+            project_names.get(service_id, "")
+            or getattr(info, "agent_name", "")
+            or service_id
+        )
+        return service_id, service_name
+
+    @staticmethod
+    def _get_project_names(homegraph: Any) -> dict[str, str]:
+        """Map Google's linked service IDs to display names."""
+        return {
+            project.code: project.name
+            for project in getattr(homegraph, "project_types", [])
+            if getattr(project, "code", "") and getattr(project, "name", "")
+        }
+
+    async def async_get_available_services(self) -> dict[str, str]:
+        """Discover linked services, including services currently excluded."""
+        return await self.hass.async_add_executor_job(self._get_available_services_sync)
+
+    def _get_available_services_sync(self) -> dict[str, str]:
+        """Read provider metadata from the unfiltered HomeGraph."""
+        homegraph = self._auth_client.get_homegraph()
+        project_names = self._get_project_names(homegraph)
+        services: dict[str, str] = {}
+        for item in getattr(getattr(homegraph, "home", None), "devices", []):
+            service_id, service_name = self._get_service_info(item, project_names)
+            if service_id:
+                services[service_id] = service_name
+        return services
 
     async def async_get_available_homes(self) -> dict[str, str]:
         """Fetch dictionary of available home_id -> home_name from HomeGraph."""
@@ -276,12 +319,8 @@ class GoogleHomeCloudClient:
         raw_devices = getattr(homegraph.home, "devices", [])
 
         # Build map of project_id / code -> human-friendly name (e.g. Xiaomi Home, Hue, Tuya, Smart Life)
-        project_name_map: dict[str, str] = {}
-        for pt in getattr(homegraph, "project_types", []):
-            code = getattr(pt, "code", "")
-            pname = getattr(pt, "name", "")
-            if code and pname:
-                project_name_map[code] = pname
+        project_name_map = self._get_project_names(homegraph)
+        excluded_device_ids: set[str] = set()
 
         for item in raw_devices:
             dev_info = getattr(item, "device_info", None)
@@ -361,21 +400,10 @@ class GoogleHomeCloudClient:
             hardware_model = getattr(getattr(item, "hardware", None), "model", "")
 
             # Agent / Manufacturer info
-            agent_info = getattr(dev_info, "agent_info", None)
-            agent_id = ""
-            agent_name = ""
-            if agent_info:
-                agent_id = (
-                    getattr(agent_info, "api_project_id", "")
-                    or getattr(agent_info, "agent_id", "")
-                    or getattr(agent_info, "unique_id", "")
-                )
-                agent_name = project_name_map.get(agent_id, "") or getattr(
-                    agent_info, "agent_name", ""
-                )
-
-            if not agent_name and agent_id:
-                agent_name = project_name_map.get(agent_id, agent_id)
+            agent_id, agent_name = self._get_service_info(item, project_name_map)
+            if agent_id and agent_id in self.excluded_services:
+                excluded_device_ids.add(dev_id)
+                continue
 
             # Check if this device originates from Home Assistant (e.g. Nabu Casa Sync)
             is_ha = any(
@@ -704,6 +732,7 @@ class GoogleHomeCloudClient:
         _LOGGER.debug(
             "Successfully parsed %d cloud devices from Google HomeGraph", len(devices)
         )
+        self.excluded_device_ids = excluded_device_ids
         return devices
 
     async def async_execute_command(

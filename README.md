@@ -293,6 +293,7 @@ You can customize your integration settings at any time without reinstalling:
      - **Control Entities without Execution**: Exposes native control entities tracking live HomeGraph state without sending outbound voice commands.
 
    - **Google Homes to synchronize**: Select or deselect individual homes/structures.
+   - **Linked services to exclude**: Skip cloud devices and routines from providers such as Lutron or Philips Hue when they are already integrated directly in Home Assistant. Leave empty to include all services. This does not unlink the service from Google Home or affect its native Home Assistant integration. Removing an exclusion imports the devices again on reload. Local speaker polling is unaffected.
    - **Ignore devices synced from Home Assistant**: Toggle loop prevention on/off.
    - **Local Speaker Polling Interval**: Adjust local LAN speaker polling frequency (min: 60s, default: 120s / 2 min).
    - **Cloud HomeGraph Polling Interval**: Adjust cloud HomeGraph synchronization frequency (min: 60s, default: 300s / 5 min).

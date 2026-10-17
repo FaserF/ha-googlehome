@@ -58,6 +58,7 @@ MODE_CLOUD: Final = "cloud"
 CONF_IGNORE_HA_SYNCED_DEVICES: Final = "ignore_ha_synced_devices"
 DEFAULT_IGNORE_HA_SYNCED_DEVICES: Final = True
 CONF_SELECTED_HOMES: Final = "selected_homes"
+CONF_EXCLUDED_SERVICES: Final = "excluded_services"
 
 CONF_THIRD_PARTY_ENTITY_MODE: Final = "third_party_entity_mode"
 THIRD_PARTY_MODE_READONLY: Final = "readonly_sensors"
