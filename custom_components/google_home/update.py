@@ -183,6 +183,10 @@ class GoogleHomeUpdateEntity(GoogleHomeBaseEntity, UpdateEntity):
         device = self.get_device()
         attrs: dict[str, Any] = {}
         if device:
+            if device.cast_firmware_version:
+                attrs["cast_firmware_version"] = device.cast_firmware_version
+            if device.system_firmware_version:
+                attrs["system_firmware_version"] = device.system_firmware_version
             if device.hardware:
                 attrs["hardware"] = device.hardware
             if device.ota_status:

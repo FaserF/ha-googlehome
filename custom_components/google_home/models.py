@@ -51,6 +51,8 @@ class GoogleHomeDevice:
         self.structure_id = structure_id
         self.structure_name = structure_name
         self.firmware_version: str | None = None
+        self.cast_firmware_version: str | None = None
+        self.system_firmware_version: str | None = None
         self.latest_firmware_version: str | None = None
         self.release_notes: str | None = None
         self.ota_status: str | None = None
@@ -115,10 +117,16 @@ class GoogleHomeDevice:
         ota_status: str | None = None,
         latest_firmware: str | None = None,
         release_notes: str | None = None,
+        cast_firmware: str | None = None,
+        system_firmware: str | None = None,
     ) -> None:
         """Set firmware version, MAC address, Cast UUID, and OTA status."""
         if firmware:
             self.firmware_version = firmware
+        if cast_firmware:
+            self.cast_firmware_version = cast_firmware
+        if system_firmware:
+            self.system_firmware_version = system_firmware
         cleaned_mac = clean_mac_address(mac)
         if cleaned_mac:
             self.mac_address = cleaned_mac

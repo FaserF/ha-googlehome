@@ -78,7 +78,7 @@ def test_coordinator_apply_firmware_to_device(mock_hass, mock_client):
         ip_address="192.168.1.11",
         hardware="Nest Hub (2nd gen)",
     )
-    dev_hub.set_system_info(firmware="30.000000")
+    dev_hub.set_system_info(firmware="30.20260121.103.1604600")
 
     dev_cast = GoogleHomeDevice(
         device_id="dev3",
