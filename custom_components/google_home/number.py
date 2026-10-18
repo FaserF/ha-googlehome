@@ -3,16 +3,18 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from homeassistant.components.number import NumberMode, RestoreNumber
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import Event, EventStateChangedData, HomeAssistant, callback
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.event import TrackStates, async_track_state_change_filtered
 
 from .assistant_helper import format_command
 from .const import (
     CONF_THIRD_PARTY_ENTITY_MODE,
-    DATA_CLOUD_COORDINATOR,
     DATA_COORDINATOR,
     DEFAULT_THIRD_PARTY_ENTITY_MODE,
     DOMAIN,
@@ -25,6 +27,7 @@ from .const import (
 from .coordinator import GoogleHomeDataUpdateCoordinator
 from .entity import GoogleHomeBaseEntity
 from .models import GoogleHomeDevice
+from .volume import volume_percentage
 
 _LOGGER: logging.Logger = logging.getLogger(__package__)
 
@@ -110,13 +113,7 @@ class GoogleHomeAlarmVolumeNumber(GoogleHomeBaseEntity, RestoreNumber):
             "unknown",
             "unavailable",
         ):
-            try:
-                self._restored_value = float(last_state.state)
-                device = self.get_device()
-                if device and device.get_alarm_volume() is None:
-                    device.set_alarm_volume(self._restored_value)
-            except (ValueError, TypeError):
-                pass
+            self._restored_value = volume_percentage(last_state.state, normalized=False)
 
     @property
     def label(self) -> str:
@@ -135,20 +132,6 @@ class GoogleHomeAlarmVolumeNumber(GoogleHomeBaseEntity, RestoreNumber):
             return ICON_ALARM_VOLUME_MID
         return ICON_ALARM_VOLUME_HIGH
 
-    def _find_target_media_player(self) -> str | None:
-        """Find matching media_player entity for this device in Home Assistant."""
-        dev_name = self.device_name.strip().lower()
-        dev_slug = dev_name.replace(" ", "_")
-
-        for state in self.hass.states.async_all("media_player"):
-            if dev_slug in state.entity_id:
-                return state.entity_id
-            fname = state.attributes.get("friendly_name", "").strip().lower()
-            if fname == dev_name:
-                return state.entity_id
-
-        return None
-
     @property
     def native_value(self) -> float | None:
         """Return current alarm volume percentage (0-100)."""
@@ -160,42 +143,19 @@ class GoogleHomeAlarmVolumeNumber(GoogleHomeBaseEntity, RestoreNumber):
         if vol is not None:
             return vol
 
-        dev_vol = device.get_device_volume()
-        if dev_vol is not None:
-            return dev_vol
+        return self._restored_value
 
-        # Check matched media_player entity volume in Home Assistant
-        target_mp = self._find_target_media_player()
-        if target_mp:
-            mp_state = self.hass.states.get(target_mp)
-            if mp_state and "volume_level" in mp_state.attributes:
-                vlevel = mp_state.attributes.get("volume_level")
-                if vlevel is not None:
-                    return round(float(vlevel) * 100)
-
-        # Check corresponding CloudHomeDevice in cloud coordinator if available
-        entry_data = self.hass.data.get(DOMAIN, {}).get(
-            getattr(self.coordinator.config_entry, "entry_id", ""), {}
-        )
-        cloud_coord = entry_data.get(DATA_CLOUD_COORDINATOR)
-        if cloud_coord and cloud_coord.data:
-            for cdev in cloud_coord.data:
-                if (
-                    cdev.device_id == self.device_id
-                    or cdev.name.lower() == self.device_name.lower()
-                ):
-                    cloud_v = cdev.state.get("currentVolume", cdev.state.get("volume"))
-                    if cloud_v is not None:
-                        try:
-                            cfv = float(cloud_v)
-                            return cfv if cfv > 1.0 else cfv * 100
-                        except (ValueError, TypeError):
-                            pass
-
-        if self._restored_value is not None:
-            return self._restored_value
-
-        return None
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Identify historical alarm values without using media volume as a fallback."""
+        device = self.get_device()
+        live = device.get_alarm_volume() if device else None
+        return {
+            "volume_source": "local_alarm"
+            if live is not None
+            else ("restored" if self._restored_value is not None else "unknown"),
+            "restored_volume": self._restored_value,
+        }
 
     async def async_set_native_value(self, value: float) -> None:
         """Set alarm volume percentage on the device."""
@@ -229,6 +189,7 @@ class GoogleHomeDeviceVolumeNumber(GoogleHomeBaseEntity, RestoreNumber):
         """Initialize."""
         super().__init__(coordinator, device_id, device_name)
         self._restored_value: float | None = None
+        self._last_media_player_entity_id: str | None = None
 
     async def async_added_to_hass(self) -> None:
         """Handle entity which will be added to Home Assistant."""
@@ -238,13 +199,24 @@ class GoogleHomeDeviceVolumeNumber(GoogleHomeBaseEntity, RestoreNumber):
             "unknown",
             "unavailable",
         ):
-            try:
-                self._restored_value = float(last_state.state)
-                device = self.get_device()
-                if device and device.get_device_volume() is None:
-                    device.set_device_volume(self._restored_value)
-            except (ValueError, TypeError):
-                pass
+            self._restored_value = volume_percentage(last_state.state, normalized=False)
+
+        tracker = async_track_state_change_filtered(
+            self.hass,
+            TrackStates(all_states=False, entities=set(), domains={"media_player"}),
+            self._async_cast_state_changed,
+        )
+        self.async_on_remove(tracker.async_remove)
+
+    @callback
+    def _async_cast_state_changed(self, event: Event[EventStateChangedData]) -> None:
+        """Refresh when Cast arrives after startup or changes its live volume."""
+        entity_id = event.data["entity_id"]
+        if entity_id in (
+            self._last_media_player_entity_id,
+            self._find_target_media_player(),
+        ):
+            self.async_write_ha_state()
 
     @property
     def label(self) -> str:
@@ -264,66 +236,96 @@ class GoogleHomeDeviceVolumeNumber(GoogleHomeBaseEntity, RestoreNumber):
         return ICON_ALARM_VOLUME_HIGH
 
     def _find_target_media_player(self) -> str | None:
-        """Find matching media_player entity for this device in Home Assistant."""
+        """Prefer Cast identity/device links; use only exact, unambiguous name matches."""
         dev_name = self.device_name.strip().lower()
         dev_slug = dev_name.replace(" ", "_")
-
+        registry = er.async_get(self.hass)
+        own_entry = registry.async_get(self.entity_id) if self.entity_id else None
+        device = self.get_device()
+        cast_uuid = (device.cast_uuid or "").replace("-", "").lower() if device else ""
+        candidates: list[str] = []
         for state in self.hass.states.async_all("media_player"):
-            if dev_slug in state.entity_id:
+            entry = registry.async_get(state.entity_id)
+            if entry is None or entry.platform != "cast":
+                continue
+            if cast_uuid and entry.unique_id.replace("-", "").lower() == cast_uuid:
+                return state.entity_id
+            if (
+                own_entry
+                and own_entry.device_id
+                and entry.device_id == own_entry.device_id
+            ):
                 return state.entity_id
             fname = state.attributes.get("friendly_name", "").strip().lower()
-            if fname == dev_name:
-                return state.entity_id
+            if fname == dev_name or state.entity_id == f"media_player.{dev_slug}":
+                candidates.append(state.entity_id)
+        return candidates[0] if len(candidates) == 1 else None
 
-        return None
+    def _cast_volume(self) -> tuple[float | None, str | None]:
+        """Return an available Cast reading, never a restored media player state."""
+        target_mp = self._find_target_media_player()
+        if target_mp:
+            self._last_media_player_entity_id = target_mp
+            state = self.hass.states.get(target_mp)
+            if (
+                state
+                and state.state not in ("unknown", "unavailable")
+                and not state.attributes.get("restored")
+            ):
+                return volume_percentage(
+                    state.attributes.get("volume_level"), normalized=True
+                ), target_mp
+        return None, target_mp
+
+    def _volume_reading(self) -> tuple[float | None, str]:
+        """Use only local Cast/device telemetry, then explicitly labelled history."""
+        cast_volume, _ = self._cast_volume()
+        if cast_volume is not None:
+            return cast_volume, "google_cast"
+        device = self.get_device()
+        if device and device.get_device_volume() is not None:
+            return (
+                device.get_device_volume(),
+                device.device_volume_source or "local_api",
+            )
+
+        if self._restored_value is not None:
+            return self._restored_value, "restored"
+        return None, "unknown"
 
     @property
     def native_value(self) -> float | None:
         """Return current media volume percentage (0-100)."""
+        return self._volume_reading()[0]
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Expose volume provenance for startup and live-observation diagnostics."""
         device = self.get_device()
-        if not device:
-            return self._restored_value
-
-        vol = device.get_device_volume()
-        if vol is not None:
-            return vol
-
-        alarm_vol = device.get_alarm_volume()
-        if alarm_vol is not None:
-            return alarm_vol
-
-        # Check matched media_player entity volume in Home Assistant
-        target_mp = self._find_target_media_player()
-        if target_mp:
-            mp_state = self.hass.states.get(target_mp)
-            if mp_state and "volume_level" in mp_state.attributes:
-                vlevel = mp_state.attributes.get("volume_level")
-                if vlevel is not None:
-                    return round(float(vlevel) * 100)
-
-        # Check corresponding CloudHomeDevice in cloud coordinator if available
-        entry_data = self.hass.data.get(DOMAIN, {}).get(
-            getattr(self.coordinator.config_entry, "entry_id", ""), {}
-        )
-        cloud_coord = entry_data.get(DATA_CLOUD_COORDINATOR)
-        if cloud_coord and cloud_coord.data:
-            for cdev in cloud_coord.data:
-                if (
-                    cdev.device_id == self.device_id
-                    or cdev.name.lower() == self.device_name.lower()
-                ):
-                    cloud_v = cdev.state.get("currentVolume", cdev.state.get("volume"))
-                    if cloud_v is not None:
-                        try:
-                            cfv = float(cloud_v)
-                            return cfv if cfv > 1.0 else cfv * 100
-                        except (ValueError, TypeError):
-                            pass
-
-        if self._restored_value is not None:
-            return self._restored_value
-
-        return None
+        cast_volume, target = self._cast_volume()
+        state = self.hass.states.get(target) if target else None
+        if cast_volume is not None:
+            cast_status = "ready"
+        elif state is None:
+            cast_status = "not_found"
+        elif state.state in ("unknown", "unavailable"):
+            cast_status = state.state
+        elif state.attributes.get("restored"):
+            cast_status = "restored"
+        else:
+            cast_status = "volume_missing"
+        return {
+            "volume_source": self._volume_reading()[1],
+            "cast_volume": cast_volume,
+            "local_volume": device.get_device_volume() if device else None,
+            "direct_cast_status": device.direct_cast_status
+            if device
+            else "missing_device",
+            "restored_volume": self._restored_value,
+            "media_player_entity_id": target,
+            "cast_status": cast_status,
+            "cast_integration_loaded": "cast" in self.hass.config.components,
+        }
 
     async def async_set_native_value(self, value: float) -> None:
         """Set media/speaker volume percentage on the device."""
@@ -333,8 +335,6 @@ class GoogleHomeDeviceVolumeNumber(GoogleHomeBaseEntity, RestoreNumber):
             return
 
         vol_int = int(round(value))
-        device.set_device_volume(vol_int)
-
         local_success = False
         # 1. Local HTTP command
         try:

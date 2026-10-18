@@ -47,6 +47,7 @@ from .const import (
 )
 from .coordinator import GoogleHomeDataUpdateCoordinator
 from .exceptions import AuthenticationFailed, InvalidMasterToken, TwoFactorRequired
+from .registry_repair import async_repair_placeholder_macs
 
 _LOGGER: logging.Logger = logging.getLogger(__package__)
 
@@ -246,8 +247,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             )
             ent_reg.async_remove(stale_default_home_ent)
         dev_reg = dr.async_get(hass)
-        stale_dev = dev_reg.async_get_device(
-            identifiers={(DOMAIN, f"{entry.entry_id}_structure_default_home")}
+        stale_dev = dev_reg.async_get_device_by_identifier(
+            (DOMAIN, f"{entry.entry_id}_structure_default_home"), entry.entry_id
         )
         if stale_dev:
             _LOGGER.info(
@@ -256,6 +257,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 stale_dev.id,
             )
             dev_reg.async_remove_device(stale_dev.id)
+
+    # Repair contaminated identities before DeviceInfo registration can reuse them.
+    repair_devices = [
+        device
+        for key in (DATA_COORDINATOR, DATA_CLOUD_COORDINATOR)
+        if (repair_coordinator := entry_data.get(key)) is not None
+        for device in repair_coordinator.data or []
+    ]
+    await async_repair_placeholder_macs(hass, entry, repair_devices)
 
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -543,7 +553,7 @@ async def _async_cleanup_stale_devices_and_entities(
                 )
                 dev_reg.async_update_device(
                     dev_entry.id,
-                    merge_connections=cleaned_connections,
+                    new_connections=cleaned_connections,
                 )
 
             # Check if this is a structure or an actual device
