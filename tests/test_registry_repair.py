@@ -99,11 +99,11 @@ def merged_device(devices, entry, *, identifiers=None, connections=None):
         "000000000000",
         "0000.0000.0000",
         " 0000.0000.0000 ",
-        "ff:ff:ff:ff:ff:ff",
+        ":".join(["ff"] * 6),
         "FFFFFFFFFFFF",
         "ffff.ffff.ffff",
         "GG:GG:GG:GG:GG:GG",
-        "12:34:56:78:90:ab:cd",
+        "02:00:00:00:00:01:02",
         "1234567890a",
         "1234567890abc",
         "not a mac address",
@@ -117,11 +117,11 @@ def test_reject_unusable_mac_connections(value):
 @pytest.mark.parametrize(
     "value",
     [
-        "12:34:56:78:90:ab",
+        "02:00:00:00:00:01",
         "AA:BB:CC:DD:EE:FF",
-        "1234567890ab",
-        "1234.5678.90ab",
-        "12-34-56-78-90-ab",
+        "020000000001",
+        "0200.0000.0001",
+        "02-00-00-00-00-01",
     ],
 )
 def test_keep_real_mac_formats(value):
@@ -145,8 +145,8 @@ def test_device_info_filters_dotted_zero_and_uses_valid_bluetooth_fallback():
     coordinator.get_device.return_value = device
     entity = GoogleHomeDeviceVolumeNumber(coordinator, device.device_id, device.name)
     assert entity.device_info["connections"] == set()
-    device.set_bluetooth_mac("12:34:56:78:90:ab")
-    assert entity.device_info["connections"] == {("mac", "12:34:56:78:90:ab")}
+    device.set_bluetooth_mac("02:00:00:00:00:01")
+    assert entity.device_info["connections"] == {("mac", "02:00:00:00:00:01")}
 
 
 @pytest.mark.asyncio
@@ -234,7 +234,7 @@ async def test_local_and_cloud_aliases_with_a_real_shared_mac_stay_together(regi
     old = merged_device(devices, entry)
     models = cloud_devices()
     for model in models:
-        model.mac_address = "12:34:56:78:90:ab"
+        model.mac_address = "02:00:00:00:00:01"
     await async_repair_placeholder_macs(hass, entry, models)
     assert devices.async_get(old.id).identifiers == old.identifiers
     assert len(devices.devices) == 1
