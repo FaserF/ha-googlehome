@@ -18,7 +18,7 @@
   "issue_tracker": "https://github.com/FaserF/ha-googlehome/issues",
   "requirements": [
     "glocaltokens==0.11.0",
-    "PyChromecast==14.0.10"
+    "pychromecast>=14.0.10"
   ],
   "version": "1.2.1-dev0",
   "zeroconf": [
