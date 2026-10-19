@@ -138,13 +138,25 @@ async def async_repair_placeholder_macs(
         }
         if clean_connections != old.connections:
             registry.async_update_device(old.id, new_connections=clean_connections)
-        ids = {value for domain, value in old.identifiers if domain == DOMAIN}
+        # A previous attempt may already have narrowed the anchor's identifiers
+        # before creating a destination or moving every entity. Keep the original
+        # identity plan until the complete split has been saved successfully.
+        snapshot = saved["backups"][old.id]
+        ids = {value for domain, value in snapshot["identifiers"] if domain == DOMAIN}
+        current_ids = {value for domain, value in old.identifiers if domain == DOMAIN}
         if len(ids) < 2:
             pending.discard(old.id)
             continue
         member_entities = er.async_entries_for_device(
             entities, old.id, include_disabled_entities=True
         )
+        # Include entities already moved by an interrupted attempt. Never reclaim
+        # one that has subsequently been reassigned outside this repair's devices.
+        members = {entity.entity_id: entity for entity in member_entities}
+        for entity_id in snapshot["entities"]:
+            if (entity := entities.async_get(entity_id)) is not None:
+                members[entity_id] = entity
+        member_entities = list(members.values())
         known_cast_ids = {
             cast_id
             for device in devices
@@ -152,12 +164,29 @@ async def async_repair_placeholder_macs(
         }
         safe = (
             ids <= catalog.keys()
+            and bool(current_ids)
+            and current_ids <= ids
             and _exclusively_owned(old, entry.entry_id)
             and all(
                 entity.config_entry_id == entry.entry_id for entity in member_entities
             )
             and all(
                 _entity_device_id(entity.unique_id, ids) is not None
+                for entity in member_entities
+            )
+            and all(
+                entity.device_id == old.id
+                or (
+                    entity.device_id is not None
+                    and isinstance(
+                        owner := registry.async_get(entity.device_id), dr.DeviceEntry
+                    )
+                    and _exclusively_owned(owner, entry.entry_id)
+                    and {
+                        value for domain, value in owner.identifiers if domain == DOMAIN
+                    }
+                    <= ids
+                )
                 for entity in member_entities
             )
             and all(
@@ -185,6 +214,50 @@ async def async_repair_placeholder_macs(
         if len(physical_groups) == 1:
             pending.discard(old.id)
             continue
+        anchor_group = next(
+            (group for group in physical_groups if group == current_ids), None
+        )
+        if current_ids != ids and anchor_group is None:
+            _LOGGER.warning(
+                "Deferring placeholder-MAC repair for %s: its saved anchor no longer "
+                "matches the current physical device identities",
+                old.name or old.id,
+            )
+            continue
+        # Reuse destinations from an interrupted split only while they are still
+        # exclusively ours and have not acquired unrelated identities or entities.
+        destinations_safe = True
+        for group in physical_groups:
+            allowed_identifiers = {(DOMAIN, device_id) for device_id in group} | {
+                ("cast", cast_id)
+                for device in devices
+                if device.device_id in group and (cast_id := _cast_id(device))
+            }
+            for target in registry.async_get_devices(
+                identifiers={(DOMAIN, device_id) for device_id in group},
+                config_entry_id=entry.entry_id,
+            ):
+                if target.id == old.id:
+                    continue
+                if not (
+                    _exclusively_owned(target, entry.entry_id)
+                    and target.identifiers <= allowed_identifiers
+                    and all(
+                        entity.config_entry_id == entry.entry_id
+                        and _entity_device_id(entity.unique_id, set(group)) is not None
+                        for entity in er.async_entries_for_device(
+                            entities, target.id, include_disabled_entities=True
+                        )
+                    )
+                ):
+                    destinations_safe = False
+        if not destinations_safe:
+            _LOGGER.warning(
+                "Deferring placeholder-MAC repair for %s: a destination device now "
+                "has unrelated identities or entities",
+                old.name or old.id,
+            )
+            continue
         # A local/cloud ID mismatch without common hardware might be one device.
         # Require independent cloud records for every group, or distinct Cast IDs.
         cloud_ids = {
@@ -209,7 +282,11 @@ async def async_repair_placeholder_macs(
         ordered = sorted(
             physical_groups,
             key=lambda group: (
-                not any(catalog[device_id].name == old.name for device_id in group),
+                group != anchor_group
+                if anchor_group is not None
+                else not any(
+                    catalog[device_id].name == old.name for device_id in group
+                ),
                 sorted(group),
             ),
         )

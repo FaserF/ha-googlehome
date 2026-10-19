@@ -215,13 +215,12 @@ async def test_direct_reader_error_does_not_discard_other_device_data(
 
 @pytest.mark.asyncio
 async def test_direct_cast_runs_off_event_loop_without_cast_entities(
-    local_client, volume_entity, device, tmp_path
+    hass: HomeAssistant, local_client, volume_entity, device
 ):
     """Exercise API -> real HA executor -> receiver reader -> volume slider."""
     entity, states, _ = volume_entity
     assert states == {}
     device.cast_uuid = "11111111222233334444555555555555"
-    hass = HomeAssistant(str(tmp_path))
     local_client.hass = hass
     del local_client.get_direct_device_volume
     event_loop_thread = threading.get_ident()
@@ -239,21 +238,18 @@ async def test_direct_cast_runs_off_event_loop_without_cast_entities(
         assert threading.get_ident() != event_loop_thread
         return connection
 
-    try:
-        with patch(
-            "custom_components.google_home.local_cast.Chromecast", side_effect=factory
-        ):
-            await local_client.update_device_data(device)
-        assert entity.native_value == 56
-        attrs = entity.extra_state_attributes
-        assert attrs["volume_source"] == "cast_direct"
-        assert attrs["direct_cast_status"] == "ready"
-        assert attrs["cast_volume"] is None
-        assert attrs["media_player_entity_id"] is None
-        assert attrs["local_volume"] == 56
-        connection.disconnect.assert_called_once()
-    finally:
-        await hass.async_stop()
+    with patch(
+        "custom_components.google_home.local_cast.Chromecast", side_effect=factory
+    ):
+        await local_client.update_device_data(device)
+    assert entity.native_value == 56
+    attrs = entity.extra_state_attributes
+    assert attrs["volume_source"] == "cast_direct"
+    assert attrs["direct_cast_status"] == "ready"
+    assert attrs["cast_volume"] is None
+    assert attrs["media_player_entity_id"] is None
+    assert attrs["local_volume"] == 56
+    connection.disconnect.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -489,9 +485,8 @@ def test_unrelated_cast_state_change_does_not_refresh_slider(volume_entity):
 
 
 @pytest.mark.asyncio
-async def test_real_state_event_delivers_late_cast_reading(tmp_path, device):
+async def test_real_state_event_delivers_late_cast_reading(hass: HomeAssistant, device):
     """Exercise HA's real domain-filtered listener and its removal without network I/O."""
-    hass = HomeAssistant(str(tmp_path))
     coordinator = MagicMock()
     coordinator.get_device.return_value = device
     coordinator.config_entry = SimpleNamespace(entry_id="entry")
@@ -507,51 +502,48 @@ async def test_real_state_event_delivers_late_cast_reading(tmp_path, device):
         if eid == "media_player.kitchen"
         else None
     )
-    try:
-        with (
-            patch(
-                "custom_components.google_home.number.er.async_get",
-                return_value=registry,
-            ),
-            patch.object(GoogleHomeBaseEntity, "async_added_to_hass", new=AsyncMock()),
-            patch.object(
-                entity,
-                "async_get_last_state",
-                new=AsyncMock(return_value=SimpleNamespace(state="40")),
-            ),
-        ):
-            await entity.async_added_to_hass()
-            assert entity.native_value == 40
-            hass.states.async_set(
-                "media_player.kitchen",
-                "idle",
-                {
-                    "friendly_name": "Kitchen",
-                    "volume_level": 0.55,
-                },
-            )
-            await hass.async_block_till_done()
-            entity.async_write_ha_state.assert_called_once()
-            assert entity.native_value == 55
-            hass.states.async_set(
-                "media_player.kitchen",
-                "idle",
-                {"friendly_name": "Kitchen", "volume_level": 0.21},
-            )
-            await hass.async_block_till_done()
-            assert entity.async_write_ha_state.call_count == 2
-            assert entity.native_value == 21
-            for remove in removers:
-                remove()
-            hass.states.async_set(
-                "media_player.kitchen",
-                "idle",
-                {
-                    "friendly_name": "Kitchen",
-                    "volume_level": 0.70,
-                },
-            )
-            await hass.async_block_till_done()
-            assert entity.async_write_ha_state.call_count == 2
-    finally:
-        await hass.async_stop()
+    with (
+        patch(
+            "custom_components.google_home.number.er.async_get",
+            return_value=registry,
+        ),
+        patch.object(GoogleHomeBaseEntity, "async_added_to_hass", new=AsyncMock()),
+        patch.object(
+            entity,
+            "async_get_last_state",
+            new=AsyncMock(return_value=SimpleNamespace(state="40")),
+        ),
+    ):
+        await entity.async_added_to_hass()
+        assert entity.native_value == 40
+        hass.states.async_set(
+            "media_player.kitchen",
+            "idle",
+            {
+                "friendly_name": "Kitchen",
+                "volume_level": 0.55,
+            },
+        )
+        await hass.async_block_till_done()
+        entity.async_write_ha_state.assert_called_once()
+        assert entity.native_value == 55
+        hass.states.async_set(
+            "media_player.kitchen",
+            "idle",
+            {"friendly_name": "Kitchen", "volume_level": 0.21},
+        )
+        await hass.async_block_till_done()
+        assert entity.async_write_ha_state.call_count == 2
+        assert entity.native_value == 21
+        for remove in removers:
+            remove()
+        hass.states.async_set(
+            "media_player.kitchen",
+            "idle",
+            {
+                "friendly_name": "Kitchen",
+                "volume_level": 0.70,
+            },
+        )
+        await hass.async_block_till_done()
+        assert entity.async_write_ha_state.call_count == 2

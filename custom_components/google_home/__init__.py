@@ -142,6 +142,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         coordinator.config_entry = entry
         entry_data[DATA_COORDINATOR] = coordinator
 
+    cloud_coordinator = None
     # 2. Setup Cloud Subsystem
     if mode in (MODE_HYBRID, MODE_CLOUD) and master_token:
         from .cloud_api import GoogleHomeCloudClient
@@ -265,7 +266,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if (repair_coordinator := entry_data.get(key)) is not None
         for device in repair_coordinator.data or []
     ]
-    await async_repair_placeholder_macs(hass, entry, repair_devices)
+    try:
+        await async_repair_placeholder_macs(hass, entry, repair_devices)
+    except Exception:
+        _LOGGER.exception(
+            "Placeholder-MAC registry repair failed; continuing integration setup"
+        )
 
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)

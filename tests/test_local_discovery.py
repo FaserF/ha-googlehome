@@ -2,13 +2,11 @@
 
 import asyncio
 import threading
-from types import MappingProxyType, SimpleNamespace
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
-from homeassistant.helpers import device_registry as dr
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.google_home.api import GlocaltokensApiClient
 from custom_components.google_home.const import (
@@ -32,9 +30,8 @@ HOST = "192.0.2.10"
 
 
 @pytest.fixture
-async def local_client(tmp_path):
-    hass = HomeAssistant(str(tmp_path))
-    entry = ConfigEntry(
+async def local_client(hass, device_registry):
+    entry = MockConfigEntry(
         domain=DOMAIN,
         title="Synthetic",
         data={},
@@ -43,24 +40,15 @@ async def local_client(tmp_path):
         version=3,
         minor_version=1,
         unique_id="synthetic",
-        discovery_keys=MappingProxyType({}),
-        subentries_data=[],
     )
-    hass.config_entries = MagicMock()
-    hass.config_entries.async_get_entry.return_value = entry
-    registry = dr.DeviceRegistry(hass)
-    hass.data[dr.DATA_REGISTRY] = registry
-    await registry.async_load()
+    entry.add_to_hass(hass)
     with patch("custom_components.google_home.api.GLocalAuthenticationTokens"):
         client = GlocaltokensApiClient(hass, MagicMock(), zeroconf_instance=MagicMock())
     client.get_access_token = AsyncMock(return_value="synthetic")
     client.async_get_available_homes = AsyncMock(return_value={})
     device = GoogleHomeDevice("office", "Office Display", "synthetic-token")
     client.google_devices = [device]
-    try:
-        yield client, device, registry, entry
-    finally:
-        await hass.async_stop()
+    return client, device, device_registry, entry
 
 
 def register(registry, entry, device_id="office", cast_ids=(CAST_ID,)):
@@ -85,23 +73,25 @@ async def test_dnd_recovers_ip_with_no_cast_entity(local_client):
     switch = GoogleHomeDoNotDisturbSwitch(coordinator, device.device_id, device.name)
     switch.async_write_ha_state = MagicMock()
     event_loop_thread = threading.get_ident()
+    discovery_calls = []
 
     def discover(zc):
         assert threading.get_ident() != event_loop_thread
         assert zc is client.zeroconf_instance
+        discovery_calls.append(zc)
         return [CastAddress(HOST, CAST_ID, None)]
 
     with patch(
         "custom_components.google_home.api.discover_cast_addresses",
-        side_effect=discover,
-    ) as scan:
+        new=discover,
+    ):
         await switch.async_turn_on()
         await switch.async_turn_off()
     assert device.ip_address == HOST
     assert device.cast_uuid == CAST_ID
     assert not device.get_do_not_disturb()
     assert not client.hass.states.async_all("media_player")
-    assert scan.call_count == 1
+    assert discovery_calls == [client.zeroconf_instance]
     calls = client._session.request.call_args_list
     assert len(calls) == 2
     assert calls[0].args == (

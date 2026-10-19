@@ -1,15 +1,13 @@
 """Use real HA registries to regress issue #8 and preserve entity identities."""
 
-from types import MappingProxyType, SimpleNamespace
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
-from homeassistant.helpers import area_registry as ar
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.storage import Store
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.google_home.cloud_models import CloudHomeDevice
 from custom_components.google_home.const import DOMAIN, clean_mac_address
@@ -24,7 +22,7 @@ ZERO = (dr.CONNECTION_NETWORK_MAC, "00:00:00:00:00:00")
 
 
 def config_entry(entry_id="google", domain=DOMAIN):
-    return ConfigEntry(
+    return MockConfigEntry(
         domain=domain,
         entry_id=entry_id,
         title="Synthetic test",
@@ -34,35 +32,16 @@ def config_entry(entry_id="google", domain=DOMAIN):
         version=3,
         minor_version=1,
         unique_id=entry_id,
-        discovery_keys=MappingProxyType({}),
-        subentries_data=[],
     )
 
 
 @pytest.fixture
-async def registries(tmp_path):
-    hass = HomeAssistant(str(tmp_path))
+def registries(hass, device_registry, entity_registry, area_registry):
     entry = config_entry()
     foreign = config_entry("foreign", "other")
-    hass.config_entries = MagicMock()
-    hass.config_entries.async_get_entry.side_effect = {
-        entry.entry_id: entry,
-        foreign.entry_id: foreign,
-    }.get
-    hass.config_entries.async_entries.return_value = [entry, foreign]
-    devices = dr.DeviceRegistry(hass)
-    entities = er.EntityRegistry(hass)
-    areas = ar.AreaRegistry(hass)
-    hass.data[dr.DATA_REGISTRY] = devices
-    hass.data[er.DATA_REGISTRY] = entities
-    hass.data[ar.DATA_REGISTRY] = areas
-    await devices.async_load()
-    await entities.async_load()
-    await areas.async_load()
-    try:
-        yield hass, entry, devices, entities, areas
-    finally:
-        await hass.async_stop()
+    entry.add_to_hass(hass)
+    foreign.add_to_hass(hass)
+    return hass, entry, device_registry, entity_registry, area_registry
 
 
 def cloud_devices():
