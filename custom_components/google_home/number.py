@@ -140,7 +140,13 @@ class GoogleHomeAlarmVolumeNumber(GoogleHomeBaseEntity, RestoreNumber):
         dev_name = self.device_name.strip().lower()
         dev_slug = dev_name.replace(" ", "_")
 
+        from homeassistant.components.media_player import MediaPlayerEntityFeature
+
         for state in self.hass.states.async_all("media_player"):
+            supported = state.attributes.get("supported_features", 0)
+            if not (supported & MediaPlayerEntityFeature.PLAY_MEDIA):
+                continue
+
             if dev_slug in state.entity_id:
                 return state.entity_id
             fname = state.attributes.get("friendly_name", "").strip().lower()
@@ -268,7 +274,13 @@ class GoogleHomeDeviceVolumeNumber(GoogleHomeBaseEntity, RestoreNumber):
         dev_name = self.device_name.strip().lower()
         dev_slug = dev_name.replace(" ", "_")
 
+        from homeassistant.components.media_player import MediaPlayerEntityFeature
+
         for state in self.hass.states.async_all("media_player"):
+            supported = state.attributes.get("supported_features", 0)
+            if not (supported & MediaPlayerEntityFeature.PLAY_MEDIA):
+                continue
+
             if dev_slug in state.entity_id:
                 return state.entity_id
             fname = state.attributes.get("friendly_name", "").strip().lower()

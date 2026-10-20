@@ -535,16 +535,45 @@ async def _async_cleanup_stale_devices_and_entities(
                 if conn_type != dr.CONNECTION_NETWORK_MAC
                 or clean_mac_address(conn_val) is not None
             }
+            device_identifiers = [
+                ident for ident in dev_entry.identifiers if ident[0] == DOMAIN
+            ]
+
             if cleaned_connections != dev_entry.connections:
                 _LOGGER.info(
                     "Removing placeholder/zero MAC connection from device %s (%s)",
                     dev_entry.name,
                     dev_entry.id,
                 )
-                dev_reg.async_update_device(
-                    dev_entry.id,
-                    merge_connections=cleaned_connections,
-                )
+
+                # If historically merged due to the placeholder MAC, split them
+                if len(device_identifiers) > 1:
+                    # Keep the first active identifier on this entry to "unmerge"
+                    primary_ident = None
+                    for ident in device_identifiers:
+                        if ident[1] in active_device_ids:
+                            primary_ident = ident
+                            break
+                    if not primary_ident:
+                        primary_ident = device_identifiers[0]
+
+                    _LOGGER.info(
+                        "Splitting previously merged device %s (%s). Retaining primary identifier %s.",
+                        dev_entry.name,
+                        dev_entry.id,
+                        primary_ident,
+                    )
+
+                    dev_reg.async_update_device(
+                        dev_entry.id,
+                        new_identifiers={primary_ident},
+                        new_connections=cleaned_connections,
+                    )
+                else:
+                    dev_reg.async_update_device(
+                        dev_entry.id,
+                        new_connections=cleaned_connections,
+                    )
 
             # Check if this is a structure or an actual device
             is_structure = any(
