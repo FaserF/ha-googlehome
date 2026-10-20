@@ -342,6 +342,15 @@ def test_live_cast_overrides_cached_local_and_alarm_values(volume_entity, device
     assert entity.native_value == 55
 
 
+def test_cast_volume_reading_does_not_require_play_media_support(volume_entity):
+    """Playback command capability must not gate receiver-volume telemetry."""
+    entity, states, entries = volume_entity
+    add_cast(states, entries, volume=0.21)
+    states["media_player.kitchen"].attributes["supported_features"] = 0
+    assert entity.native_value == 21
+    assert entity.extra_state_attributes["volume_source"] == "google_cast"
+
+
 @pytest.mark.parametrize(
     "state,restored", [("unavailable", False), ("unknown", False), ("idle", True)]
 )

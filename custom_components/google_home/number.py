@@ -237,6 +237,8 @@ class GoogleHomeDeviceVolumeNumber(GoogleHomeBaseEntity, RestoreNumber):
 
     def _find_target_media_player(self) -> str | None:
         """Prefer Cast identity/device links; use only exact, unambiguous name matches."""
+        # Volume telemetry does not require PLAY_MEDIA. Assistant volume commands
+        # use the device name and do not pass a playback target to the SDK.
         dev_name = self.device_name.strip().lower()
         dev_slug = dev_name.replace(" ", "_")
         registry = er.async_get(self.hass)
