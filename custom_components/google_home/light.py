@@ -10,6 +10,7 @@ from homeassistant.components.light import (
     ColorMode,
     LightEntity,
 )
+from homeassistant.components.media_player import MediaPlayerEntityFeature
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity import DeviceInfo
@@ -266,6 +267,10 @@ class GoogleHomeCloudLight(
 
         # 1. Search for matching entity_id in hass states
         for state in self.hass.states.async_all("media_player"):
+            supported = state.attributes.get("supported_features", 0)
+            if not (supported & MediaPlayerEntityFeature.PLAY_MEDIA):
+                continue
+
             if dev_slug in state.entity_id:
                 return state.entity_id
             fname = state.attributes.get("friendly_name", "").strip().lower()
@@ -335,7 +340,10 @@ class GoogleHomeCloudLight(
 
         try:
             service_data: dict[str, Any] = {"command": command}
-            if target_mp:
+            
+            # For Issue #11: When is_nightlight and nightlight mute is enabled, or no supporting media player found,
+            # omit media_player from service_data to execute silently via fallback named commands
+            if target_mp and not should_mute:
                 service_data["media_player"] = target_mp
 
             _LOGGER.debug(
