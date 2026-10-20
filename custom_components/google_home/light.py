@@ -340,7 +340,7 @@ class GoogleHomeCloudLight(
 
         try:
             service_data: dict[str, Any] = {"command": command}
-            
+
             # For Issue #11: When is_nightlight and nightlight mute is enabled, or no supporting media player found,
             # omit media_player from service_data to execute silently via fallback named commands
             if target_mp and not should_mute:

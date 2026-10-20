@@ -1,4 +1,5 @@
 """Test initialization and cleanup logic."""
+
 from unittest.mock import MagicMock
 
 from homeassistant.core import HomeAssistant
