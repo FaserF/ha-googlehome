@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-16T07:59:40.723042+00:00",
+  "updated_at": "2026-10-21T08:23:20.880731+00:00",
   "source": "https://support.google.com/googlehome/answer/7365257?hl=en",
   "production": {
     "Google Home Speaker (2026)": {
@@ -65,15 +65,15 @@
       "release_notes": "Improves network traffic"
     },
     "Google Nest Hub (2nd gen)": {
-      "firmware_version": "31.20260429.103.8713700",
+      "firmware_version": "32.20260727.103.14900",
       "release_notes": "This hotpatch contains critical security and bug fixes."
     },
     "Google Nest Hub Max": {
-      "firmware_version": "31.20260429.103.8713700",
+      "firmware_version": "32.20260727.103.14900",
       "release_notes": "This hotpatch contains critical security and bug fixes."
     },
     "Google Nest Hub (1st gen)": {
-      "firmware_version": "31.20260429.103.8713700",
+      "firmware_version": "32.20260727.103.14900",
       "release_notes": "This hotpatch contains critical security and bug fixes."
     }
   }
