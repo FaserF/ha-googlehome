@@ -76,8 +76,9 @@ class GoogleHomeBaseEntity(CoordinatorEntity[GoogleHomeDataUpdateCoordinator]):
                 format_mac,
             )
 
-            raw_mac = device.mac_address or device.get_bluetooth_mac()
-            mac = clean_mac_address(raw_mac)
+            mac = clean_mac_address(device.mac_address) or clean_mac_address(
+                device.get_bluetooth_mac()
+            )
             if mac:
                 connections.add((CONNECTION_NETWORK_MAC, format_mac(mac)))
 
