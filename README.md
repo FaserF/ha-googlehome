@@ -3,7 +3,8 @@
 [![GitHub Release](https://img.shields.io/github/release/FaserF/ha-googlehome.svg?style=flat-square)](https://github.com/FaserF/ha-googlehome/releases)
 [![Downloads (Current release)](https://img.shields.io/github/downloads/FaserF/ha-googlehome/latest/google_home.zip?label=Downloads%20(Current%20release)&style=flat-square)](https://github.com/FaserF/ha-googlehome/releases)
 [![License](https://img.shields.io/github/license/FaserF/ha-googlehome.svg?style=flat-square)](LICENSE)
-[![hacs](https://img.shields.io/badge/HACS-custom-orange.svg?style=flat-square)](https://hacs.xyz)
+[![Home Assistant Marketplace](https://img.shields.io/badge/Home%20Assistant-Marketplace-blue.svg?style=flat-square)](https://my.home-assistant.io/redirect/hacs_repository/?owner=FaserF&repository=ha-googlehome&category=integration)
+[![HACS / Marketplace custom repository](https://img.shields.io/badge/HACS-custom-orange.svg?style=flat-square)](https://my.home-assistant.io/redirect/hacs_repository/?owner=FaserF&repository=ha-googlehome&category=integration)
 [![Add to Home Assistant](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=google_home)
 [![CI Orchestrator](https://github.com/FaserF/ha-googlehome/actions/workflows/ci-orchestrator.yml/badge.svg)](https://github.com/FaserF/ha-googlehome/actions/workflows/ci-orchestrator.yml)
 
@@ -145,8 +146,10 @@ Choose the best mode during setup or change it anytime in the Options Flow:
 
 ## 📦 Installation
 
-### Via HACS (Recommended)
-1. Open **HACS** in your Home Assistant instance.
+### Via Home Assistant Marketplace / HACS (Recommended)
+
+[![Open your Home Assistant instance and show an add repository dialog with a specific repository URL pre-filled.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=FaserF&repository=ha-googlehome&category=integration)
+1. Click the "Add Repository" button above, or open **Marketplace** (or **HACS** in older versions) in Home Assistant.
 2. Click on the 3 dots in the top right corner and select **Custom repositories**.
 3. Add the repository URL: `https://github.com/FaserF/ha-googlehome` with category **Integration**.
 4. Search for **Google Home**, click **Download**, and restart Home Assistant.
@@ -179,8 +182,8 @@ Both integrations use the same `google_home` domain. When you replace the files 
 
 ### Migration steps
 
-1. **Remove** the old integration files (or let HACS replace them):
-   - Via **HACS**: Add `https://github.com/FaserF/ha-googlehome` as a Custom Repository → Download → overwrite.
+1. **Remove** the old integration files (or let Marketplace/HACS replace them):
+   - Via **Marketplace / HACS**: Add `https://github.com/FaserF/ha-googlehome` as a Custom Repository → Download → overwrite.
    - Manually: copy the new `custom_components/google_home/` folder, replacing the old one.
 2. **Restart** Home Assistant.
 3. ✅ Done — the migration runs silently on startup. Check **Settings → System → Logs** for a `"Successfully auto-migrated leikoilja entry"` confirmation line.
@@ -253,7 +256,7 @@ Both integrations share the same `google_home` domain and the same underlying li
 
 | | **This integration** | **leikoilja** |
 |---|---|---|
-| **HACS status** | ⚠️ Custom repository | ✅ Official HACS default |
+| **Marketplace / HACS status** | ⚠️ Custom repository | ✅ Official default |
 | **Diagnostics support** | ✅ Yes | ❌ Not present |
 | **Translations** | ✅ English, German (`de`), Greek (`el`) | ✅ English + community translations |
 | **Type hints / mypy + ruff CI** | ✅ Full | ✅ Basic |
