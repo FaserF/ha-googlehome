@@ -116,7 +116,7 @@
           "selected_homes": "Zu synchronisierende Google Homes",
           "ignore_ha_synced_devices": "Von Home Assistant synchronisierte Geräte ignorieren",
           "mute_sdk_nightlight": "Lautsprecher bei Nachtlicht-Steuerung über Assistant SDK stummschalten (sofern keine Medienwiedergabe aktiv ist)",
-          "local_update_interval": "Lokales Lautsprecher-Abfrageintervall (Sekunden, min. 60s, default 120s)",
+          "local_update_interval": "Lokales Lautsprecher-Abfrageintervall (Sekunden, min. 5s, default 120s)",
           "cloud_update_interval": "Cloud HomeGraph-Abfrageintervall (Sekunden, min. 60s, default 300s)",
           "master_token": "Master Token (versteckt - neuen aas_et/... oder oauth2_4/... Token einfügen zum Aktualisieren)",
           "excluded_services": "Auszuschließende verknüpfte Dienste"

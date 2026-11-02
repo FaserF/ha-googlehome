@@ -12,6 +12,7 @@ from custom_components.google_home.const import (
     DEFAULT_MUTE_SDK_NIGHTLIGHT,
     DEFAULT_UPDATE_INTERVAL,
     DOMAIN,
+    MIN_LOCAL_UPDATE_INTERVAL,
 )
 
 
@@ -30,3 +31,8 @@ def test_constants():
     assert "127.0.0.1" in ADDON_CONTAINER_HOSTS
     assert CONF_MUTE_SDK_NIGHTLIGHT == "mute_sdk_nightlight"
     assert DEFAULT_MUTE_SDK_NIGHTLIGHT is True
+
+
+def test_min_local_update_interval():
+    """Test min local update interval is 5 seconds."""
+    assert MIN_LOCAL_UPDATE_INTERVAL == 5

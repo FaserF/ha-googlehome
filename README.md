@@ -310,13 +310,14 @@ You can customize your integration settings at any time without reinstalling:
 
 The integration fires native events on the Home Assistant Event Bus that you can use directly in your automations:
 
-- **`google_home_timer_finished`**: Fired when a timer finishes on a speaker.
+- **`google_home_timer_finished`**: Fired when a timer finishes on a speaker. Includes the timer's previous label and duration (`label`, `duration`, `duration_seconds`).
   ```yaml
   trigger:
     - platform: event
       event_type: google_home_timer_finished
       event_data:
         device_name: "Kitchen Speaker"
+        label: "pizza in oven"
   ```
 - **`google_home_alarm_triggered`**: Fired when an alarm goes off.
   ```yaml

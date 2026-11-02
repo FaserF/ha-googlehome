@@ -16,7 +16,8 @@ CONF_UPDATE_INTERVAL: Final = "update_interval"
 DEFAULT_UPDATE_INTERVAL: Final = 120
 
 CONF_LOCAL_UPDATE_INTERVAL: Final = "local_update_interval"
-DEFAULT_LOCAL_UPDATE_INTERVAL: Final = 120  # Default 2 minutes, min 60s
+DEFAULT_LOCAL_UPDATE_INTERVAL: Final = 120  # Default 2 minutes
+MIN_LOCAL_UPDATE_INTERVAL: Final = 5  # Allow fast local polling down to 5s for timers
 CONF_CLOUD_UPDATE_INTERVAL: Final = "cloud_update_interval"
 DEFAULT_CLOUD_UPDATE_INTERVAL: Final = 300  # Default 5 minutes, min 60s
 

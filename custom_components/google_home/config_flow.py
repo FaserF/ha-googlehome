@@ -66,6 +66,7 @@ from .const import (
     DEFAULT_MUTE_SDK_NIGHTLIGHT,
     DEFAULT_THIRD_PARTY_ENTITY_MODE,
     DOMAIN,
+    MIN_LOCAL_UPDATE_INTERVAL,
     MODE_CLOUD,
     MODE_HYBRID,
     MODE_LOCAL,
@@ -918,10 +919,10 @@ class GoogleHomeOptionsFlowHandler(OptionsFlow):
                 ): BooleanSelector(),
                 vol.Required(
                     CONF_LOCAL_UPDATE_INTERVAL,
-                    default=max(60, int(current_local_interval)),
+                    default=max(MIN_LOCAL_UPDATE_INTERVAL, int(current_local_interval)),
                 ): NumberSelector(
                     NumberSelectorConfig(
-                        min=60,
+                        min=MIN_LOCAL_UPDATE_INTERVAL,
                         max=3600,
                         step=5,
                         mode=NumberSelectorMode.BOX,

@@ -63,7 +63,7 @@ def _safe_get_master_token(self: GLocalAuthenticationTokens) -> str | None:
     return _orig_get_master_token(self)
 
 
-GLocalAuthenticationTokens.get_master_token = _safe_get_master_token  # type: ignore[method-assign]
+GLocalAuthenticationTokens.get_master_token = _safe_get_master_token  # type: ignore[assignment,method-assign]
 
 
 class GlocaltokensApiClient:

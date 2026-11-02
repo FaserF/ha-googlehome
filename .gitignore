@@ -189,3 +189,4 @@ resource.py
 
 .ruff_cache/
 *.pyc
+*.whl

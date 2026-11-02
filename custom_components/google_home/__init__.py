@@ -38,6 +38,7 @@ from .const import (
     DEFAULT_LOCAL_UPDATE_INTERVAL,
     DEFAULT_UPDATE_INTERVAL,
     DOMAIN,
+    MIN_LOCAL_UPDATE_INTERVAL,
     MODE_CLOUD,
     MODE_HYBRID,
     MODE_LOCAL,
@@ -94,8 +95,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             legacy_interval if legacy_interval != 60 else DEFAULT_LOCAL_UPDATE_INTERVAL,
         ),
     )
-    # Enforce minimum 60s for local polling
-    local_update_interval = max(60, int(local_update_interval))
+    # Enforce minimum interval for local polling (min 5s for fast timer detection)
+    local_update_interval = max(MIN_LOCAL_UPDATE_INTERVAL, int(local_update_interval))
 
     cloud_update_interval = entry.options.get(
         CONF_CLOUD_UPDATE_INTERVAL,
@@ -845,7 +846,7 @@ async def async_migrate_entry(hass: HomeAssistant, config_entry: ConfigEntry) ->
         legacy_update_interval: int = int(
             old_data.get(CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL)
         )
-        local_update_interval = max(60, legacy_update_interval)
+        local_update_interval = max(MIN_LOCAL_UPDATE_INTERVAL, legacy_update_interval)
 
         # Determine best auth_method based on what credentials are present
         auth_method = AUTH_METHOD_TOKEN if master_token else AUTH_METHOD_APP_PASSWORD
