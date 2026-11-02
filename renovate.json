@@ -9,6 +9,10 @@
   "rangeStrategy": "pin",
   "packageRules": [
     {
+      "matchPackageNames": ["pychromecast"],
+      "rangeStrategy": "replace"
+    },
+    {
       "matchCategories": [
         "python"
       ],
