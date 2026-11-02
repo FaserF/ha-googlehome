@@ -168,6 +168,15 @@ FIRMWARE_VERSIONS_URL: Final = (
 )
 FIRMWARE_CHECK_INTERVAL: Final = timedelta(hours=24)
 
+# Cast & Nest hardware codename to official Google model mappings
+HARDWARE_MODEL_MAP: Final[dict[str, str]] = {
+    "j2": "Google Nest Audio",
+    "h2c": "Google Nest Mini",
+    "h0a": "Google Home Mini",
+    "h1a": "Google Home",
+    "c1a": "Google Home Max",
+}
+
 SERVICE_REBOOT: Final = "reboot_device"
 SERVICE_DELETE_ALARM: Final = "delete_alarm"
 SERVICE_DELETE_TIMER: Final = "delete_timer"

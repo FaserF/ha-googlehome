@@ -103,6 +103,41 @@ def test_coordinator_apply_firmware_to_device(mock_hass, mock_client):
     coord._apply_firmware_to_device(dev_cast, prod_versions)
     assert dev_cast.latest_firmware_version == "1.68.cast_20251119_1643_RC14.834495410"
 
+    # Test hardware codename matching for Nest Audio (J2) and Nest Mini (H2C)
+    dev_j2 = GoogleHomeDevice(
+        device_id="dev_j2",
+        name="Wohnzimmer",  # Name does not mention Nest Audio
+        auth_token="token",
+        ip_address="192.168.1.13",
+        hardware="J2",
+    )
+    dev_j2.set_system_info(firmware="3.75.123456")
+    coord._apply_firmware_to_device(dev_j2, prod_versions)
+    assert dev_j2.latest_firmware_version == "3.78.540761"
+    assert dev_j2.release_notes == "Improves network traffic"
+
+    dev_h2c = GoogleHomeDevice(
+        device_id="dev_h2c",
+        name="Küche",  # Name does not mention Nest Mini
+        auth_token="token",
+        ip_address="192.168.1.14",
+        hardware="H2C",
+    )
+    dev_h2c.set_system_info(firmware="3.75.123456")
+    coord._apply_firmware_to_device(dev_h2c, prod_versions)
+    # prod_versions in this test fixture does not define Google Nest Mini, so it stays installed ver
+    assert dev_h2c.latest_firmware_version == "3.75.123456"
+
+    # Add Google Nest Mini to prod_versions and verify match
+    prod_versions_with_mini = dict(prod_versions)
+    prod_versions_with_mini["Google Nest Mini"] = {
+        "firmware_version": "3.78.540761",
+        "release_notes": "Improves network traffic",
+    }
+    coord._apply_firmware_to_device(dev_h2c, prod_versions_with_mini)
+    assert dev_h2c.latest_firmware_version == "3.78.540761"
+    assert dev_h2c.release_notes == "Improves network traffic"
+
 
 def test_coordinator_sync_firmware_versions_loads_remote(
     mock_hass, mock_client, monkeypatch

@@ -19,6 +19,7 @@ from .const import (
     EVENT_TIMER_FINISHED,
     FIRMWARE_CHECK_INTERVAL,
     FIRMWARE_VERSIONS_URL,
+    HARDWARE_MODEL_MAP,
 )
 from .exceptions import AuthenticationFailed, InvalidMasterToken, TwoFactorRequired
 from .firmware import firmware_version_family
@@ -127,33 +128,40 @@ class GoogleHomeDataUpdateCoordinator(DataUpdateCoordinator[list[GoogleHomeDevic
         prod_versions: dict[str, dict[str, str]],
     ) -> None:
         """Find matching firmware entry for device based on hardware or name."""
-        hw = (dev.hardware or "").lower()
+        hw = (dev.hardware or "").lower().strip()
         nm = (dev.name or "").lower()
         # Discard stale catalog data when a comparable version is unavailable.
         dev.latest_firmware_version = dev.firmware_version
         dev.release_notes = None
 
-        # Sort by length descending to match specific models before general ones
-        sorted_keys = sorted(prod_versions.keys(), key=lambda k: -len(k))
-        for key in sorted_keys:
-            # e.g. "Google Nest Audio" -> target "nest audio"
-            target = key.lower().replace("google ", "").strip()
-            if target in hw or target in nm:
-                info = prod_versions[key]
-                latest_ver = info.get("firmware_version")
-                notes = info.get("release_notes")
-                # Never compare a display's Cast component to its system firmware.
-                # Unrecognized versions (including cast_ build strings) are also skipped.
-                installed_family = firmware_version_family(dev.firmware_version)
-                if (
-                    latest_ver
-                    and installed_family is not None
-                    and installed_family == firmware_version_family(latest_ver)
-                ):
-                    dev.latest_firmware_version = latest_ver
-                if notes:
-                    dev.release_notes = notes
-                break
+        # Check explicit hardware model mapping first (e.g. j2 -> Google Nest Audio)
+        matched_entry = None
+        if hw in HARDWARE_MODEL_MAP and HARDWARE_MODEL_MAP[hw] in prod_versions:
+            matched_entry = prod_versions[HARDWARE_MODEL_MAP[hw]]
+        else:
+            # Sort by length descending to match specific models before general ones
+            sorted_keys = sorted(prod_versions.keys(), key=lambda k: -len(k))
+            for key in sorted_keys:
+                # e.g. "Google Nest Audio" -> target "nest audio"
+                target = key.lower().replace("google ", "").strip()
+                if target in hw or target in nm:
+                    matched_entry = prod_versions[key]
+                    break
+
+        if matched_entry:
+            latest_ver = matched_entry.get("firmware_version")
+            notes = matched_entry.get("release_notes")
+            # Never compare a display's Cast component to its system firmware.
+            # Unrecognized versions (including cast_ build strings) are also skipped.
+            installed_family = firmware_version_family(dev.firmware_version)
+            if (
+                latest_ver
+                and installed_family is not None
+                and installed_family == firmware_version_family(latest_ver)
+            ):
+                dev.latest_firmware_version = latest_ver
+            if notes:
+                dev.release_notes = notes
 
     def _check_and_fire_events(self, devices: list[GoogleHomeDevice]) -> None:
         """Check for expired timers and triggered alarms and fire HA bus events."""
