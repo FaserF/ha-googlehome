@@ -744,7 +744,7 @@ class GlocaltokensApiClient:
                     or eureka_data.get("mac_address")
                     or device_info.get("mac_address")
                 )
-                # Extract OTA status if reported by device
+                # Extract OTA status and has_update if reported by device
                 ota_data = (
                     eureka_data.get("ota")
                     or eureka_data.get("setup", {}).get("ota")
@@ -760,6 +760,13 @@ class GlocaltokensApiClient:
                 elif isinstance(ota_data, str):
                     ota_status = ota_data
 
+                raw_has_update = eureka_data.get("has_update")
+                if raw_has_update is None and isinstance(ota_data, dict):
+                    raw_has_update = ota_data.get("has_update")
+                has_update = (
+                    bool(raw_has_update) if raw_has_update is not None else None
+                )
+
                 fw_str = str(firmware) if firmware else None
 
                 device.set_system_info(
@@ -769,6 +776,7 @@ class GlocaltokensApiClient:
                     mac=str(net_mac) if net_mac else None,
                     cast_uuid=cast_uuid if cast_uuid else None,
                     ota_status=str(ota_status) if ota_status else None,
+                    has_update=has_update,
                     latest_firmware=fw_str,
                 )
 

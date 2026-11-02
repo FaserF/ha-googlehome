@@ -119,6 +119,31 @@ class GoogleHomeUpdateEntity(GoogleHomeBaseEntity, UpdateEntity):
         device = self.get_device()
         if not device:
             return None
+
+        # 1. Device reports has_update is False -> Device is confirmed up to date
+        # (unless device is currently downloading/installing an OTA)
+        if device.has_update is False and not self.in_progress:
+            return device.firmware_version
+
+        # 2. Device reports has_update is True -> An update is definitely waiting/available
+        if device.has_update is True:
+            # If the remote catalog has a strictly newer version, use that version string
+            if (
+                device.latest_firmware_version
+                and device.firmware_version
+                and device.latest_firmware_version != device.firmware_version
+            ):
+                return device.latest_firmware_version
+            # If the remote catalog has not yet indexed this specific version or
+            # installed_version has an unconventional build format, return an indicator
+            # or the latest catalog version so Home Assistant marks update available
+            return device.latest_firmware_version or (
+                f"{device.firmware_version}+update"
+                if device.firmware_version
+                else "update-available"
+            )
+
+        # 3. Fallback: device did not report has_update (None), use remote catalog version
         return device.latest_firmware_version or device.firmware_version
 
     @property
@@ -189,6 +214,8 @@ class GoogleHomeUpdateEntity(GoogleHomeBaseEntity, UpdateEntity):
                 attrs["system_firmware_version"] = device.system_firmware_version
             if device.hardware:
                 attrs["hardware"] = device.hardware
+            if device.has_update is not None:
+                attrs["has_update"] = device.has_update
             if device.ota_status:
                 attrs["ota_status"] = device.ota_status
             if device.cast_uuid:

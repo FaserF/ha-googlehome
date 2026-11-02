@@ -158,3 +158,30 @@ async def test_display_poll_reports_system_version_and_preserves_cast_diagnostic
     assert entity.extra_state_attributes["cast_firmware_version"] == CAST_VERSION
     assert entity.extra_state_attributes["system_firmware_version"] == SYSTEM_VERSION
     assert entity.state == "off"
+
+
+@pytest.mark.asyncio
+async def test_update_entity_respects_has_update_flag():
+    """Verify that eureka_info has_update flag drives update entity state."""
+    device = GoogleHomeDevice("dev1", "Speaker", "tok", "192.0.2.1", "Nest Mini")
+    device.firmware_version = "1.68.cast_xyz"
+    device.latest_firmware_version = "3.78.540761"
+
+    entity_coordinator = MagicMock()
+    entity_coordinator.get_device.return_value = device
+    entity = GoogleHomeUpdateEntity(entity_coordinator, device.device_id, device.name)
+
+    # 1. has_update is False -> confirmed up-to-date despite mismatched versions
+    device.has_update = False
+    assert entity.latest_version == "1.68.cast_xyz"
+    assert entity.installed_version == "1.68.cast_xyz"
+    assert entity.extra_state_attributes["has_update"] is False
+
+    # 2. has_update is True -> update available
+    device.has_update = True
+    assert entity.latest_version == "3.78.540761"
+    assert entity.extra_state_attributes["has_update"] is True
+
+    # 3. has_update is None -> falls back to latest_firmware_version
+    device.has_update = None
+    assert entity.latest_version == "3.78.540761"
