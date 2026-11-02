@@ -24,6 +24,7 @@ from .const import (
     API_ENDPOINT_REBOOT,
     API_ENDPOINT_SET_VOLUME,
     DEFAULT_TIMEOUT,
+    DOMAIN,
     HEADER_CAST_LOCAL_AUTH,
     HEADER_CONTENT_TYPE,
     JSON_ALARM,
@@ -41,7 +42,10 @@ from .exceptions import (
     TwoFactorRequired,
 )
 from .firmware import extract_firmware_versions
+from .local_cast import read_cast_volume
+from .local_discovery import discover_cast_addresses, normalize_cast_uuid
 from .models import GoogleHomeDevice
+from .volume import read_volume_percentage
 
 if TYPE_CHECKING:
     from .types import JsonDict
@@ -86,6 +90,9 @@ class GlocaltokensApiClient:
         self.zeroconf_instance = zeroconf_instance
         self.selected_homes = selected_homes
         self.google_devices: list[GoogleHomeDevice] = []
+        self._discovery_ids: dict[str, str] = {}
+        self._address_discovery_lock = asyncio.Lock()
+        self._last_address_discovery: float | None = None
 
         self._client = GLocalAuthenticationTokens(
             username=username,
@@ -276,10 +283,20 @@ class GlocaltokensApiClient:
             await self.get_access_token()
 
             def _get_google_devices() -> list[Device]:
-                return self._client.get_google_devices(
+                devices = self._client.get_google_devices(
                     zeroconf_instance=self.zeroconf_instance,
                     force_homegraph_reload=force_reload,
                 )
+                # glocaltokens matches the advertised `cd` to agent_info.unique_id.
+                # Keep that identity even when its initial network scan missed a device.
+                homegraph = self._client.get_homegraph()
+                if homegraph is not None:
+                    self._discovery_ids = {
+                        item.device_info.device_id: item.device_info.agent_info.unique_id
+                        for item in homegraph.home.devices
+                        if item.device_info.agent_info.unique_id
+                    }
+                return devices
 
             google_devices = await self.hass.async_add_executor_job(_get_google_devices)
 
@@ -410,7 +427,7 @@ class GlocaltokensApiClient:
 
                     # 2. Second pass: search device registry directly for Cast devices by name if not found yet
                     if not matched_cast_uuid:
-                        for d in dev_reg.devices.values():  # type: ignore[attr-defined]
+                        for d in dev_reg.devices:
                             cast_id = None
                             for identifier in d.identifiers:
                                 if len(identifier) >= 2 and identifier[0] == "cast":
@@ -476,7 +493,79 @@ class GlocaltokensApiClient:
                 [f"{d.name} ({d.ip_address})" for d in self.google_devices],
             )
 
+        await self._async_resolve_missing_addresses(self.google_devices)
         return self.google_devices
+
+    async def _async_resolve_missing_addresses(
+        self, devices: list[GoogleHomeDevice]
+    ) -> None:
+        """Retry missing addresses locally, with identity checks and one shared scan."""
+        if not self.zeroconf_instance or all(device.ip_address for device in devices):
+            return
+        async with self._address_discovery_lock:
+            missing = [device for device in devices if not device.ip_address]
+            if not missing:
+                return
+            now = self.hass.loop.time()
+            if (
+                self._last_address_discovery is not None
+                and now - self._last_address_discovery < 30
+            ):
+                return
+            self._last_address_discovery = now
+            try:
+                addresses = await self.hass.async_add_executor_job(
+                    discover_cast_addresses, self.zeroconf_instance
+                )
+            except (OSError, RuntimeError) as err:
+                _LOGGER.debug("Local address discovery failed: %s", err, exc_info=True)
+                return
+
+            from homeassistant.helpers import device_registry as dr
+
+            registry = dr.async_get(self.hass)
+            for device in missing:
+                # Use the exact Google Home identifier; names and zero MACs cannot
+                # safely identify a receiver after a legacy device merge.
+                cast_ids = {
+                    cast_id
+                    for entry in registry.devices
+                    if (DOMAIN, device.device_id) in entry.identifiers
+                    for domain, value in entry.identifiers
+                    if domain == "cast" and (cast_id := normalize_cast_uuid(value))
+                }
+                if cast_id := normalize_cast_uuid(device.cast_uuid):
+                    cast_ids.add(cast_id)
+                if len(cast_ids) > 1:
+                    _LOGGER.debug("Ambiguous Cast identity for %s", device.name)
+                    continue
+                discovery_id = self._discovery_ids.get(device.device_id)
+                matches = {
+                    address
+                    for address in addresses
+                    if (
+                        (discovery_id and address.discovery_id == discovery_id)
+                        or address.cast_uuid in cast_ids
+                    )
+                    and (
+                        not cast_ids
+                        or address.cast_uuid is None
+                        or address.cast_uuid in cast_ids
+                    )
+                }
+                if len(matches) == 1:
+                    address = next(iter(matches))
+                    device.ip_address = address.host
+                    if address.cast_uuid:
+                        device.cast_uuid = address.cast_uuid
+                    _LOGGER.debug("Recovered local address for %s", device.name)
+                else:
+                    _LOGGER.debug(
+                        "No unambiguous local address for %s (%d announcements, %d matches)",
+                        device.name,
+                        len(addresses),
+                        len(matches),
+                    )
 
     def create_url(self, ip_address: str, endpoint: str) -> str:
         """Create URL for device HTTP request, properly escaping IPv6 if present."""
@@ -505,11 +594,19 @@ class GlocaltokensApiClient:
 
     async def update_device_data(self, device: GoogleHomeDevice) -> None:
         """Update state and information for a single Google Home device."""
-        if not device.ip_address or not device.auth_token:
-            _LOGGER.debug("Device %s missing IP address or auth token", device.name)
+        if not device.ip_address:
+            _LOGGER.debug("Device %s missing IP address", device.name)
             device.available = False
+            device.direct_cast_status = "missing_ip"
+            device.clear_device_volume()
+            return
+        if not device.auth_token:
+            _LOGGER.debug("Device %s missing local HTTP auth token", device.name)
+            device.available = False
+            await self._update_direct_cast_volume(device)
             return
 
+        media_volume_read = False
         try:
             # Poll Alarms & Timers & Alarm Volume
             alarms_data = await self.get_alarms_and_timers(device)
@@ -547,22 +644,12 @@ class GlocaltokensApiClient:
             # Poll Device Media / Speech Live Volume
             try:
                 curr_vol_data = await self.get_current_device_volume(device)
-                if curr_vol_data:
-                    raw_val = (
-                        curr_vol_data.get("volume")
-                        if "volume" in curr_vol_data
-                        else curr_vol_data.get("level")
-                    )
-                    if raw_val is not None:
-                        val_float = float(raw_val)
-                        vol_pct = (
-                            round(val_float * 100)
-                            if val_float <= 1.0
-                            else round(val_float)
-                        )
-                        device.set_device_volume(vol_pct)
-            except Exception:
-                pass
+                vol_pct = read_volume_percentage(curr_vol_data)
+                if vol_pct is not None:
+                    device.set_device_volume(vol_pct)
+                    media_volume_read = True
+            except Exception as err:
+                _LOGGER.debug("Media volume read failed for %s: %s", device.name, err)
 
             # Poll Do Not Disturb
             dnd_data = await self.get_do_not_disturb(device)
@@ -579,16 +666,11 @@ class GlocaltokensApiClient:
             if eureka_data:
                 # Also check audio block in eureka_info as backup/supplemental volume source
                 audio_data = eureka_data.get("audio") or {}
-                if "volume" in audio_data or "level" in audio_data:
-                    raw_val = audio_data.get("volume", audio_data.get("level"))
-                    if raw_val is not None:
-                        val_float = float(raw_val)
-                        vol_pct = (
-                            round(val_float * 100)
-                            if val_float <= 1.0
-                            else round(val_float)
-                        )
-                        device.set_device_volume(vol_pct)
+                if not media_volume_read:
+                    vol_pct = read_volume_percentage(audio_data)
+                    if vol_pct is not None:
+                        device.set_device_volume(vol_pct, source="eureka_audio")
+                        media_volume_read = True
 
                 wifi_data = (
                     eureka_data.get("wifi")
@@ -630,7 +712,6 @@ class GlocaltokensApiClient:
                 )
 
                 device_info = eureka_data.get("device_info") or {}
-                setup_data = eureka_data.get("setup") or {}
                 cast_uuid = (
                     eureka_data.get("ssdp_udn")
                     or eureka_data.get("cast_uuid")
@@ -638,10 +719,6 @@ class GlocaltokensApiClient:
                     or device_info.get("ssdp_udn")
                     or device_info.get("cast_uuid")
                     or device_info.get("uuid")
-                    or setup_data.get("tos_accepted")
-                    if isinstance(setup_data.get("tos_accepted"), str)
-                    and len(setup_data.get("tos_accepted", "")) >= 32
-                    else None
                 )
                 if cast_uuid and isinstance(cast_uuid, str):
                     if cast_uuid.lower().startswith("uuid:"):
@@ -723,6 +800,46 @@ class GlocaltokensApiClient:
             )
             device.available = False
 
+        if not media_volume_read:
+            await self._update_direct_cast_volume(device)
+        else:
+            device.direct_cast_status = "not_needed"
+
+    async def _update_direct_cast_volume(self, device: GoogleHomeDevice) -> None:
+        """Fall back to the local receiver socket independently of HTTP auth/Cast HA."""
+        volume = await self.get_direct_device_volume(device)
+        if volume is not None:
+            device.set_device_volume(volume, source="cast_direct")
+        else:
+            device.clear_device_volume()
+
+    async def get_direct_device_volume(self, device: GoogleHomeDevice) -> float | None:
+        """Read Cast status on a worker without depending on a media_player entity."""
+        if not device.ip_address:
+            device.direct_cast_status = "missing_ip"
+            return None
+        if not device.cast_uuid:
+            device.direct_cast_status = "missing_identity"
+            return None
+        try:
+            volume = await self.hass.async_add_executor_job(
+                read_cast_volume,
+                device.ip_address,
+                device.cast_uuid,
+                device.model_name,
+                device.name,
+            )
+        except Exception as err:
+            _LOGGER.debug(
+                "Direct Cast volume polling failed for %s: %s",
+                device.name,
+                err,
+                exc_info=True,
+            )
+            volume = None
+        device.direct_cast_status = "ready" if volume is not None else "unavailable"
+        return volume
+
     async def _request(
         self,
         method: str,
@@ -733,7 +850,12 @@ class GlocaltokensApiClient:
     ) -> JsonDict | None:
         """Make an authenticated HTTP request to device local API."""
         if not device.ip_address:
-            raise DeviceConnectionError(f"No IP address for {device.name}")
+            await self._async_resolve_missing_addresses([device])
+        if not device.ip_address:
+            raise DeviceConnectionError(
+                f"No IP address for {device.name} after local discovery. "
+                "Check that Home Assistant can receive this device's mDNS announcements."
+            )
 
         url = self.create_url(device.ip_address, endpoint)
         headers = self.create_headers(device.auth_token)
@@ -805,11 +927,16 @@ class GlocaltokensApiClient:
         for ep in (
             API_ENDPOINT_CURRENT_VOLUME,
             "setup/assistant/volume",
-            "setup/assistant/alarms/volume",
             "setup/audio/status",
         ):
-            res = await self._request("GET", device, ep)
-            if res and any(k in res for k in ("volume", "level", "current_volume")):
+            try:
+                res = await self._request("GET", device, ep)
+            except DeviceConnectionError as err:
+                _LOGGER.debug(
+                    "Media volume endpoint %s failed for %s: %s", ep, device.name, err
+                )
+                continue
+            if read_volume_percentage(res) is not None:
                 return res
         return None
 
@@ -839,7 +966,8 @@ class GlocaltokensApiClient:
         """Update normal speaker volume percentage (0-100) and sync local state."""
         float_volume = round(volume / 100, 2)
         res = await self.set_device_volume(device, float_volume)
-        device.set_device_volume(volume)
+        if res is not None:
+            device.set_device_volume(volume, source="command")
         return res
 
     async def get_do_not_disturb(self, device: GoogleHomeDevice) -> JsonDict | None:

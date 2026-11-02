@@ -47,6 +47,7 @@ from .const import (
 )
 from .coordinator import GoogleHomeDataUpdateCoordinator
 from .exceptions import AuthenticationFailed, InvalidMasterToken, TwoFactorRequired
+from .registry_repair import async_repair_placeholder_macs
 
 _LOGGER: logging.Logger = logging.getLogger(__package__)
 
@@ -141,6 +142,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         coordinator.config_entry = entry
         entry_data[DATA_COORDINATOR] = coordinator
 
+    cloud_coordinator = None
     # 2. Setup Cloud Subsystem
     if mode in (MODE_HYBRID, MODE_CLOUD) and master_token:
         from .cloud_api import GoogleHomeCloudClient
@@ -246,8 +248,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             )
             ent_reg.async_remove(stale_default_home_ent)
         dev_reg = dr.async_get(hass)
-        stale_dev = dev_reg.async_get_device(
-            identifiers={(DOMAIN, f"{entry.entry_id}_structure_default_home")}
+        stale_dev = dev_reg.async_get_device_by_identifier(
+            (DOMAIN, f"{entry.entry_id}_structure_default_home"), entry.entry_id
         )
         if stale_dev:
             _LOGGER.info(
@@ -256,6 +258,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 stale_dev.id,
             )
             dev_reg.async_remove_device(stale_dev.id)
+
+    # Repair contaminated identities before DeviceInfo registration can reuse them.
+    repair_devices = [
+        device
+        for key in (DATA_COORDINATOR, DATA_CLOUD_COORDINATOR)
+        if (repair_coordinator := entry_data.get(key)) is not None
+        for device in repair_coordinator.data or []
+    ]
+    try:
+        await async_repair_placeholder_macs(hass, entry, repair_devices)
+    except Exception:
+        _LOGGER.exception(
+            "Placeholder-MAC registry repair failed; continuing integration setup"
+        )
 
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -535,45 +551,16 @@ async def _async_cleanup_stale_devices_and_entities(
                 if conn_type != dr.CONNECTION_NETWORK_MAC
                 or clean_mac_address(conn_val) is not None
             }
-            device_identifiers = [
-                ident for ident in dev_entry.identifiers if ident[0] == DOMAIN
-            ]
-
             if cleaned_connections != dev_entry.connections:
                 _LOGGER.info(
                     "Removing placeholder/zero MAC connection from device %s (%s)",
                     dev_entry.name,
                     dev_entry.id,
                 )
-
-                # If historically merged due to the placeholder MAC, split them
-                if len(device_identifiers) > 1:
-                    # Keep the first active identifier on this entry to "unmerge"
-                    primary_ident = None
-                    for ident in device_identifiers:
-                        if ident[1] in active_device_ids:
-                            primary_ident = ident
-                            break
-                    if not primary_ident:
-                        primary_ident = device_identifiers[0]
-
-                    _LOGGER.info(
-                        "Splitting previously merged device %s (%s). Retaining primary identifier %s.",
-                        dev_entry.name,
-                        dev_entry.id,
-                        primary_ident,
-                    )
-
-                    dev_reg.async_update_device(
-                        dev_entry.id,
-                        new_identifiers={primary_ident},
-                        new_connections=cleaned_connections,
-                    )
-                else:
-                    dev_reg.async_update_device(
-                        dev_entry.id,
-                        new_connections=cleaned_connections,
-                    )
+                dev_reg.async_update_device(
+                    dev_entry.id,
+                    new_connections=cleaned_connections,
+                )
 
             # Check if this is a structure or an actual device
             is_structure = any(

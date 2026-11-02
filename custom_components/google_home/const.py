@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from datetime import timedelta
 from typing import Final
 
@@ -91,12 +92,22 @@ def get_structure_url(structure_id: str | None, path: str = "devices") -> str:
 
 
 def clean_mac_address(mac: str | None) -> str | None:
-    """Return cleaned MAC address, or None if missing, invalid, or all zeros."""
-    if not mac:
+    """Reject missing, malformed, zero and broadcast MAC addresses."""
+    if not isinstance(mac, str) or not mac:
         return None
-    mac_str = str(mac).strip()
-    digits = mac_str.replace(":", "").replace("-", "")
-    if not digits.strip("0") or len(digits) < 12:
+    mac_str = mac.strip()
+    if not re.fullmatch(
+        r"(?:[0-9a-fA-F]{12}|(?:[0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}|"
+        r"(?:[0-9a-fA-F]{2}-){5}[0-9a-fA-F]{2}|(?:[0-9a-fA-F]{4}\.){2}[0-9a-fA-F]{4})",
+        mac_str,
+    ):
+        return None
+    digits = mac_str.replace(":", "").replace("-", "").replace(".", "").lower()
+    if (
+        len(digits) != 12
+        or any(char not in "0123456789abcdef" for char in digits)
+        or digits in ("000000000000", "ffffffffffff")
+    ):
         return None
     return mac_str
 

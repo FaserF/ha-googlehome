@@ -62,6 +62,8 @@ class GoogleHomeDevice:
         self._do_not_disturb = False
         self._alarm_volume: float | None = None
         self._device_volume: float | None = None
+        self.device_volume_source: str | None = None
+        self.direct_cast_status: str = "not_attempted"
         self._night_mode = False
         self._wifi_rssi: int | None = None
         self._wifi_ssid: str | None = None
@@ -238,13 +240,21 @@ class GoogleHomeDevice:
         """Return Alarm Volume status."""
         return self._alarm_volume
 
-    def set_device_volume(self, volume: int | float) -> None:
+    def set_device_volume(
+        self, volume: int | float, *, source: str = "local_api"
+    ) -> None:
         """Set normal device media/speech volume level."""
         self._device_volume = float(volume)
+        self.device_volume_source = source
 
     def get_device_volume(self) -> float | None:
         """Return normal device media/speech volume level."""
         return self._device_volume
+
+    def clear_device_volume(self) -> None:
+        """Discard old telemetry when a new poll cannot obtain a live reading."""
+        self._device_volume = None
+        self.device_volume_source = None
 
     def set_night_mode(self, status: bool) -> None:
         """Set Night Mode status."""
