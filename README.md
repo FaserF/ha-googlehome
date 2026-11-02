@@ -1,10 +1,10 @@
-# Google Home (for Home Assistant)
+﻿# Google Home (for Home Assistant)
 
 [![GitHub Release](https://img.shields.io/github/release/FaserF/ha-googlehome.svg?style=flat-square)](https://github.com/FaserF/ha-googlehome/releases)
 [![Downloads (Current release)](https://img.shields.io/github/downloads/FaserF/ha-googlehome/latest/google_home.zip?label=Downloads%20(Current%20release)&style=flat-square)](https://github.com/FaserF/ha-googlehome/releases)
 [![License](https://img.shields.io/github/license/FaserF/ha-googlehome.svg?style=flat-square)](LICENSE)
-[![Home Assistant Marketplace](https://img.shields.io/badge/Home%20Assistant-Marketplace-blue.svg?style=flat-square)](https://my.home-assistant.io/redirect/hacs_repository/?owner=FaserF&repository=ha-googlehome&category=integration)
-[![HACS / Marketplace custom repository](https://img.shields.io/badge/HACS-custom-orange.svg?style=flat-square)](https://my.home-assistant.io/redirect/hacs_repository/?owner=FaserF&repository=ha-googlehome&category=integration)
+[![Home Assistant Marketplace](https://img.shields.io/badge/Home%20Assistant-Marketplace-blue.svg?style=flat-square)](https://my.home-assistant.io/redirect/marketplace_repository/?owner=FaserF&repository=ha-googlehome&category=integration)
+
 [![Add to Home Assistant](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=google_home)
 [![CI Orchestrator](https://github.com/FaserF/ha-googlehome/actions/workflows/ci-orchestrator.yml/badge.svg)](https://github.com/FaserF/ha-googlehome/actions/workflows/ci-orchestrator.yml)
 
@@ -148,7 +148,7 @@ Choose the best mode during setup or change it anytime in the Options Flow:
 
 ### Via Home Assistant Marketplace / HACS (Recommended)
 
-[![Open your Home Assistant instance and show an add repository dialog with a specific repository URL pre-filled.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=FaserF&repository=ha-googlehome&category=integration)
+[![Open your Home Assistant instance and open the repository in the Marketplace.](https://my.home-assistant.io/badges/marketplace_repository.svg)](https://my.home-assistant.io/redirect/marketplace_repository/?owner=FaserF&repository=ha-googlehome&category=integration)
 1. Click the "Add Repository" button above, or open **Marketplace** (or **HACS** in older versions) in Home Assistant.
 2. Click on the 3 dots in the top right corner and select **Custom repositories**.
 3. Add the repository URL: `https://github.com/FaserF/ha-googlehome` with category **Integration**.
@@ -378,8 +378,8 @@ The original concept, reverse engineering, and foundational ideas were pioneered
 
 | Device / Service | Integration Use Case | Link |
 | :--- | :--- | :--- |
-| **Home Assistant Green & Offizielle Smart-Home-Hardware** | Empfohlene Hardware-Basis für lokale Home Assistant Integrationen | [Offizielle Geräte-Seite →](https://fabiseitz.de/go/ha-hardware) |
-| **Home Assistant Connect ZBT-1 (Zigbee / Thread)** | Lokales Zigbee2MQTT, ZHA & Matter-over-Thread Funknetz | [Offizielle Geräte-Seite →](https://fabiseitz.de/go/ha-zigbee) |
+| **Home Assistant Green & Official Hardware** | Recommended hardware foundation for local Home Assistant integrations | [Official Device Page →](https://fabiseitz.de/go/ha-hardware) |
+| **Home Assistant Connect ZBT-1 (Zigbee / Thread)** | Local Zigbee2MQTT, ZHA & Matter-over-Thread wireless mesh | [Official Device Page →](https://fabiseitz.de/go/ha-zigbee) |
 
 ---
 
