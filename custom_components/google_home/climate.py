@@ -131,16 +131,16 @@ class GoogleHomeCloudClimate(
         return device.name if device else "Google Thermostat"
 
     @property
-    def current_temperature(self) -> float | None:
-        """Return current temperature."""
+    def native_current_temperature(self) -> float | None:
+        """Return native current temperature."""
         device = self.get_device()
         if not device:
             return None
         return float(device.state.get("thermostatTemperatureAmbient", 20.0))
 
     @property
-    def target_temperature(self) -> float | None:
-        """Return target temperature."""
+    def native_target_temperature(self) -> float | None:
+        """Return native target temperature."""
         device = self.get_device()
         if not device:
             return None
