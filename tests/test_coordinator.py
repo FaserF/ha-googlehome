@@ -150,3 +150,54 @@ def test_coordinator_sync_firmware_versions_loads_remote(
     assert "production" in coord._firmware_data
     assert dev.latest_firmware_version == "3.78.540761"
     assert dev.release_notes == "Fixes"
+
+
+def test_coordinator_fire_timer_finished_event_with_label(mock_hass, mock_client):
+    """Test that EVENT_TIMER_FINISHED includes previous timer label and duration."""
+    from custom_components.google_home.const import EVENT_TIMER_FINISHED
+
+    coord = GoogleHomeDataUpdateCoordinator(
+        hass=mock_hass,
+        client=mock_client,
+        update_interval=120,
+    )
+
+    dev = GoogleHomeDevice(
+        device_id="dev_kitchen",
+        name="Kitchen Speaker",
+        auth_token="token",
+        ip_address="192.168.1.25",
+    )
+
+    # Initial state: active timer with label
+    dev.set_timers(
+        [
+            {
+                "id": "timer/1234567890",
+                "fire_time": 1700000000000,
+                "original_duration": 600000,
+                "status": 1,
+                "label": "pizza in oven",
+            }
+        ]
+    )
+
+    coord._check_and_fire_events([dev])
+    assert not mock_hass.bus.async_fire.called
+
+    # Next state: timer finished and disappeared
+    dev.set_timers([])
+    coord._check_and_fire_events([dev])
+
+    assert mock_hass.bus.async_fire.called
+    mock_hass.bus.async_fire.assert_called_once_with(
+        EVENT_TIMER_FINISHED,
+        {
+            "device_id": "dev_kitchen",
+            "device_name": "Kitchen Speaker",
+            "timer_id": "timer/1234567890",
+            "label": "pizza in oven",
+            "duration": "0:10:00",
+            "duration_seconds": 600,
+        },
+    )

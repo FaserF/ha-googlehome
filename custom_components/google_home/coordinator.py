@@ -22,7 +22,12 @@ from .const import (
 )
 from .exceptions import AuthenticationFailed, InvalidMasterToken, TwoFactorRequired
 from .firmware import firmware_version_family
-from .models import GoogleHomeAlarmStatus, GoogleHomeDevice, GoogleHomeTimerStatus
+from .models import (
+    GoogleHomeAlarmStatus,
+    GoogleHomeDevice,
+    GoogleHomeTimer,
+    GoogleHomeTimerStatus,
+)
 
 if TYPE_CHECKING:
     from .api import GlocaltokensApiClient
@@ -42,7 +47,7 @@ class GoogleHomeDataUpdateCoordinator(DataUpdateCoordinator[list[GoogleHomeDevic
         """Initialize."""
         self.client = client
         self._device_cache: dict[str, GoogleHomeDevice] = {}
-        self._previous_active_timers: dict[str, set[str]] = {}
+        self._previous_active_timers: dict[str, dict[str, GoogleHomeTimer]] = {}
         self._previous_active_alarms: dict[str, set[str]] = {}
         self._firmware_data: dict[str, Any] = {}
         self._last_firmware_fetch: datetime | None = None
@@ -161,10 +166,10 @@ class GoogleHomeDataUpdateCoordinator(DataUpdateCoordinator[list[GoogleHomeDevic
                 for t in device.get_sorted_timers()
                 if t.status == GoogleHomeTimerStatus.SET
             }
-            prev_timer_ids = self._previous_active_timers.get(device_id, set())
+            prev_timers = self._previous_active_timers.get(device_id, {})
 
             # Detect timers that disappeared (finished/expired)
-            for old_id in prev_timer_ids:
+            for old_id, old_timer in prev_timers.items():
                 if old_id not in current_active_timers:
                     self.hass.bus.async_fire(
                         EVENT_TIMER_FINISHED,
@@ -172,10 +177,13 @@ class GoogleHomeDataUpdateCoordinator(DataUpdateCoordinator[list[GoogleHomeDevic
                             "device_id": device_id,
                             "device_name": device.name,
                             "timer_id": old_id,
+                            "label": old_timer.label,
+                            "duration": old_timer.duration,
+                            "duration_seconds": old_timer.duration_seconds,
                         },
                     )
 
-            self._previous_active_timers[device_id] = set(current_active_timers.keys())
+            self._previous_active_timers[device_id] = current_active_timers
 
             # Check Alarms
             current_active_alarms = {
