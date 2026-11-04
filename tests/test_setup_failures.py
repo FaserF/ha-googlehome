@@ -69,7 +69,7 @@ def add_entry(hass: HomeAssistant, mode: str, token: str | None = None):
     [(MODE_LOCAL, None), (MODE_LOCAL, "synthetic"), (MODE_HYBRID, None)],
 )
 async def test_setup_without_cloud_coordinator(hass, local_setup, mode, token):
-    """Skipping cloud setup must still repair the registry and load platforms."""
+    """Skipping cloud setup must still repair the registry and load platforms (fixes #27)."""
     repair, forward, cloud_client = local_setup
     entry = add_entry(hass, mode, token)
     assert await async_setup_entry(hass, entry)

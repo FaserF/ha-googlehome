@@ -143,8 +143,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         coordinator.config_entry = entry
         entry_data[DATA_COORDINATOR] = coordinator
 
+    # 2. Setup Cloud Subsystem (initialize None to avoid UnboundLocalError in MODE_LOCAL; fixes #27)
     cloud_coordinator = None
-    # 2. Setup Cloud Subsystem
     if mode in (MODE_HYBRID, MODE_CLOUD) and master_token:
         from .cloud_api import GoogleHomeCloudClient
         from .cloud_coordinator import GoogleHomeCloudDataUpdateCoordinator
