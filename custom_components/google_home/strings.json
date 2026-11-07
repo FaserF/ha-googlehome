@@ -128,56 +128,29 @@
     }
   },
   "entity": {
-    "sensor": {
-      "device": {
-        "name": "Device IP"
+    "event": {
+      "alarm_events": {
+        "name": "Alarm events",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "ringing": "Ringing",
+              "snoozed": "Snoozed",
+              "stopped": "Stopped"
+            }
+          }
+        }
       },
-      "alarms": {
-        "name": "Next Alarm"
-      },
-      "timers": {
-        "name": "Next Timer"
-      },
-      "wifi": {
-        "name": "Wi-Fi Network"
-      },
-      "bluetooth": {
-        "name": "Bluetooth MAC"
-      }
-    },
-    "switch": {
-      "do_not_disturb": {
-        "name": "Do Not Disturb"
-      },
-      "night_mode": {
-        "name": "Night Mode"
-      }
-    },
-    "number": {
-      "alarm_volume": {
-        "name": "Alarm Volume"
-      },
-      "volume": {
-        "name": "Speaker Volume"
-      }
-    },
-    "button": {
-      "reboot": {
-        "name": "Reboot"
-      },
-      "refresh": {
-        "name": "Refresh"
-      },
-      "delete_all_alarms": {
-        "name": "Delete All Alarms"
-      },
-      "delete_all_timers": {
-        "name": "Delete All Timers"
-      }
-    },
-    "update": {
-      "firmware_update": {
-        "name": "Firmware Update"
+      "timer_events": {
+        "name": "Timer events",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "ringing": "Ringing",
+              "stopped": "Stopped"
+            }
+          }
+        }
       }
     }
   },

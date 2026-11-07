@@ -147,6 +147,7 @@ PLATFORMS: Final = [
     "number",
     "button",
     "update",
+    "event",
     "light",
     "fan",
     "device_tracker",

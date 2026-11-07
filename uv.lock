@@ -4,5 +4,5 @@ requires-python = "==3.15.2"
 
 [[package]]
 name = "ha-googlehome"
-version = "1.2.2.dev0"
+version = "1.2.3.dev0"
 source = { virtual = "." }

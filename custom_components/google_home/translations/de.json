@@ -128,64 +128,29 @@
     }
   },
   "entity": {
-    "sensor": {
-      "device": {
-        "name": "Geräte-IP"
+    "event": {
+      "alarm_events": {
+        "name": "Wecker-Ereignisse",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "ringing": "Klingelt",
+              "snoozed": "Schlummert",
+              "stopped": "Gestoppt"
+            }
+          }
+        }
       },
-      "alarms": {
-        "name": "Nächster Wecker"
-      },
-      "timers": {
-        "name": "Nächster Timer"
-      },
-      "wifi": {
-        "name": "WLAN Netzwerk"
-      },
-      "bluetooth": {
-        "name": "Bluetooth MAC"
-      },
-      "nightlight_status": {
-        "name": "Nachtlicht Status"
-      }
-    },
-    "light": {
-      "nightlight": {
-        "name": "Nachtlicht"
-      }
-    },
-    "switch": {
-      "do_not_disturb": {
-        "name": "Nicht stören"
-      },
-      "night_mode": {
-        "name": "Nachtmodus"
-      }
-    },
-    "number": {
-      "alarm_volume": {
-        "name": "Weckerlautstärke"
-      },
-      "volume": {
-        "name": "Lautsprecher-Lautstärke"
-      }
-    },
-    "button": {
-      "reboot": {
-        "name": "Neustarten"
-      },
-      "refresh": {
-        "name": "Aktualisieren"
-      },
-      "delete_all_alarms": {
-        "name": "Alle Wecker löschen"
-      },
-      "delete_all_timers": {
-        "name": "Alle Timer löschen"
-      }
-    },
-    "update": {
-      "firmware_update": {
-        "name": "Firmware-Update"
+      "timer_events": {
+        "name": "Timer-Ereignisse",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "ringing": "Klingelt",
+              "stopped": "Gestoppt"
+            }
+          }
+        }
       }
     }
   },

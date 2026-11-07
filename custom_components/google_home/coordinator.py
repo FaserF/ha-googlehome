@@ -29,6 +29,12 @@ from .models import (
     GoogleHomeTimer,
     GoogleHomeTimerStatus,
 )
+from .observations import (
+    ItemEvent,
+    PollObservation,
+    observe_poll,
+    observed_events,
+)
 
 if TYPE_CHECKING:
     from .api import GlocaltokensApiClient
@@ -52,6 +58,9 @@ class GoogleHomeDataUpdateCoordinator(DataUpdateCoordinator[list[GoogleHomeDevic
         self._previous_active_alarms: dict[str, set[str]] = {}
         self._firmware_data: dict[str, Any] = {}
         self._last_firmware_fetch: datetime | None = None
+        self.event_sequences: dict[str, int] = {}
+        self.device_events: dict[str, tuple[ItemEvent, ...]] = {}
+        self._event_baselines: dict[str, PollObservation] = {}
         super().__init__(
             hass,
             _LOGGER,
@@ -213,6 +222,16 @@ class GoogleHomeDataUpdateCoordinator(DataUpdateCoordinator[list[GoogleHomeDevic
                     )
 
             self._previous_active_alarms[device_id] = set(current_active_alarms.keys())
+
+            # Track transitions for native EventEntity platforms
+            current_seq = self.event_sequences.get(device_id, 0)
+            if obs := observe_poll(device, current_seq):
+                if prev_obs := self._event_baselines.get(device_id):
+                    new_events = observed_events(prev_obs, obs)
+                    if new_events:
+                        self.device_events[device_id] = new_events
+                        self.event_sequences[device_id] = current_seq + 1
+                self._event_baselines[device_id] = obs
 
     def get_device(self, device_id: str) -> GoogleHomeDevice | None:
         """Get device by ID from latest coordinator data."""
