@@ -1,0 +1,593 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Kirjaudu Googleen",
+        "description": "Tämä integraatio toimii Googlen kaiuttimien ja näyttöjen, kuten Nest Minin, Nest Audion ja Nest Hubin, kanssa. Se ei lisää muita Google Home ‑sovelluksen laitteita.\n\nValitse, miten kirjaudut Google-tilille, joka on kotisi jäsen. Ohjeita: {docs_url}.",
+        "data": {
+          "auth_method": "Authentication Method"
+        },
+        "menu_options": {
+          "browser": "Kirjautuminen selaimella (suositeltu)",
+          "master_token": "Päätunniste"
+        },
+        "menu_option_descriptions": {
+          "browser": "Kirjaudu Googleen tietokoneen selaimella ja liitä sitten eväste.",
+          "master_token": "Liitä päätunniste, joka sinulla jo on."
+        }
+      },
+      "token": {
+        "title": "Token Authentication",
+        "description": "### 🔑 30-Second Token Guide (Recommended):\n1. Open [{setup_url}]({setup_url}) in your browser and log in with your Google account.\n2. **Important**: The final page will remain on a loading/blank screen (this is normal and indicates the token was created!).\n3. Press **F12** (Developer Tools) -> **Application** (or Storage) -> **Cookies** ({cookies_url}).\n4. Copy the value of the **oauth_token** cookie (starts with oauth2_4/...).\n5. Enter your Google Email and paste the token below.\n\n*(If you already have a Master Token aas_et/..., you can also paste it directly below)*.",
+        "data": {
+          "username": "Google Account Email",
+          "master_token": "Token (oauth2_4/... or aas_et/...)"
+        }
+      },
+      "mode": {
+        "title": "Integration Mode & Device Filtering",
+        "description": "### ⚙️ Choose how Google Home should integrate with Home Assistant:\n- **Local & Cloud (Hybrid)**: Fast local control for alarms/timers + cloud discovery for all Google Home devices.\n- **Local Only**: Pure local network communication for speakers.\n- **Cloud Only**: Cloud HomeGraph without local speaker polling.",
+        "data": {
+          "operation_mode": "Operation Mode",
+          "third_party_entity_mode": "Third-Party Devices Representation",
+          "selected_homes": "Google Homes to synchronize",
+          "ignore_ha_synced_devices": "Ignore devices already synced from Home Assistant (prevents duplicate entities & automation loops)",
+          "mute_sdk_nightlight": "Mute speaker during nightlight control via Assistant SDK (when no media is playing)",
+          "excluded_services": "Linked services to exclude"
+        },
+        "data_description": {
+          "excluded_services": "Devices and routines from the selected services will not be imported. Leave empty to include all services."
+        }
+      },
+      "addon": {
+        "title": "Connect with Google Home Add-on",
+        "description": "Ensure the **Google Home Token Hub** Add-on is installed and running.",
+        "data": {
+          "addon_host": "Add-on Host",
+          "addon_port": "Add-on Port"
+        }
+      },
+      "addon_login": {
+        "title": "Add-on Login",
+        "description": "{discovery_intro}Enter your Google account email and password. The Add-on will automatically authenticate and acquire your Master Token in the background.",
+        "data": {
+          "username": "Google Account Email",
+          "password": "Password"
+        }
+      },
+      "addon_existing": {
+        "title": "Existing Master Token Found",
+        "description": "An active Master Token for **{email}** was detected in the Google Home Token Hub Add-on.\n\nWould you like to use this existing token or generate a new one?",
+        "data": {
+          "existing_action": "Action"
+        }
+      },
+      "addon_2fa": {
+        "title": "Google Authentication in Progress",
+        "description": "{two_factor_instruction}",
+        "data": {
+          "two_factor_code": "Verification Code (SMS / Authenticator App)"
+        }
+      },
+      "addon_action": {
+        "title": "Setup Complete - Add-on Status",
+        "description": "✅ **Master Token successfully acquired for {email}!**\n\nThe Google Home integration runs locally/cloud and does not require the Add-on to keep running.\n\nWhat would you like to do with the Add-on?",
+        "data": {
+          "addon_action": "Action for Add-on"
+        }
+      },
+      "reauth_addon": {
+        "title": "New Master Token Detected",
+        "description": "A new active Google Home Master Token for **{username}** was detected from the Google Home Token Hub Add-on.\n\nWould you like to automatically apply this token to restore integration functionality?",
+        "data": {
+          "reauth_action": "Action"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Reauthenticate Google Home",
+        "description": "Your Google Home master token for **{username}** has expired or is invalid.\n\nPlease generate a new token and enter it below:\n1. Open [{setup_url}]({setup_url}) and log in with your Google account.\n2. In Developer Tools -> Application -> Cookies ({cookies_url}), copy the **oauth_token** value (or provide an `aas_et/...` master token).\n3. Paste the token below.",
+        "data": {
+          "master_token": "Token (oauth2_4/... or aas_et/...)"
+        }
+      },
+      "browser": {
+        "title": "Kirjautuminen selaimella",
+        "description": "1. Avaa tietokoneella {embedded_setup_url} selaimen yksityisessä ikkunassa, esimerkiksi incognito-ikkunassa, ja kirjaudu sisään. Hyväksymisen jälkeen sivu saattaa jatkaa lataamista; tämä on normaalia.\n2. Avaa selaimen kehittäjätyökalut ja etsi sivuston `accounts.google.com` evästeet.\n3. Kopioi `oauth_token`-evästeen arvo ja liitä se heti alle. Se voi vanhentua nopeasti ja toimii vain kerran.\n\nVaiheittaiset ohjeet: {browser_docs_url}\n\nJos haluat valita toisen kirjautumistavan, sulje tämä ikkuna ja lisää integraatio uudelleen.",
+        "data": {
+          "oauth_token": "oauth_token-eväste"
+        },
+        "data_description": {
+          "oauth_token": "Alkaa merkkijonolla oauth2_4/"
+        }
+      },
+      "master_token": {
+        "title": "Päätunniste",
+        "description": "Liitä päätunniste, jonka olet saanut aiemmin esimerkiksi toisella työkalulla.\n\nJos haluat valita toisen kirjautumistavan, sulje tämä ikkuna ja lisää integraatio uudelleen.",
+        "data": {
+          "master_token": "Google-tilin päätunniste"
+        },
+        "data_description": {
+          "master_token": "Alkaa merkkijonolla aas_et/"
+        }
+      },
+      "homes": {
+        "title": "Valitse kodit",
+        "description": "Google-tilisi on usean kodin jäsen. Valitse kodit, joiden kaiuttimet ja näytöt lisätään. Voit muuttaa tätä myöhemmin integraation asetuksissa: valitse integraation sivulla **Määrittele**.",
+        "data": {
+          "homes": "Kodit"
+        },
+        "data_description": {
+          "homes": "Valitse vähintään yksi koti. Kaiuttimet ja näytöt lisätään myös kodeista, joiden jäseneksi tilisi tulee myöhemmin."
+        }
+      },
+      "reauth": {
+        "title": "Kirjaudu uudelleen",
+        "description": "Google ei enää hyväksy tallennettuja kirjautumistietoja ({name}). Kirjaudu uudelleen samalle Google-tilille: laitteesi, entiteettisi ja automaatiosi säilyvät ennallaan. Siihen asti laitteidesi entiteetit voivat näyttää vanhentuneita arvoja, tai ne eivät välttämättä ole käytettävissä.",
+        "menu_options": {
+          "browser": "Kirjautuminen selaimella (suositeltu)",
+          "master_token": "Päätunniste"
+        },
+        "menu_option_descriptions": {
+          "browser": "Kirjaudu Googleen tietokoneen selaimella ja liitä sitten eväste.",
+          "master_token": "Liitä päätunniste, joka sinulla jo on."
+        }
+      },
+      "reauth_browser": {
+        "title": "Kirjautuminen selaimella",
+        "description": "1. Avaa tietokoneella {embedded_setup_url} selaimen yksityisessä ikkunassa, esimerkiksi incognito-ikkunassa, ja kirjaudu sisään samalle Google-tilille. Hyväksymisen jälkeen sivu saattaa jatkaa lataamista; tämä on normaalia.\n2. Avaa selaimen kehittäjätyökalut ja etsi sivuston `accounts.google.com` evästeet.\n3. Kopioi `oauth_token`-evästeen arvo ja liitä se heti alle. Se voi vanhentua nopeasti ja toimii vain kerran.\n\nVaiheittaiset ohjeet: {browser_docs_url}",
+        "data": {
+          "oauth_token": "oauth_token-eväste"
+        },
+        "data_description": {
+          "oauth_token": "Alkaa merkkijonolla oauth2_4/"
+        }
+      },
+      "reauth_master_token": {
+        "title": "Päätunniste",
+        "description": "Liitä saman Google-tilin päätunniste, jonka olet saanut esimerkiksi toisella työkalulla.",
+        "data": {
+          "master_token": "Google-tilin päätunniste"
+        },
+        "data_description": {
+          "master_token": "Alkaa merkkijonolla aas_et/"
+        }
+      }
+    },
+    "error": {
+      "invalid_email": "Please enter a valid Google email address (e.g. name@gmail.com).",
+      "invalid_token_format": "Invalid token format. Token must start with 'aas_et/' (Master Token) or 'oauth2_4/' (Web OAuth Token).",
+      "invalid_master_token": "The token provided is invalid or expired. Please generate a fresh token from {setup_url}.",
+      "missing_email_for_oauth": "Please enter your Google Account Email above.",
+      "missing_credentials": "Please enter your credentials.",
+      "addon_not_logged_in": "The Google Home Add-on is running, but no token has been entered yet.",
+      "cannot_connect_addon": "Could not connect to Google Home Add-on. Make sure it is installed and running.",
+      "invalid_auth": "Invalid email address or credentials. Please verify your data.",
+      "assistant_sdk_missing": "The official Google Assistant SDK integration is not installed or configured in Home Assistant. Please set up the Google Assistant SDK integration before enabling Assistant SDK control mode.",
+      "unknown": "An unexpected error occurred. Please check Home Assistant logs.",
+      "oauth-token-invalid": "Google ei hyväksynyt kirjautumista. Hanki uusi eväste ja liitä se heti: se voi vanhentua nopeasti ja toimii vain kerran. Kopioi koko arvo, joka alkaa merkkijonolla oauth2_4/.",
+      "master-token-invalid": "Google ei hyväksynyt päätunnistetta. Tarkista, että kopioit sen oikein. Jos se toimi aiemmin, esimerkiksi siihen asti, kunnes vaihdoit Google-salasanasi, Google ei enää hyväksy sitä: käytä sen sijaan kirjautumista selaimella.",
+      "google-rejected": "Google ei hyväksynyt kirjautumista. Lisätietoja on Home Assistantin lokeissa.",
+      "google-unreachable": "Googleen ei saatu yhteyttä. Tarkista, että Home Assistant on yhteydessä internetiin, ja yritä sitten uudelleen.",
+      "google-busy": "Google on ruuhkautunut tai rajoittaa kirjautumisia. Odota muutama minuutti ja kirjaudu sitten uudelleen.",
+      "oauth-token-format": "Tämä ei ole oauth_token-eväste. Sen arvo alkaa merkkijonolla oauth2_4/.",
+      "master-token-format": "Päätunniste alkaa merkkijonolla aas_et/ ja on {token_length} merkkiä pitkä. Kopioi koko tunniste.",
+      "other-account": "Kirjauduit eri Google-tilille, joten mitään ei muutettu. Kirjaudu tilille, jota tämä integraatio käyttää. Jos haluat käyttää sen sijaan toista tiliä, poista integraatio ja lisää se uudelleen.",
+      "no-home-selected": "Valitse vähintään yksi koti."
+    },
+    "abort": {
+      "reauth_successful": "Re-authentication was successful. Your Google Home devices are now updated.",
+      "single_instance_allowed": "Only a single Google Home integration instance is allowed.",
+      "already_configured": "Google Home is already configured.",
+      "already_in_progress": "A Google Home setup is already in progress. Please complete or cancel it first.",
+      "cannot_connect": "Cannot connect to the Google Home Token Hub Add-on. Make sure the Add-on is running.",
+      "no_devices_found": "No Google Home devices found on the local network.",
+      "migrated_from_leikoilja": "Your existing leikoilja/ha-google-home configuration has been automatically migrated. All your devices continue to work. You can switch to Hybrid mode in the Options Flow to gain cloud device support.",
+      "no-home": "Googlen mukaan tämä tili ei ole minkään kodin jäsen, joten lisättäviä kaiuttimia tai näyttöjä ei ole. Kutsu Google Home ‑sovelluksessa tili kotiin, jossa laitteesi ovat, hyväksy kutsu ja lisää sitten integraatio uudelleen. Google Workspace ‑tiliä ei voi kutsua, joten lisää integraatio sen sijaan Gmail-tilillä, joka on kodin jäsen. Lisätietoja on osoitteessa {docs_url}."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Google Home Options",
+        "description": "Configure operation mode, Home Assistant device filtering, polling interval, and view/update your Master Token.",
+        "data": {
+          "operation_mode": "Operation Mode",
+          "third_party_entity_mode": "Third-Party Devices Representation",
+          "selected_homes": "Google Homes to synchronize",
+          "ignore_ha_synced_devices": "Ignore devices synced from Home Assistant",
+          "mute_sdk_nightlight": "Mute speaker during nightlight control via Assistant SDK (when no media is playing)",
+          "local_update_interval": "Local Speaker Polling Interval (seconds, min 5s, default 120s)",
+          "cloud_update_interval": "Cloud HomeGraph Polling Interval (seconds, min 60s, default 300s)",
+          "master_token": "Master Token (hidden - paste new aas_et/... or oauth2_4/... token to update)",
+          "excluded_services": "Linked services to exclude",
+          "known_hosts": "Tunnetut isännät",
+          "update_interval": "Päivitysväli (sekunteina)",
+          "homes": "Kodit"
+        },
+        "data_description": {
+          "excluded_services": "Devices and routines from the selected services will not be imported. Leave empty to include all services.",
+          "known_hosts": "Niiden kaiuttimien ja näyttöjen IP-osoitteet, joita integraatio ei löydä automaattisesti esimerkiksi siksi, että ne ovat toisessa verkossa tai VLAN-verkossa.",
+          "update_interval": "Suurenna arvoa, jos laitteesi jättävät usein vastaamatta ajoissa. Oletus: {default_interval} sekuntia.",
+          "homes": "Kodeista, joiden valinnan poistat, ei lisätä kaiuttimia eikä näyttöjä. Kun poistat kodin valinnan, sen laitteet ja niiden entiteetit poistetaan Home Assistantista, joten niitä käyttävät automaatiot, skriptit ja kojelaudat lakkaavat toimimasta. Valitse koti uudelleen, niin laitteet lisätään takaisin antamillasi nimillä ja huoneilla."
+        },
+        "sections": {
+          "bluetooth": {
+            "name": "Bluetooth",
+            "data": {
+              "bluetooth_tracking": "Bluetooth-seuranta",
+              "bluetooth_excluded_speakers": "Kaiuttimet, joita ei käytetä Bluetooth-seurantaan"
+            },
+            "data_description": {
+              "bluetooth_tracking": "Kaiuttimiesi avulla näet, ovatko puhelimesi tai muut Bluetooth-laitteet kotona. Kun olet ottanut seurannan käyttöön, valitse integraation sivulla ”Seuraa Bluetooth-laitetta” jokaiselle laitteelle, jota haluat seurata. Kun seuranta ei ole käytössä, integraatio ei lähetä kaiuttimille Bluetooth-pyyntöjä.",
+              "bluetooth_excluded_speakers": "Kaiuttimet, jotka eivät etsi Bluetooth-laitteita. Lisää tähän kaiutin, joka on irrotettu verkkovirrasta tai poissa käytöstä."
+            }
+          }
+        }
+      }
+    },
+    "error": {
+      "known-host-not-ip": "Anna vain IP-osoitteita, kuten 192.168.1.20.",
+      "no-home-selected": "Valitse vähintään yksi koti."
+    }
+  },
+  "entity": {
+    "event": {
+      "alarm_events": {
+        "name": "Herätystapahtumat",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "ringing": "Soi",
+              "snoozed": "Torkutettu",
+              "stopped": "Pysäytetty"
+            }
+          }
+        }
+      },
+      "timer_events": {
+        "name": "Ajastintapahtumat",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "ringing": "Soi",
+              "stopped": "Pysäytetty"
+            }
+          }
+        }
+      }
+    },
+    "button": {
+      "reboot": {
+        "name": "Käynnistä uudelleen"
+      }
+    },
+    "number": {
+      "alarm_volume": {
+        "name": "Herätyksen äänenvoimakkuus"
+      }
+    },
+    "sensor": {
+      "alarms": {
+        "name": "Herätykset"
+      },
+      "device": {
+        "name": "Laite"
+      },
+      "timers": {
+        "name": "Ajastimet"
+      },
+      "wifi_network": {
+        "name": "Wi-Fi-verkko"
+      }
+    },
+    "switch": {
+      "do_not_disturb": {
+        "name": "Älä häiritse"
+      }
+    }
+  },
+  "selector": {
+    "auth_method": {
+      "options": {
+        "token": "Token (Master Token / Web OAuth Token) [Recommended]",
+        "addon": "Google Home Token Hub Add-on (Ingress Hub)"
+      }
+    },
+    "addon_action": {
+      "options": {
+        "stop": "Stop Add-on (Recommended - saves RAM/CPU, token is saved)",
+        "uninstall": "Uninstall Add-on (No longer needed)",
+        "keep_running": "Keep Add-on running"
+      }
+    },
+    "reauth_action": {
+      "options": {
+        "apply_addon_token": "Apply new Master Token from Add-on (Recommended)",
+        "enter_manually": "Enter token manually"
+      }
+    },
+    "existing_action": {
+      "options": {
+        "use_existing": "Use existing Master Token (Recommended)",
+        "generate_new": "Generate new Master Token / Login with different account"
+      }
+    },
+    "operation_mode": {
+      "options": {
+        "hybrid": "Local & Cloud (Recommended - Fast speaker timers + all Google Home devices)",
+        "local": "Local Only (100% LAN - timers, alarms, DND, volume)",
+        "cloud": "Cloud Only (Google Home Web / HomeGraph)"
+      }
+    },
+    "third_party_entity_mode": {
+      "options": {
+        "readonly_sensors": "Read-Only Sensors (Default - Live telemetry without duplicate control entities)",
+        "control_entities": "Control Entities without Execution (Light/Fan/Switch/Nightlight entities, direct cloud sync)",
+        "assistant_sdk_control": "Control Entities with Google Assistant SDK Execution (Universal text command forwarding via official Google Assistant SDK)"
+      }
+    },
+    "departure_delay": {
+      "options": {
+        "0": "0 sekuntia (tavallinen ajoitus)",
+        "30": "30 sekuntia",
+        "60": "60 sekuntia",
+        "90": "90 sekuntia",
+        "120": "120 sekuntia"
+      }
+    }
+  },
+  "config_subentries": {
+    "bluetooth_device": {
+      "entry_type": "Bluetooth-laite",
+      "initiate_flow": {
+        "user": "Seuraa Bluetooth-laitetta"
+      },
+      "step": {
+        "user": {
+          "title": "Seuraa Bluetooth-laitetta",
+          "description": "Anna puhelimen IRK tai sellaisen laitteen MAC-osoite, jonka osoite ei koskaan muutu, kuten jotkin kellot ja paikannustagit. Puhelimet vaihtavat osoitettaan muutaman minuutin välein, joten seuraa niitä IRK:n avulla. Ohjeet IRK:n löytämiseen: {docs_url}.",
+          "data": {
+            "name": "Nimi",
+            "irk_or_mac": "IRK tai MAC-osoite",
+            "additional_departure_delay": "Poistumisen lisäviive"
+          },
+          "data_description": {
+            "name": "Seurannan nimi, esimerkiksi Alexin puhelin.",
+            "irk_or_mac": "Puhelimen Identity Resolving Key {irk_hex_length} heksadesimaalinumerona tai base64-muodossa tai MAC-osoite, kuten AA:BB:CC:DD:EE:FF.",
+            "additional_departure_delay": "Lisäaika tavallisen {presence_window} sekunnin läsnäolojakson jälkeen ennen tilan vaihtumista Kotona-tilasta Poissa-tilaan. Tavallinen ajoitus ei lisää viivettä. Pidempi viive viivästyttää myös todellisen poistumisen havaitsemista. Jos skannaukset eivät pysty vahvistamaan poissaoloa, seuranta voi muuttua tilaan Ei saatavissa."
+          }
+        },
+        "reconfigure": {
+          "title": "Bluetooth-laitteen asetukset",
+          "description": "Muuta tämän seurannan poistumisen lisäviivettä.",
+          "data": {
+            "additional_departure_delay": "Poistumisen lisäviive"
+          },
+          "data_description": {
+            "additional_departure_delay": "Lisäaika tavallisen {presence_window} sekunnin läsnäolojakson jälkeen ennen tilan vaihtumista Kotona-tilasta Poissa-tilaan. Tavallinen ajoitus ei lisää viivettä. Pidempi viive viivästyttää myös todellisen poistumisen havaitsemista. Jos skannaukset eivät pysty vahvistamaan poissaoloa, seuranta voi muuttua tilaan Ei saatavissa."
+          }
+        }
+      },
+      "error": {
+        "name_empty": "Enter a name.",
+        "irk_or_mac": "Enter an IRK or a MAC address.",
+        "irk_invalid": "This isn't an IRK. Enter {irk_bytes} bytes as {irk_hex_length} hex digits or in base64.",
+        "mac_invalid": "This isn't a MAC address. Enter six pairs of hex digits separated by colons or hyphens, such as AA:BB:CC:DD:EE:FF.",
+        "already_tracked": "This device is already tracked.",
+        "departure_delay_invalid": "Choose one of the listed departure delays.",
+        "name-empty": "Anna nimi.",
+        "irk-or-mac": "Anna IRK tai MAC-osoite.",
+        "irk-invalid": "Tämä ei ole IRK. Anna {irk_bytes} tavua {irk_hex_length} heksadesimaalinumerona tai base64-muodossa.",
+        "mac-invalid": "Tämä ei ole MAC-osoite. Anna kuusi heksadesimaalinumeroparia kaksoispisteillä tai yhdysmerkeillä erotettuina, esimerkiksi AA:BB:CC:DD:EE:FF.",
+        "already-tracked": "Tätä laitetta seurataan jo.",
+        "departure-delay-invalid": "Valitse jokin luetelluista poistumisviiveistä."
+      },
+      "abort": {
+        "bluetooth_tracking_off": "Bluetooth tracking is off. Turn it on in the integration's options first: select Configure on the integration's page.",
+        "device_removed": "This Bluetooth device was removed. Add it again to track it.",
+        "bluetooth-tracking-off": "Bluetooth-seuranta ei ole käytössä. Ota se ensin käyttöön integraation asetuksissa: valitse integraation sivulla ”Määrittele”.",
+        "device-removed": "Tämä Bluetooth-laite on poistettu. Lisää se uudelleen, jos haluat seurata sitä."
+      }
+    }
+  },
+  "issues": {
+    "polling_disabled": {
+      "title": "Muutosten kysely on poistettu käytöstä",
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "Muutosten kysely on poistettu käytöstä",
+            "description": "Asetus **Ota muutosten kysely käyttöön** on poistettu käytöstä integraation järjestelmäasetuksissa, joten integraatio ei tarkista laitteitasi itsestään. Herätykset, ajastimet ja muut entiteetit päivittyvät vain, kun pyydät, esimerkiksi toiminnolla **Päivitä laitteiden tila**. Tietoa siitä, mikä toimii edelleen: {docs_url}.\n\nJos otat kyselyn uudelleen käyttöön, integraatio ladataan uudelleen, ja sen jälkeen se tarkistaa laitteesi päivitysvälin mukaan. Jos pidät kyselyn poissa käytöstä, tämä korjaus piilotetaan, kunnes otat kyselyn käyttöön ja poistat sen sitten taas käytöstä.",
+            "menu_options": {
+              "turn_on": "Ota kysely uudelleen käyttöön",
+              "keep_off": "Pidä kysely poissa käytöstä ja piilota tämä korjaus"
+            }
+          }
+        },
+        "abort": {
+          "polling_kept_off": "Kysely pysyy poissa käytöstä, ja tämä korjaus on piilotettu."
+        }
+      }
+    },
+    "invalid_update_interval": {
+      "title": "Tallennettu päivitysväli on alle {min_interval} s",
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "Tallennettu päivitysväli on alle {min_interval} s",
+            "description": "Integraation asetuksiin tallennettu päivitysväli on {interval} s, mikä on alle {min_interval} s:n vähimmäisarvon. Integraatio käyttää sen sijaan oletusarvoa ja tarkistaa laitteesi {default_interval} s:n välein.\n\nJos tallensit arvon 0 pysäyttääksesi nämä säännölliset tarkistukset, poista sen sijaan kysely käytöstä. Toisin kuin 0, se pysäyttää myös Bluetooth-laitteiden etsinnän ja mDNS:n löytämien uusien laitteiden lisäämisen. Lisätietoja: {docs_url}.\n\nJos haluat käyttää muuta päivitysväliä, avaa [Google Home ‑integraatio]({integration_url}), valitse **Määrittele**, syötä väli ja valitse sitten **Lähetä**.",
+            "menu_options": {
+              "use_default": "Käytä oletusarvoa {default_interval} s",
+              "turn_off_polling": "Poista kysely käytöstä sen sijaan"
+            }
+          }
+        }
+      }
+    },
+    "homes_deselected": {
+      "title": "Yhtäkään Google-tilisi kodeista ei ole valittu",
+      "description": "Google-tilisi on vain sellaisten kotien jäsen, joiden valinnan olet poistanut integraation asetuksissa, joten integraatio ei lisää niiden kaiuttimia eikä näyttöjä. Jos haluat lisätä kodin laitteet, avaa [Google Home ‑integraatio]({integration_url}), valitse **Määrittele**, valitse koti kohdassa **Kodit** ja valitse sitten **Lähetä**.\n\nJos haluat pitää näiden kotien valinnan poistettuna, valitse **Sivuta**."
+    },
+    "no_home": {
+      "title": "Google ei ilmoita tilillesi yhtään kotia",
+      "description": "Googlen mukaan tili, jolla integraatio kirjautui, ei ole minkään kodin jäsen, joten lisättäviä kaiuttimia tai näyttöjä ei ole. Kutsu Google Home ‑sovelluksessa tämä tili kotiin, jossa laitteesi ovat, ja hyväksy kutsu. Lataa sitten [Google Home ‑integraatio]({integration_url}) uudelleen: valitse **⋮** > **Lataa uudelleen**.\n\nJos pidät integraation tarkoituksella, esimerkiksi muuton aikana, valitse **Sivuta**. Jos et enää tarvitse sitä, voit poistaa sen samalla sivulla."
+    }
+  },
+  "services": {
+    "delete_alarm": {
+      "description": "Poistaa herätyksen Google Home ‑laitteesta.",
+      "fields": {
+        "alarm_id": {
+          "description": "Herätyksen tunnus (alarm/xxx).",
+          "name": "Herätyksen tunnus"
+        },
+        "skip_refresh": {
+          "description": "Ohittaa Google Home ‑laitteiden tilan päivityksen herätyksen poistamisen jälkeen.",
+          "name": "Ohita tilan päivitys"
+        },
+        "entity_id": {
+          "description": "Google Home ‑laitetta edustava entiteetti (sensor.xxxx_alarms).",
+          "name": "Entiteetti"
+        }
+      },
+      "name": "Poista herätys"
+    },
+    "delete_timer": {
+      "description": "Poistaa ajastimen Google Home ‑laitteesta.",
+      "fields": {
+        "timer_id": {
+          "description": "Ajastimen tunnus (timer/xxx).",
+          "name": "Ajastimen tunnus"
+        },
+        "skip_refresh": {
+          "description": "Ohittaa Google Home ‑laitteiden tilan päivityksen ajastimen poistamisen jälkeen.",
+          "name": "Ohita tilan päivitys"
+        },
+        "entity_id": {
+          "description": "Google Home ‑laitetta edustava entiteetti (sensor.xxxx_timers).",
+          "name": "Entiteetti"
+        }
+      },
+      "name": "Poista ajastin"
+    },
+    "delete_all_alarms": {
+      "description": "Poistaa kaikki herätykset Google Home ‑laitteista.",
+      "fields": {
+        "skip_refresh": {
+          "description": "Ohittaa Google Home ‑laitteiden tilan päivityksen kaikkien herätysten poistamisen jälkeen.",
+          "name": "Ohita tilan päivitys"
+        }
+      },
+      "name": "Poista kaikki herätykset"
+    },
+    "delete_all_timers": {
+      "description": "Poistaa kaikki ajastimet Google Home ‑laitteista.",
+      "fields": {
+        "skip_refresh": {
+          "description": "Ohittaa Google Home ‑laitteiden tilan päivityksen kaikkien ajastimien poistamisen jälkeen.",
+          "name": "Ohita tilan päivitys"
+        }
+      },
+      "name": "Poista kaikki ajastimet"
+    },
+    "reboot_device": {
+      "description": "Käynnistää Google Home ‑laitteen uudelleen.",
+      "name": "Käynnistä laite uudelleen"
+    },
+    "refresh_devices": {
+      "description": "Päivittää kaikkien Google Home ‑laitteiden tilan.",
+      "name": "Päivitä laitteiden tila"
+    },
+    "set_alarm_volume": {
+      "name": "Set alarm volume",
+      "description": "Sets the alarm and timer volume (0-100%) on a Google Home device.",
+      "fields": {
+        "volume": {
+          "name": "Volume",
+          "description": "The target alarm volume percentage (0 to 100)."
+        }
+      }
+    },
+    "broadcast": {
+      "name": "Broadcast message",
+      "description": "Broadcasts a text message or announcement locally to a Google Home speaker.",
+      "fields": {
+        "message": {
+          "name": "Message",
+          "description": "The announcement message to broadcast."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "alarms_and_timers_not_fetched": {
+      "message": "Laitteen {device} nykyisiä herätyksiä ja ajastimia ei voitu hakea, joten laitteesta ei poistettu mitään. Tarkista, että laite on verkossa, ja yritä myöhemmin uudelleen."
+    },
+    "alarms_and_timers_not_fetched_token_rejected_polling_off": {
+      "message": "Laitteen {device} nykyisiä herätyksiä ja ajastimia ei voitu hakea, joten laitteesta ei poistettu mitään. Laite hylkäsi tunnisteensa. Muutosten kysely on poistettu käytöstä, joten integraatio ei pyydä Googlelta uutta itsestään: suorita toiminto ”Päivitä laitteiden tila” ja yritä sitten uudelleen."
+    },
+    "alarms_and_timers_not_fetched_from_devices": {
+      "message": "Seuraavien laitteiden nykyisiä herätyksiä ja ajastimia ei voitu hakea: {devices}. Näistä laitteista ei siksi poistettu mitään. Tarkista, että laitteet ovat verkossa, ja yritä myöhemmin uudelleen."
+    },
+    "alarms_and_timers_not_deleted": {
+      "message": "Laite {device} ei vahvistanut herätysten tai ajastimien poistamista, joten ne saattavat edelleen olla asetettuina. Tarkista, että laite on verkossa, ja yritä myöhemmin uudelleen."
+    },
+    "alarms_and_timers_not_deleted_token_rejected_polling_off": {
+      "message": "Laite {device} ei vahvistanut herätysten tai ajastimien poistamista, joten ne saattavat edelleen olla asetettuina. Laite hylkäsi tunnisteensa. Muutosten kysely on poistettu käytöstä, joten integraatio ei pyydä Googlelta uutta itsestään: suorita toiminto ”Päivitä laitteiden tila” ja yritä sitten uudelleen."
+    },
+    "alarms_and_timers_not_deleted_from_devices": {
+      "message": "Seuraavista laitteista ei voitu poistaa herätyksiä tai ajastimia tai niiden poistamista ei voitu vahvistaa: {devices}. Tarkista, että laitteet ovat verkossa, ja yritä myöhemmin uudelleen."
+    },
+    "alarms_and_timers_not_deleted_from_devices_token_rejected_polling_off": {
+      "message": "Seuraavista laitteista ei voitu poistaa herätyksiä tai ajastimia tai niiden poistamista ei voitu vahvistaa: {devices}. Ainakin yksi niistä hylkäsi tunnisteensa. Muutosten kysely on poistettu käytöstä, joten integraatio ei pyydä Googlelta uutta itsestään: suorita toiminto ”Päivitä laitteiden tila”, tarkista, että laitteet ovat verkossa, ja yritä sitten uudelleen."
+    },
+    "invalid_alarm_id": {
+      "message": "”{alarm_id}” ei ole herätyksen tunnus. Kopioi tunnus, joka alkaa merkkijonolla alarm/, laitteen herätysanturin alarms-attribuutista."
+    },
+    "invalid_timer_id": {
+      "message": "”{timer_id}” ei ole ajastimen tunnus. Kopioi tunnus, joka alkaa merkkijonolla timer/, laitteen ajastinanturin timers-attribuutista."
+    },
+    "alarm_not_found": {
+      "message": "Herätystä {alarm_id} ei löytynyt valituista laitteista. Se on ehkä jo soinut tai poistettu."
+    },
+    "timer_not_found": {
+      "message": "Ajastinta {timer_id} ei löytynyt valituista laitteista. Se on ehkä jo päättynyt tai poistettu."
+    },
+    "device_offline": {
+      "message": "Laitteeseen {device} ei saatu yhteyttä. Tarkista, että laite on päällä ja yhteydessä verkkoosi, ja yritä sitten uudelleen."
+    },
+    "device_no_reply": {
+      "message": "Laite {device} ei vahvistanut suorittaneensa toimintoa: se ei vastannut ajoissa tai sen vastaus katkesi kesken. Tarkista, että laite on verkossa, ja yritä uudelleen."
+    },
+    "device_token_rejected": {
+      "message": "Laite {device} hylkäsi tunnisteensa. Integraatio jatkaa uuden pyytämistä Googlelta, joten yritä myöhemmin uudelleen."
+    },
+    "device_token_rejected_polling_off": {
+      "message": "Laite {device} hylkäsi tunnisteensa. Muutosten kysely on poistettu käytöstä, joten integraatio ei pyydä Googlelta uutta itsestään: suorita toiminto ”Päivitä laitteiden tila” ja yritä sitten uudelleen."
+    },
+    "device_not_ready": {
+      "message": "Laite {device} vastasi ”ei löytynyt”. Se voi olla vielä käynnistymässä, joten yritä myöhemmin uudelleen, tai se ei ehkä tue tätä."
+    },
+    "device_request_failed": {
+      "message": "Toimintoa ei voitu suorittaa laitteella {device}. Lisätietoja on Home Assistantin lokeissa."
+    },
+    "devices_not_rebooted": {
+      "message": "Seuraavat laitteet eivät vahvistaneet käynnistyvänsä uudelleen: {devices}. Tarkista, että laitteet ovat verkossa, ja yritä myöhemmin uudelleen."
+    },
+    "sign_in_rejected": {
+      "message": "Google ei hyväksynyt kirjautumista ({reason}). Kirjaudu uudelleen."
+    }
+  },
+  "system_health": {
+    "info": {
+      "can_reach_sign_in": "Tavoita Googlen kirjautumispalvelin",
+      "can_reach_device_list": "Tavoita Googlen laiteluettelon palvelin",
+      "device_list": "Googlen laiteluettelo",
+      "retry_not_before": "Uusi yritys aikaisintaan",
+      "polling": "Muutosten kysely",
+      "bluetooth_tracking": "Bluetooth-seuranta",
+      "devices_listed": "Laitteet Googlen luettelossa",
+      "devices_not_answering": "Laitteet, jotka eivät vastaa"
+    }
+  }
+}

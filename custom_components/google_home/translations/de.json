@@ -96,7 +96,7 @@
       "unknown": "Ein unerwarteter Fehler ist aufgetreten. Bitte prüfe die Home Assistant Logs."
     },
     "abort": {
-      "reauth_successful": "Die Neu-Authentifizierung war erfolgreich. Deine Google Home Geräte wurden aktualisiert.",
+      "reauth_successful": "Erneute Authentifizierung war erfolgreich",
       "single_instance_allowed": "Es ist nur eine einzige Instanz der Google Home Integration erlaubt.",
       "already_configured": "Google Home ist bereits eingerichtet.",
       "already_in_progress": "Eine Google Home Einrichtung ist bereits im Gange. Bitte zuerst abschließen oder abbrechen.",
@@ -209,32 +209,40 @@
       "step": {
         "user": {
           "title": "Bluetooth-Gerät verfolgen",
-          "description": "Gib den IRK eines Smartphones oder die feste MAC-Adresse eines Geräts ein (z. B. Smartwatch oder Beacon). Smartphones ändern ihre BLE-Adresse ständig und müssen per IRK getrackt werden.",
+          "description": "Gib den IRK eines Smartphones ein oder die MAC-Adresse eines Geräts, dessen Adresse sich nie ändert, etwa mancher Uhren und Bluetooth-Tags. Smartphones ändern ihre Adresse alle paar Minuten, verfolge sie daher per IRK. Wie du den IRK findest, steht unter {docs_url}.",
           "data": {
             "name": "Name",
             "irk_or_mac": "IRK oder MAC-Adresse",
             "additional_departure_delay": "Zusätzliche Abwesenheitsverzögerung"
+          },
+          "data_description": {
+            "name": "Name des Trackers, etwa Smartphone von Alex.",
+            "irk_or_mac": "Der Identity Resolving Key eines Smartphones als {irk_hex_length} Hexadezimalziffern oder in Base64, oder eine MAC-Adresse wie AA:BB:CC:DD:EE:FF.",
+            "additional_departure_delay": "Zusätzliche Zeit nach dem normalen Anwesenheitszeitraum von {presence_window} Sekunden, bevor der Status von 'Zuhause' zu 'Abwesend' wechselt. Die normale Zeitsteuerung fügt keine Verzögerung hinzu."
           }
         },
         "reconfigure": {
-          "title": "Bluetooth-Geräteeinstellungen",
-          "description": "Zusätzliche Abwesenheitsverzögerung für diesen Tracker anpassen.",
+          "title": "Einstellungen des Bluetooth-Geräts",
+          "description": "Ändere die zusätzliche Abwesenheitsverzögerung für diesen Tracker.",
           "data": {
             "additional_departure_delay": "Zusätzliche Abwesenheitsverzögerung"
+          },
+          "data_description": {
+            "additional_departure_delay": "Zusätzliche Zeit nach dem normalen Anwesenheitszeitraum von {presence_window} Sekunden, bevor der Status von 'Zuhause' zu 'Abwesend' wechselt. Die normale Zeitsteuerung fügt keine Verzögerung hinzu."
           }
         }
       },
       "error": {
-        "name_empty": "Bitte einen Namen eingeben.",
-        "irk_or_mac": "Bitte einen IRK oder eine MAC-Adresse eingeben.",
-        "irk_invalid": "Ungültiger IRK.",
-        "mac_invalid": "Ungültige MAC-Adresse.",
+        "name_empty": "Gib einen Namen ein.",
+        "irk_or_mac": "Gib einen IRK oder eine MAC-Adresse ein.",
+        "irk_invalid": "Das ist kein IRK. Gib {irk_bytes} Bytes als {irk_hex_length} Hexadezimalziffern oder in Base64 ein.",
+        "mac_invalid": "Das ist keine MAC-Adresse. Gib sechs Paare von Hexadezimalziffern ein, getrennt durch Doppelpunkte oder Bindestriche, etwa AA:BB:CC:DD:EE:FF.",
         "already_tracked": "Dieses Gerät wird bereits verfolgt.",
-        "departure_delay_invalid": "Bitte eine der aufgelisteten Verzögerungen wählen."
+        "departure_delay_invalid": "Wähle eine der aufgeführten Abwesenheitsverzögerungen."
       },
       "abort": {
-        "bluetooth_tracking_off": "Bluetooth-Tracking ist deaktiviert. Bitte zuerst in den Optionen aktivieren.",
-        "device_removed": "Dieses Bluetooth-Gerät wurde entfernt."
+        "bluetooth_tracking_off": "Bluetooth-Tracking ist ausgeschaltet. Schalte es zuerst in den Optionen der Integration ein: Wähle 'Konfigurieren' auf der Seite der Integration.",
+        "device_removed": "Dieses Bluetooth-Gerät wurde entfernt. Füge es erneut hinzu, um es zu verfolgen."
       }
     }
   },
@@ -279,6 +287,92 @@
     "no_home": {
       "title": "Google meldet kein Zuhause für dein Konto",
       "description": "Google meldet, dass das Konto, mit dem sich die Integration angemeldet hat, kein Mitglied eines Zuhauses ist, daher gibt es keine Lautsprecher oder Displays zum Hinzufügen. Lade dieses Konto in der Google Home App in das Zuhause ein, in dem sich deine Geräte befinden, und nimm die Einladung an. Lade danach die [Google Home-Integration]({integration_url}) neu: Wähle **⋮** > **Neu laden**.\n\nWenn du die Integration absichtlich behältst, zum Beispiel während eines Umzugs, wähle **Ignorieren**. Wenn du sie nicht mehr brauchst, kannst du sie auf derselben Seite löschen."
+    }
+  },
+  "services": {
+    "delete_alarm": {
+      "description": "Einen Wecker von einem Google Home-Gerät löschen.",
+      "fields": {
+        "alarm_id": {
+          "description": "ID eines Weckers (alarm/xxx).",
+          "name": "Wecker-ID"
+        },
+        "skip_refresh": {
+          "description": "Aktualisierung der Google Home-Geräte nach dem Löschen eines Weckers überspringen.",
+          "name": "Aktualisierung überspringen"
+        },
+        "entity_id": {
+          "description": "Entspricht einem Google Home-Gerät (sensor.xxxx_alarms).",
+          "name": "Entität"
+        }
+      },
+      "name": "Wecker löschen"
+    },
+    "delete_timer": {
+      "description": "Einen Timer von einem Google Home-Gerät löschen.",
+      "fields": {
+        "timer_id": {
+          "description": "ID eines Timers (timer/xxx).",
+          "name": "Timer-ID"
+        },
+        "skip_refresh": {
+          "description": "Aktualisierung der Google Home-Geräte nach dem Löschen eines Timers überspringen.",
+          "name": "Aktualisierung überspringen"
+        },
+        "entity_id": {
+          "description": "Entspricht einem Google Home-Gerät (sensor.xxxx_timers).",
+          "name": "Entität"
+        }
+      },
+      "name": "Timer löschen"
+    },
+    "delete_all_alarms": {
+      "description": "Alle Wecker von Google Home-Geräten löschen.",
+      "fields": {
+        "skip_refresh": {
+          "description": "Aktualisierung der Google Home-Geräte nach dem Löschen der Wecker überspringen.",
+          "name": "Aktualisierung überspringen"
+        }
+      },
+      "name": "Alle Wecker löschen"
+    },
+    "delete_all_timers": {
+      "description": "Alle Timer von Google Home-Geräten löschen.",
+      "fields": {
+        "skip_refresh": {
+          "description": "Aktualisierung der Google Home-Geräte nach dem Löschen der Timer überspringen.",
+          "name": "Aktualisierung überspringen"
+        }
+      },
+      "name": "Alle Timer löschen"
+    },
+    "reboot_device": {
+      "description": "Ein Google Home-Gerät neu starten.",
+      "name": "Gerät neu starten"
+    },
+    "refresh_devices": {
+      "description": "Den Status aller Google Home-Geräte aktualisieren.",
+      "name": "Geräte aktualisieren"
+    },
+    "set_alarm_volume": {
+      "name": "Wecker-Lautstärke einstellen",
+      "description": "Stellt die Wecker- und Timer-Lautstärke (0-100%) auf einem Google Home-Gerät ein.",
+      "fields": {
+        "volume": {
+          "name": "Lautstärke",
+          "description": "Die Ziellautstärke für Wecker in Prozent (0 bis 100)."
+        }
+      }
+    },
+    "broadcast": {
+      "name": "Nachricht durchsagen",
+      "description": "Sendet eine Textnachricht oder Durchsage lokal an einen Google Home-Lautsprecher.",
+      "fields": {
+        "message": {
+          "name": "Nachricht",
+          "description": "Die durchzusagende Textnachricht."
+        }
+      }
     }
   }
 }

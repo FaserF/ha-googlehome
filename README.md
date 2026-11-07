@@ -1,4 +1,4 @@
-﻿# Google Home (for Home Assistant)
+# Google Home (for Home Assistant)
 
 [![GitHub Release](https://img.shields.io/github/release/FaserF/ha-googlehome.svg?style=flat-square)](https://github.com/FaserF/ha-googlehome/releases)
 [![Downloads (Current release)](https://img.shields.io/github/downloads/FaserF/ha-googlehome/latest/google_home.zip?label=Downloads%20(Current%20release)&style=flat-square)](https://github.com/FaserF/ha-googlehome/releases)
@@ -232,7 +232,8 @@ Both integrations share the same `google_home` domain and the same underlying li
 | `vacuum` | ✅ Start/stop/dock, zone metadata | ❌ Not present |
 | `alarm_control_panel` | ✅ Nest Secure (arm home/away/disarm) | ❌ Not present |
 | `scene` | ✅ Trigger Google Home routines & automations | ❌ Not present |
-| `device_tracker` | ✅ Household presence (HomeGraph AreaPresenceState) | ❌ Not present |
+| `event` | ✅ Speaker Alarm & Timer state transitions (`ringing`, `snoozed`, `stopped`) | ✅ Alarm & Timer events |
+| `device_tracker` | ✅ Household presence (HomeGraph AreaPresenceState) & Local Bluetooth presence tracker via speaker scanning (IRK / MAC) | ✅ Local Bluetooth presence tracker via speaker scanning (IRK / MAC) |
 
 ### 📡 Data Sources
 
@@ -248,7 +249,7 @@ Both integrations share the same `google_home` domain and the same underlying li
 | | **This integration** | **leikoilja** |
 |---|---|---|
 | **HA event bus events** | ✅ `google_home_timer_finished`, `google_home_alarm_triggered` | ❌ Not present |
-| **Services** | `reboot_device`, `delete_alarm`, `delete_timer`, `refresh_devices`, `set_alarm_volume`, `broadcast` | `reboot_device`, `delete_alarm`, `delete_timer`, `refresh_devices` |
+| **Services** | `reboot_device`, `delete_alarm`, `delete_timer`, `delete_all_alarms`, `delete_all_timers`, `refresh_devices`, `set_alarm_volume`, `broadcast` | `reboot_device`, `delete_alarm`, `delete_timer`, `delete_all_alarms`, `delete_all_timers`, `refresh_devices` |
 | **`broadcast` service** | ✅ Local TTS announcement via speaker | ❌ Not present |
 | **`set_alarm_volume` service** | ✅ Yes | ❌ Not present |
 
@@ -258,7 +259,8 @@ Both integrations share the same `google_home` domain and the same underlying li
 |---|---|---|
 | **Marketplace / HACS status** | ⚠️ Custom repository | ✅ Official default |
 | **Diagnostics support** | ✅ Yes | ❌ Not present |
-| **Translations** | ✅ English, German (`de`), Greek (`el`) | ✅ English + community translations |
+| **Repairs support** | ✅ Built-in Home Assistant Repairs flow | ✅ Repairs flow |
+| **Translations** | ✅ 27 languages (English, German, and 25 community translations) | ✅ English + community translations |
 | **Type hints / mypy + ruff CI** | ✅ Full | ✅ Basic |
 
 </details>
@@ -302,18 +304,50 @@ You can customize your integration settings at any time without reinstalling:
    - **Google Homes to synchronize**: Select or deselect individual homes/structures.
    - **Linked services to exclude**: Skip cloud devices and routines from providers such as Lutron or Philips Hue when they are already integrated directly in Home Assistant. Leave empty to include all services. This does not unlink the service from Google Home or affect its native Home Assistant integration. Removing an exclusion imports the devices again on reload. Local speaker polling is unaffected.
    - **Ignore devices synced from Home Assistant**: Toggle loop prevention on/off.
-   - **Local Speaker Polling Interval**: Adjust local LAN speaker polling frequency (min: 60s, default: 120s / 2 min).
+   - **Local Speaker Polling Interval**: Adjust local LAN speaker polling frequency (min: 5s, default: 120s / 2 min).
    - **Cloud HomeGraph Polling Interval**: Adjust cloud HomeGraph synchronization frequency (min: 60s, default: 300s / 5 min).
+   - **Known Hosts**: Enter static IP addresses of Google Home speakers or displays located across different VLANs or subnets where mDNS broadcast traffic cannot cross network boundaries.
+   - **Bluetooth Tracking**: Enable or disable local Bluetooth presence scanning on Google Home speakers.
+   - **Speakers excluded from Bluetooth scanning**: Exclude individual speakers from scanning.
    - **Master Token**: View or update your Master Token if you refreshed credentials.
+
+### 📱 Tracked Bluetooth Devices (Subentries)
+Track Bluetooth devices (smartphones, fitness trackers, BLE beacons) using your Google Home speakers as distributed room scanners:
+1. Navigate to **Settings** -> **Devices & Services** -> **Google Home**.
+2. Click **Add Subentry** (or **Track Bluetooth Device**).
+3. Enter the device **Name**, and either:
+   - **IRK (Identity Resolving Key)**: For modern smartphones (iOS & Android) that rotate their Bluetooth MAC address every few minutes for privacy.
+   - **Static MAC Address**: For beacon tags, smartwatches, or peripherals with fixed MAC addresses (`AA:BB:CC:DD:EE:FF`).
+4. Set an optional **Additional Departure Delay** (0s to 15m) to prevent brief signal dips from marking the device as away.
 
 
 ---
 
-## ⚡ Automation Events
+## ⚡ Automation Events & Event Entities
 
-The integration fires native events on the Home Assistant Event Bus that you can use directly in your automations:
+The integration provides both modern Home Assistant **Event Entities** (`event`) and native event bus signals:
 
-- **`google_home_timer_finished`**: Fired when a timer finishes on a speaker. Includes the timer's previous label and duration (`label`, `duration`, `duration_seconds`).
+### 1. Modern Event Entities (`event`)
+Each speaker provides dedicated event entities that fire state changes when alarms or timers change status:
+- **`event.<speaker>_alarm_events`**: Event types: `ringing`, `snoozed`, `stopped`.
+- **`event.<speaker>_timer_events`**: Event types: `ringing`, `stopped`.
+
+Example state-based automation:
+```yaml
+trigger:
+  - platform: state
+    entity_id: event.kitchen_speaker_timer_events
+    attribute: event_type
+    to: ringing
+action:
+  - action: light.flash
+    target:
+      entity_id: light.kitchen_counter
+```
+
+### 2. Event Bus Signals
+Legacy event bus events remain supported:
+- **`google_home_timer_finished`**: Fired when a timer finishes on a speaker. Includes `label`, `duration`, and `duration_seconds`.
   ```yaml
   trigger:
     - platform: event
@@ -337,6 +371,8 @@ The integration fires native events on the Home Assistant Event Bus that you can
 |---|---|---|
 | `google_home.delete_alarm` | Deletes a specific alarm from a Google Home device | `alarm_id`, `skip_refresh` |
 | `google_home.delete_timer` | Deletes a specific timer from a Google Home device | `timer_id`, `skip_refresh` |
+| `google_home.delete_all_alarms` | Deletes all active alarms from targeted Google Home devices | `entity_id`, `skip_refresh` |
+| `google_home.delete_all_timers` | Deletes all active timers from targeted Google Home devices | `entity_id`, `skip_refresh` |
 | `google_home.set_alarm_volume` | Sets the alarm and timer volume (0-100%) | `volume` |
 | `google_home.broadcast` | Broadcasts an announcement locally to a Google Home speaker | `message` |
 | `google_home.reboot_device` | Reboots the Google Home speaker | `entity_id` |
@@ -367,9 +403,16 @@ If you appreciate this integration and want to support ongoing maintenance:
 
 ## 💖 Credits & Acknowledgements
 
-A huge thank you to **[@leikoilja](https://github.com/leikoilja)** and the contributors of the original [ha-google-home](https://github.com/leikoilja/ha-google-home) repository. 
+A huge thank you to **[@leikoilja](https://github.com/leikoilja)**, **[@KapJI](https://github.com/KapJI)**, **[@IoannisArmamentos](https://github.com/IoannisArmamentos)**, **[@Lash-L](https://github.com/Lash-L)**, **[@marcusds](https://github.com/marcusds)**, **[@nikwilliamson](https://github.com/nikwilliamson)**, and the entire community of contributors to the original [ha-google-home](https://github.com/leikoilja/ha-google-home) repository.
 
-The original concept, reverse engineering, and foundational ideas were pioneered by their great work. This integration was completely rewritten from the ground up to modernize the architecture, resolve authentication/token expiry issues, eliminate timeouts, and provide a fully native configuration experience inside Home Assistant.
+The original concept, reverse engineering, and foundational local API interactions were pioneered by their outstanding work. In particular, this integration incorporates and adapts key features, bug fixes, and improvements introduced across upstream releases (v1.14.0 through v1.17.0+):
+- **Event Entities**: Dedicated `event` platform for speaker alarm & timer state transitions (`ringing`, `snoozed`, `stopped`).
+- **Bulk Action Services**: `delete_all_alarms` and `delete_all_timers` entity services with instant UI action buttons.
+- **Diagnostic Attributes**: Live device telemetry integrated directly into existing entities (device uptime, Wi-Fi SSID, Wi-Fi RSSI signal strength, BSSID, and remaining duration for paused timers).
+- **Bluetooth Device Tracking**: Subentry-based Bluetooth tracker supporting both static MAC and Resolving Private Addresses via Identity Resolving Keys (IRK) with `bluetooth-data-tools`.
+- **Cross-VLAN Known Hosts**: Direct IP configuration to reliably discover speakers located on separate subnets or VLANs when mDNS does not cross network boundaries.
+- **Home Assistant Repairs & Modern UI**: Built-in repairs flows for polling and update intervals, standard `icons.json` definitions, and quality scale adherence.
+- **Global Localization**: Community translation files spanning 27 languages.
 
 ---
 
@@ -386,4 +429,3 @@ The original concept, reverse engineering, and foundational ideas were pioneered
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-

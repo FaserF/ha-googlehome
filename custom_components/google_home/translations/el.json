@@ -2,85 +2,592 @@
   "config": {
     "step": {
       "user": {
-        "title": "Ρύθμιση Google Home",
-        "description": "Συνδεθείτε με τον λογαριασμό σας Google.",
+        "title": "Σύνδεση στο Google",
+        "description": "Αυτή η ενσωμάτωση λειτουργεί με τα ηχεία και τις οθόνες Google, όπως Nest Mini, Nest Audio και Nest Hub. Δεν προσθέτει τις άλλες συσκευές της εφαρμογής Google Home.\n\nΕπιλέξτε πώς θα συνδεθείτε σε έναν λογαριασμό Google που είναι μέλος του σπιτιού σας. Για βοήθεια, δείτε εδώ: {docs_url}.",
         "data": {
-          "username": "Διεύθυνση Email λογαριασμού Google",
-          "master_token": "Master Token"
+          "auth_method": "Authentication Method"
+        },
+        "menu_options": {
+          "browser": "Σύνδεση μέσω προγράμματος περιήγησης (συνιστάται)",
+          "master_token": "Master token"
+        },
+        "menu_option_descriptions": {
+          "browser": "Συνδεθείτε στο Google σε πρόγραμμα περιήγησης υπολογιστή και, στη συνέχεια, επικολλήστε ένα cookie.",
+          "master_token": "Επικολλήστε ένα master token που έχετε ήδη."
+        }
+      },
+      "token": {
+        "title": "Token Authentication",
+        "description": "### 🔑 30-Second Token Guide (Recommended):\n1. Open [{setup_url}]({setup_url}) in your browser and log in with your Google account.\n2. **Important**: The final page will remain on a loading/blank screen (this is normal and indicates the token was created!).\n3. Press **F12** (Developer Tools) -> **Application** (or Storage) -> **Cookies** ({cookies_url}).\n4. Copy the value of the **oauth_token** cookie (starts with oauth2_4/...).\n5. Enter your Google Email and paste the token below.\n\n*(If you already have a Master Token aas_et/..., you can also paste it directly below)*.",
+        "data": {
+          "username": "Google Account Email",
+          "master_token": "Token (oauth2_4/... or aas_et/...)"
         }
       },
       "mode": {
+        "title": "Integration Mode & Device Filtering",
+        "description": "### ⚙️ Choose how Google Home should integrate with Home Assistant:\n- **Local & Cloud (Hybrid)**: Fast local control for alarms/timers + cloud discovery for all Google Home devices.\n- **Local Only**: Pure local network communication for speakers.\n- **Cloud Only**: Cloud HomeGraph without local speaker polling.",
         "data": {
-          "excluded_services": "Συνδεδεμένες υπηρεσίες προς εξαίρεση"
+          "operation_mode": "Operation Mode",
+          "third_party_entity_mode": "Third-Party Devices Representation",
+          "selected_homes": "Google Homes to synchronize",
+          "ignore_ha_synced_devices": "Ignore devices already synced from Home Assistant (prevents duplicate entities & automation loops)",
+          "mute_sdk_nightlight": "Mute speaker during nightlight control via Assistant SDK (when no media is playing)",
+          "excluded_services": "Linked services to exclude"
         },
         "data_description": {
-          "excluded_services": "Οι συσκευές και οι ρουτίνες των επιλεγμένων υπηρεσιών δεν θα εισαχθούν. Αφήστε κενό για να συμπεριληφθούν όλες οι υπηρεσίες."
+          "excluded_services": "Devices and routines from the selected services will not be imported. Leave empty to include all services."
+        }
+      },
+      "addon": {
+        "title": "Connect with Google Home Add-on",
+        "description": "Ensure the **Google Home Token Hub** Add-on is installed and running.",
+        "data": {
+          "addon_host": "Add-on Host",
+          "addon_port": "Add-on Port"
+        }
+      },
+      "addon_login": {
+        "title": "Add-on Login",
+        "description": "{discovery_intro}Enter your Google account email and password. The Add-on will automatically authenticate and acquire your Master Token in the background.",
+        "data": {
+          "username": "Google Account Email",
+          "password": "Password"
+        }
+      },
+      "addon_existing": {
+        "title": "Existing Master Token Found",
+        "description": "An active Master Token for **{email}** was detected in the Google Home Token Hub Add-on.\n\nWould you like to use this existing token or generate a new one?",
+        "data": {
+          "existing_action": "Action"
+        }
+      },
+      "addon_2fa": {
+        "title": "Google Authentication in Progress",
+        "description": "{two_factor_instruction}",
+        "data": {
+          "two_factor_code": "Verification Code (SMS / Authenticator App)"
+        }
+      },
+      "addon_action": {
+        "title": "Setup Complete - Add-on Status",
+        "description": "✅ **Master Token successfully acquired for {email}!**\n\nThe Google Home integration runs locally/cloud and does not require the Add-on to keep running.\n\nWhat would you like to do with the Add-on?",
+        "data": {
+          "addon_action": "Action for Add-on"
+        }
+      },
+      "reauth_addon": {
+        "title": "New Master Token Detected",
+        "description": "A new active Google Home Master Token for **{username}** was detected from the Google Home Token Hub Add-on.\n\nWould you like to automatically apply this token to restore integration functionality?",
+        "data": {
+          "reauth_action": "Action"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Reauthenticate Google Home",
+        "description": "Your Google Home master token for **{username}** has expired or is invalid.\n\nPlease generate a new token and enter it below:\n1. Open [{setup_url}]({setup_url}) and log in with your Google account.\n2. In Developer Tools -> Application -> Cookies ({cookies_url}), copy the **oauth_token** value (or provide an `aas_et/...` master token).\n3. Paste the token below.",
+        "data": {
+          "master_token": "Token (oauth2_4/... or aas_et/...)"
+        }
+      },
+      "browser": {
+        "title": "Σύνδεση μέσω προγράμματος περιήγησης",
+        "description": "1. Σε έναν υπολογιστή, ανοίξτε το {embedded_setup_url} σε ένα ιδιωτικό παράθυρο περιήγησης και συνδεθείτε. Αφού αποδεχτείτε, η σελίδα μπορεί να συνεχίσει να φορτώνει· αυτό είναι αναμενόμενο.\n2. Ανοίξτε τα εργαλεία προγραμματιστή του προγράμματος περιήγησης και βρείτε τα cookies για το `accounts.google.com`.\n3. Αντιγράψτε την τιμή του cookie `oauth_token` και επικολλήστε την παρακάτω αμέσως. Μπορεί να λήξει γρήγορα και λειτουργεί μόνο μία φορά.\n\nΟδηγίες βήμα προς βήμα: {browser_docs_url}\n\nΓια να επιλέξετε άλλο τρόπο σύνδεσης, κλείστε αυτό το παράθυρο και προσθέστε ξανά την ενσωμάτωση.",
+        "data": {
+          "oauth_token": "Cookie oauth_token"
+        },
+        "data_description": {
+          "oauth_token": "Ξεκινά με oauth2_4/"
+        }
+      },
+      "master_token": {
+        "title": "Master token",
+        "description": "Επικολλήστε ένα master token που αποκτήσατε νωρίτερα, για παράδειγμα με άλλο εργαλείο.\n\nΓια να επιλέξετε άλλο τρόπο σύνδεσης, κλείστε αυτό το παράθυρο και προσθέστε ξανά την ενσωμάτωση.",
+        "data": {
+          "master_token": "Master token λογαριασμού Google"
+        },
+        "data_description": {
+          "master_token": "Ξεκινά με aas_et/"
+        }
+      },
+      "homes": {
+        "title": "Επιλογή σπιτιών",
+        "description": "Ο λογαριασμός σας Google είναι μέλος πολλών σπιτιών. Επιλέξτε τα σπίτια από τα οποία θέλετε να προστεθούν ηχεία και οθόνες. Μπορείτε να το αλλάξετε αργότερα στις επιλογές της ενσωμάτωσης: επιλέξτε **Διαμόρφωση** στη σελίδα της ενσωμάτωσης.",
+        "data": {
+          "homes": "Σπίτια"
+        },
+        "data_description": {
+          "homes": "Επιλέξτε τουλάχιστον ένα σπίτι. Προστίθενται επίσης τα ηχεία και οι οθόνες στα σπίτια των οποίων ο λογαριασμός σας θα γίνει μέλος αργότερα."
+        }
+      },
+      "reauth": {
+        "title": "Συνδεθείτε ξανά",
+        "description": "Το Google δεν αποδέχεται πλέον τα στοιχεία σύνδεσης που έχουν αποθηκευτεί για το {name}. Συνδεθείτε ξανά στον ίδιο λογαριασμό Google: οι συσκευές, οι οντότητες και οι αυτοματισμοί σας παραμένουν ως έχουν. Μέχρι να το κάνετε, οι οντότητες των συσκευών σας ενδέχεται να εμφανίζουν μη ενημερωμένες τιμές ή να μην είναι διαθέσιμες.",
+        "menu_options": {
+          "browser": "Σύνδεση μέσω προγράμματος περιήγησης (συνιστάται)",
+          "master_token": "Master token"
+        },
+        "menu_option_descriptions": {
+          "browser": "Συνδεθείτε στο Google σε πρόγραμμα περιήγησης υπολογιστή και, στη συνέχεια, επικολλήστε ένα cookie.",
+          "master_token": "Επικολλήστε ένα master token που έχετε ήδη."
+        }
+      },
+      "reauth_browser": {
+        "title": "Σύνδεση μέσω προγράμματος περιήγησης",
+        "description": "1. Σε έναν υπολογιστή, ανοίξτε το {embedded_setup_url} σε ένα ιδιωτικό παράθυρο περιήγησης και συνδεθείτε στον ίδιο λογαριασμό Google. Αφού αποδεχτείτε, η σελίδα μπορεί να συνεχίσει να φορτώνει· αυτό είναι αναμενόμενο.\n2. Ανοίξτε τα εργαλεία προγραμματιστή του προγράμματος περιήγησης και βρείτε τα cookies για το `accounts.google.com`.\n3. Αντιγράψτε την τιμή του cookie `oauth_token` και επικολλήστε την παρακάτω αμέσως. Μπορεί να λήξει γρήγορα και λειτουργεί μόνο μία φορά.\n\nΟδηγίες βήμα προς βήμα: {browser_docs_url}",
+        "data": {
+          "oauth_token": "Cookie oauth_token"
+        },
+        "data_description": {
+          "oauth_token": "Ξεκινά με oauth2_4/"
+        }
+      },
+      "reauth_master_token": {
+        "title": "Master token",
+        "description": "Επικολλήστε ένα master token για τον ίδιο λογαριασμό Google, για παράδειγμα ένα που αποκτήσατε με άλλο εργαλείο.",
+        "data": {
+          "master_token": "Master token λογαριασμού Google"
+        },
+        "data_description": {
+          "master_token": "Ξεκινά με aas_et/"
         }
       }
     },
     "error": {
-      "invalid_master_token": "Το master token δεν είναι έγκυρο ή έχει λήξει.",
-      "invalid_auth": "Μη έγκυρα στοιχεία σύνδεσης.",
-      "missing_credentials": "Παρακαλώ εισαγάγετε τα στοιχεία σύνδεσής σας.",
-      "unknown": "Παρουσιάστηκε μη αναμενόμενο σφάλμα. Ελέγξτε τα αρχεία καταγραφής."
+      "invalid_email": "Please enter a valid Google email address (e.g. name@gmail.com).",
+      "invalid_token_format": "Invalid token format. Token must start with 'aas_et/' (Master Token) or 'oauth2_4/' (Web OAuth Token).",
+      "invalid_master_token": "The token provided is invalid or expired. Please generate a fresh token from {setup_url}.",
+      "missing_email_for_oauth": "Please enter your Google Account Email above.",
+      "missing_credentials": "Please enter your credentials.",
+      "addon_not_logged_in": "The Google Home Add-on is running, but no token has been entered yet.",
+      "cannot_connect_addon": "Could not connect to Google Home Add-on. Make sure it is installed and running.",
+      "invalid_auth": "Invalid email address or credentials. Please verify your data.",
+      "assistant_sdk_missing": "The official Google Assistant SDK integration is not installed or configured in Home Assistant. Please set up the Google Assistant SDK integration before enabling Assistant SDK control mode.",
+      "unknown": "An unexpected error occurred. Please check Home Assistant logs.",
+      "oauth-token-invalid": "Το Google δεν αποδέχτηκε τη σύνδεση. Αποκτήστε ένα νέο cookie και επικολλήστε το αμέσως: μπορεί να λήξει γρήγορα και λειτουργεί μόνο μία φορά. Αντιγράψτε ολόκληρη την τιμή, που ξεκινά με oauth2_4/.",
+      "master-token-invalid": "Το Google δεν αποδέχτηκε το master token. Ελέγξτε ότι το αντιγράψατε σωστά. Αν λειτουργούσε παλαιότερα, για παράδειγμα μέχρι να αλλάξετε τον κωδικό πρόσβασης Google, το Google δεν το αποδέχεται πλέον: χρησιμοποιήστε αντί γι' αυτό τη σύνδεση μέσω προγράμματος περιήγησης.",
+      "google-rejected": "Το Google δεν αποδέχτηκε τη σύνδεση. Για λεπτομέρειες, ανατρέξτε στα αρχεία καταγραφής του Home Assistant.",
+      "google-unreachable": "Δεν ήταν δυνατή η επικοινωνία με το Google. Ελέγξτε ότι το Home Assistant είναι συνδεδεμένο στο διαδίκτυο και, στη συνέχεια, δοκιμάστε ξανά.",
+      "google-busy": "Το Google είναι απασχολημένο ή περιορίζει τις συνδέσεις. Περιμένετε λίγα λεπτά και, στη συνέχεια, συνδεθείτε ξανά.",
+      "oauth-token-format": "Αυτό δεν είναι το cookie oauth_token. Η τιμή του ξεκινά με oauth2_4/.",
+      "master-token-format": "Ένα master token ξεκινά με aas_et/ και έχει μήκος {token_length} χαρακτήρες. Αντιγράψτε ολόκληρο το token.",
+      "other-account": "Συνδεθήκατε σε διαφορετικό λογαριασμό Google, οπότε δεν άλλαξε τίποτα. Συνδεθείτε με τον λογαριασμό που χρησιμοποιεί αυτή η ενσωμάτωση. Αν θέλετε να χρησιμοποιείτε τον άλλο λογαριασμό, διαγράψτε την ενσωμάτωση και προσθέστε την ξανά.",
+      "no-home-selected": "Επιλέξτε τουλάχιστον ένα σπίτι."
     },
     "abort": {
-      "single_instance_allowed": "Επιτρέπεται μόνο μία εγκατάσταση του Google Home.",
-      "migrated_from_leikoilja": "Η υπάρχουσα ρύθμιση leikoilja/ha-google-home μεταναστεύτηκε αυτόματα. Όλες οι συσκευές σας συνεχίζουν να λειτουργούν. Μπορείτε να μεταβείτε σε Hybrid mode από τις Επιλογές για να αποκτήσετε υποστήριξη cloud συσκευών."
+      "reauth_successful": "Re-authentication was successful. Your Google Home devices are now updated.",
+      "single_instance_allowed": "Only a single Google Home integration instance is allowed.",
+      "already_configured": "Google Home is already configured.",
+      "already_in_progress": "A Google Home setup is already in progress. Please complete or cancel it first.",
+      "cannot_connect": "Cannot connect to the Google Home Token Hub Add-on. Make sure the Add-on is running.",
+      "no_devices_found": "No Google Home devices found on the local network.",
+      "migrated_from_leikoilja": "Your existing leikoilja/ha-google-home configuration has been automatically migrated. All your devices continue to work. You can switch to Hybrid mode in the Options Flow to gain cloud device support.",
+      "no-home": "Η Google αναφέρει ότι αυτός ο λογαριασμός δεν είναι μέλος κανενός σπιτιού, οπότε δεν υπάρχουν ηχεία ή οθόνες για προσθήκη. Στην εφαρμογή Google Home, προσκαλέστε τον λογαριασμό στο σπίτι όπου βρίσκονται οι συσκευές σας, αποδεχτείτε την πρόσκληση και, στη συνέχεια, προσθέστε ξανά την ενσωμάτωση. Ένας λογαριασμός Google Workspace δεν μπορεί να προσκληθεί, οπότε προσθέστε την ενσωμάτωση με έναν λογαριασμό Gmail που είναι μέλος του σπιτιού. Για λεπτομέρειες, δείτε {docs_url}."
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Ρυθμίσεις Google Home",
-        "description": "Διαμόρφωση διαστήματος ενημέρωσης για κατάσταση συσκευής, χρονόμετρα και αφυπνίσεις.",
+        "title": "Google Home Options",
+        "description": "Configure operation mode, Home Assistant device filtering, polling interval, and view/update your Master Token.",
         "data": {
+          "operation_mode": "Operation Mode",
+          "third_party_entity_mode": "Third-Party Devices Representation",
+          "selected_homes": "Google Homes to synchronize",
+          "ignore_ha_synced_devices": "Ignore devices synced from Home Assistant",
+          "mute_sdk_nightlight": "Mute speaker during nightlight control via Assistant SDK (when no media is playing)",
+          "local_update_interval": "Local Speaker Polling Interval (seconds, min 5s, default 120s)",
+          "cloud_update_interval": "Cloud HomeGraph Polling Interval (seconds, min 60s, default 300s)",
+          "master_token": "Master Token (hidden - paste new aas_et/... or oauth2_4/... token to update)",
+          "excluded_services": "Linked services to exclude",
+          "known_hosts": "Γνωστοί κεντρικοί υπολογιστές",
           "update_interval": "Διάστημα ενημέρωσης (δευτερόλεπτα)",
-          "excluded_services": "Συνδεδεμένες υπηρεσίες προς εξαίρεση"
+          "homes": "Σπίτια"
         },
         "data_description": {
-          "excluded_services": "Οι συσκευές και οι ρουτίνες των επιλεγμένων υπηρεσιών δεν θα εισαχθούν. Αφήστε κενό για να συμπεριληφθούν όλες οι υπηρεσίες."
+          "excluded_services": "Devices and routines from the selected services will not be imported. Leave empty to include all services.",
+          "known_hosts": "Διευθύνσεις IP ηχείων και οθονών που η ενσωμάτωση δεν μπορεί να βρει μόνη της, για παράδειγμα επειδή βρίσκονται σε άλλο δίκτυο ή VLAN.",
+          "update_interval": "Αυξήστε το αν οι συσκευές σας συχνά δεν αποκρίνονται εγκαίρως. Προεπιλογή: {default_interval} δευτερόλεπτα.",
+          "homes": "Τα ηχεία και οι οθόνες στα σπίτια που αποεπιλέγετε δεν προστίθενται. Αν αποεπιλέξετε ένα σπίτι, οι συσκευές του και οι οντότητές τους αφαιρούνται από το Home Assistant, οπότε οι αυτοματισμοί, τα σενάρια και τα ταμπλό που τις χρησιμοποιούν σταματούν να λειτουργούν. Επιλέξτε ξανά το σπίτι για να τις προσθέσετε πάλι με τα ονόματα και τις περιοχές που τους δώσατε."
+        },
+        "sections": {
+          "bluetooth": {
+            "name": "Bluetooth",
+            "data": {
+              "bluetooth_tracking": "Παρακολούθηση Bluetooth",
+              "bluetooth_excluded_speakers": "Ηχεία που δεν χρησιμοποιούνται για την παρακολούθηση Bluetooth"
+            },
+            "data_description": {
+              "bluetooth_tracking": "Χρησιμοποιήστε τα ηχεία σας για να γνωρίζετε αν το τηλέφωνό σας ή άλλες συσκευές Bluetooth βρίσκονται στο σπίτι. Αφού την ενεργοποιήσετε, επιλέξτε «Παρακολούθηση συσκευής Bluetooth» στη σελίδα της ενσωμάτωσης για κάθε συσκευή που θέλετε να παρακολουθείτε. Όσο είναι απενεργοποιημένη, η ενσωμάτωση δεν στέλνει αιτήματα Bluetooth στα ηχεία σας.",
+              "bluetooth_excluded_speakers": "Ηχεία που δεν αναζητούν συσκευές Bluetooth. Προσθέστε ένα ηχείο που είναι αποσυνδεδεμένο από το ρεύμα ή εκτός λειτουργίας."
+            }
+          }
         }
       }
+    },
+    "error": {
+      "known-host-not-ip": "Εισαγάγετε μόνο διευθύνσεις IP, όπως 192.168.1.20.",
+      "no-home-selected": "Επιλέξτε τουλάχιστον ένα σπίτι."
     }
   },
   "entity": {
-    "sensor": {
-      "device": {
-        "name": "IP συσκευής"
+    "event": {
+      "alarm_events": {
+        "name": "Συμβάντα ξυπνητηριών",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "ringing": "Κουδουνίζει",
+              "snoozed": "Σε αναβολή",
+              "stopped": "Σταμάτησε"
+            }
+          }
+        }
       },
+      "timer_events": {
+        "name": "Συμβάντα χρονομέτρων",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "ringing": "Κουδουνίζει",
+              "stopped": "Σταμάτησε"
+            }
+          }
+        }
+      }
+    },
+    "button": {
+      "reboot": {
+        "name": "Επανεκκίνηση"
+      }
+    },
+    "number": {
+      "alarm_volume": {
+        "name": "Ένταση ξυπνητηριού"
+      }
+    },
+    "sensor": {
       "alarms": {
-        "name": "Επόμενη αφύπνιση"
+        "name": "Ξυπνητήρια"
+      },
+      "device": {
+        "name": "Συσκευή"
       },
       "timers": {
-        "name": "Επόμενο χρονόμετρο"
+        "name": "Χρονόμετρα"
+      },
+      "wifi_network": {
+        "name": "Δίκτυο Wi-Fi"
       }
     },
     "switch": {
       "do_not_disturb": {
         "name": "Μην ενοχλείτε"
       }
+    }
+  },
+  "selector": {
+    "auth_method": {
+      "options": {
+        "token": "Token (Master Token / Web OAuth Token) [Recommended]",
+        "addon": "Google Home Token Hub Add-on (Ingress Hub)"
+      }
     },
-    "number": {
-      "alarm_volume": {
-        "name": "Ένταση αφύπνισης"
+    "addon_action": {
+      "options": {
+        "stop": "Stop Add-on (Recommended - saves RAM/CPU, token is saved)",
+        "uninstall": "Uninstall Add-on (No longer needed)",
+        "keep_running": "Keep Add-on running"
+      }
+    },
+    "reauth_action": {
+      "options": {
+        "apply_addon_token": "Apply new Master Token from Add-on (Recommended)",
+        "enter_manually": "Enter token manually"
+      }
+    },
+    "existing_action": {
+      "options": {
+        "use_existing": "Use existing Master Token (Recommended)",
+        "generate_new": "Generate new Master Token / Login with different account"
+      }
+    },
+    "operation_mode": {
+      "options": {
+        "hybrid": "Local & Cloud (Recommended - Fast speaker timers + all Google Home devices)",
+        "local": "Local Only (100% LAN - timers, alarms, DND, volume)",
+        "cloud": "Cloud Only (Google Home Web / HomeGraph)"
+      }
+    },
+    "third_party_entity_mode": {
+      "options": {
+        "readonly_sensors": "Read-Only Sensors (Default - Live telemetry without duplicate control entities)",
+        "control_entities": "Control Entities without Execution (Light/Fan/Switch/Nightlight entities, direct cloud sync)",
+        "assistant_sdk_control": "Control Entities with Google Assistant SDK Execution (Universal text command forwarding via official Google Assistant SDK)"
+      }
+    },
+    "departure_delay": {
+      "options": {
+        "0": "0 δευτερόλεπτα (κανονικός χρονισμός)",
+        "30": "30 δευτερόλεπτα",
+        "60": "60 δευτερόλεπτα",
+        "90": "90 δευτερόλεπτα",
+        "120": "120 δευτερόλεπτα"
+      }
+    }
+  },
+  "config_subentries": {
+    "bluetooth_device": {
+      "entry_type": "Συσκευή Bluetooth",
+      "initiate_flow": {
+        "user": "Παρακολούθηση συσκευής Bluetooth"
       },
-      "set_timer": {
-        "name": "Ρύθμιση χρονομέτρου"
-      }
-    },
-    "time": {
-      "set_alarm": {
-        "name": "Ρύθμιση αφύπνισης"
-      }
-    },
-    "button": {
-      "reboot": {
-        "name": "Επανεκκίνηση"
+      "step": {
+        "user": {
+          "title": "Παρακολούθηση συσκευής Bluetooth",
+          "description": "Εισαγάγετε το IRK ενός τηλεφώνου ή τη διεύθυνση MAC μιας συσκευής της οποίας η διεύθυνση δεν αλλάζει ποτέ, όπως ορισμένα ρολόγια και ετικέτες εντοπισμού. Τα τηλέφωνα αλλάζουν διεύθυνση κάθε λίγα λεπτά, γι' αυτό παρακολουθήστε τα μέσω του IRK. Για το πώς θα βρείτε το IRK, δείτε {docs_url}.",
+          "data": {
+            "name": "Όνομα",
+            "irk_or_mac": "IRK ή διεύθυνση MAC",
+            "additional_departure_delay": "Πρόσθετη καθυστέρηση αναχώρησης"
+          },
+          "data_description": {
+            "name": "Όνομα του ιχνηλάτη, για παράδειγμα Τηλέφωνο του Alex.",
+            "irk_or_mac": "Το Identity Resolving Key ενός τηλεφώνου, ως {irk_hex_length} δεκαεξαδικά ψηφία ή σε base64, ή μια διεύθυνση MAC όπως AA:BB:CC:DD:EE:FF.",
+            "additional_departure_delay": "Πρόσθετος χρόνος μετά το κανονικό διάστημα παρουσίας των {presence_window} δευτερολέπτων πριν από την αλλαγή από «Σπίτι» σε «Εκτός σπιτιού». Ο κανονικός χρονισμός δεν προσθέτει καθυστέρηση. Μια μεγαλύτερη καθυστέρηση καθυστερεί επίσης την ανίχνευση μιας πραγματικής αναχώρησης. Αν οι σαρώσεις δεν μπορούν να επιβεβαιώσουν την απουσία, ο ιχνηλάτης ενδέχεται να γίνει μη διαθέσιμος."
+          }
+        },
+        "reconfigure": {
+          "title": "Ρυθμίσεις συσκευής Bluetooth",
+          "description": "Αλλάξτε την πρόσθετη καθυστέρηση αναχώρησης για αυτόν τον ιχνηλάτη.",
+          "data": {
+            "additional_departure_delay": "Πρόσθετη καθυστέρηση αναχώρησης"
+          },
+          "data_description": {
+            "additional_departure_delay": "Πρόσθετος χρόνος μετά το κανονικό διάστημα παρουσίας των {presence_window} δευτερολέπτων πριν από την αλλαγή από «Σπίτι» σε «Εκτός σπιτιού». Ο κανονικός χρονισμός δεν προσθέτει καθυστέρηση. Μια μεγαλύτερη καθυστέρηση καθυστερεί επίσης την ανίχνευση μιας πραγματικής αναχώρησης. Αν οι σαρώσεις δεν μπορούν να επιβεβαιώσουν την απουσία, ο ιχνηλάτης ενδέχεται να γίνει μη διαθέσιμος."
+          }
+        }
       },
-      "refresh": {
-        "name": "Ανανέωση"
+      "error": {
+        "name_empty": "Enter a name.",
+        "irk_or_mac": "Enter an IRK or a MAC address.",
+        "irk_invalid": "This isn't an IRK. Enter {irk_bytes} bytes as {irk_hex_length} hex digits or in base64.",
+        "mac_invalid": "This isn't a MAC address. Enter six pairs of hex digits separated by colons or hyphens, such as AA:BB:CC:DD:EE:FF.",
+        "already_tracked": "This device is already tracked.",
+        "departure_delay_invalid": "Choose one of the listed departure delays.",
+        "name-empty": "Εισαγάγετε ένα όνομα.",
+        "irk-or-mac": "Εισαγάγετε ένα IRK ή μια διεύθυνση MAC.",
+        "irk-invalid": "Αυτό δεν είναι IRK. Εισαγάγετε {irk_bytes} byte ως {irk_hex_length} δεκαεξαδικά ψηφία ή σε base64.",
+        "mac-invalid": "Αυτή δεν είναι διεύθυνση MAC. Εισαγάγετε έξι ζεύγη δεκαεξαδικών ψηφίων χωρισμένα με άνω και κάτω τελείες ή παύλες, για παράδειγμα AA:BB:CC:DD:EE:FF.",
+        "already-tracked": "Αυτή η συσκευή παρακολουθείται ήδη.",
+        "departure-delay-invalid": "Επιλέξτε μία από τις καθυστερήσεις αναχώρησης στη λίστα."
+      },
+      "abort": {
+        "bluetooth_tracking_off": "Bluetooth tracking is off. Turn it on in the integration's options first: select Configure on the integration's page.",
+        "device_removed": "This Bluetooth device was removed. Add it again to track it.",
+        "bluetooth-tracking-off": "Η παρακολούθηση Bluetooth είναι απενεργοποιημένη. Ενεργοποιήστε την πρώτα στις επιλογές της ενσωμάτωσης: επιλέξτε «Διαμόρφωση» στη σελίδα της ενσωμάτωσης.",
+        "device-removed": "Αυτή η συσκευή Bluetooth καταργήθηκε. Προσθέστε την ξανά για να την παρακολουθείτε."
       }
+    }
+  },
+  "issues": {
+    "polling_disabled": {
+      "title": "Η ανίχνευση για αλλαγές είναι απενεργοποιημένη",
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "Η ανίχνευση για αλλαγές είναι απενεργοποιημένη",
+            "description": "Η επιλογή **Ενεργοποίηση ανίχνευσης για αλλαγές** είναι απενεργοποιημένη στις ρυθμίσεις συστήματος της ενσωμάτωσης, οπότε η ενσωμάτωση δεν ελέγχει μόνη της τις συσκευές σας. Τα ξυπνητήρια, τα χρονόμετρα και οι άλλες οντότητες ενημερώνονται μόνο όταν το ζητήσετε, για παράδειγμα με την ενέργεια **Ανανέωση συσκευών**. Δείτε τι εξακολουθεί να λειτουργεί εδώ: {docs_url}.\n\nΑν ενεργοποιήσετε ξανά την ανίχνευση, η ενσωμάτωση επαναφορτώνεται και στη συνέχεια ελέγχει τις συσκευές σας με το ορισμένο διάστημα ενημέρωσης. Αν την αφήσετε απενεργοποιημένη, αυτή η επισκευή αποκρύπτεται μέχρι να ενεργοποιήσετε την ανίχνευση και μετά να την απενεργοποιήσετε ξανά.",
+            "menu_options": {
+              "turn_on": "Επανενεργοποίηση ανίχνευσης",
+              "keep_off": "Διατήρηση της ανίχνευσης απενεργοποιημένης και απόκρυψη αυτής της επισκευής"
+            }
+          }
+        },
+        "abort": {
+          "polling_kept_off": "Η ανίχνευση παραμένει απενεργοποιημένη και αυτή η επισκευή έχει αποκρυφτεί."
+        }
+      }
+    },
+    "invalid_update_interval": {
+      "title": "Το αποθηκευμένο διάστημα ενημέρωσης είναι μικρότερο από {min_interval} s",
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "Το αποθηκευμένο διάστημα ενημέρωσης είναι μικρότερο από {min_interval} s",
+            "description": "Το διάστημα ενημέρωσης που είναι αποθηκευμένο στις επιλογές της ενσωμάτωσης είναι {interval} s, κάτω από το ελάχιστο όριο ({min_interval} s). Η ενσωμάτωση χρησιμοποιεί αντί γι' αυτό την προεπιλογή και ελέγχει τις συσκευές σας κάθε {default_interval} s.\n\nΑν αποθηκεύσατε 0 για να σταματήσετε αυτούς τους τακτικούς ελέγχους, απενεργοποιήστε καλύτερα την ανίχνευση. Σε αντίθεση με το 0, η απενεργοποίηση της ανίχνευσης σταματά επίσης την αναζήτηση συσκευών Bluetooth και την προσθήκη νέων συσκευών που εντοπίζει το mDNS. Δείτε λεπτομέρειες εδώ: {docs_url}.\n\nΓια να χρησιμοποιήσετε άλλο διάστημα, ανοίξτε την [ενσωμάτωση Google Home]({integration_url}), επιλέξτε **Διαμόρφωση**, εισαγάγετέ το και, στη συνέχεια, επιλέξτε **Υποβολή**.",
+            "menu_options": {
+              "use_default": "Χρήση της προεπιλεγμένης τιμής ({default_interval} s)",
+              "turn_off_polling": "Απενεργοποίηση της ανίχνευσης"
+            }
+          }
+        }
+      }
+    },
+    "homes_deselected": {
+      "title": "Δεν έχει επιλεγεί κανένα σπίτι του λογαριασμού σας Google",
+      "description": "Ο λογαριασμός σας Google είναι μέλος μόνο σπιτιών που έχετε αποεπιλέξει στις επιλογές της ενσωμάτωσης, οπότε η ενσωμάτωση δεν προσθέτει τα ηχεία και τις οθόνες τους. Για να προσθέσετε τις συσκευές ενός σπιτιού, ανοίξτε την [ενσωμάτωση Google Home]({integration_url}), επιλέξτε **Διαμόρφωση**, επιλέξτε το σπίτι στα **Σπίτια** και, στη συνέχεια, επιλέξτε **Υποβολή**.\n\nΑν θέλετε να διατηρήσετε αυτά τα σπίτια αποεπιλεγμένα, επιλέξτε **Παράβλεψη**."
+    },
+    "no_home": {
+      "title": "Η Google δεν αναφέρει κανένα σπίτι για τον λογαριασμό σας",
+      "description": "Η Google αναφέρει ότι ο λογαριασμός με τον οποίο συνδέθηκε η ενσωμάτωση δεν είναι μέλος κανενός σπιτιού, οπότε δεν υπάρχουν ηχεία ή οθόνες για προσθήκη. Στην εφαρμογή Google Home, προσκαλέστε αυτόν τον λογαριασμό στο σπίτι όπου βρίσκονται οι συσκευές σας και αποδεχτείτε την πρόσκληση. Στη συνέχεια, επαναφορτώστε την [ενσωμάτωση Google Home]({integration_url}): επιλέξτε **⋮** > **Επαναφόρτωση**.\n\nΑν κρατάτε την ενσωμάτωση σκόπιμα, για παράδειγμα ενώ μετακομίζετε, επιλέξτε **Παράβλεψη**. Αν δεν τη χρειάζεστε πια, μπορείτε να τη διαγράψετε από την ίδια σελίδα."
+    }
+  },
+  "services": {
+    "delete_alarm": {
+      "description": "Διαγραφή ξυπνητηριού από συσκευή Google Home.",
+      "fields": {
+        "alarm_id": {
+          "description": "ID ξυπνητηριού (alarm/xxx).",
+          "name": "ID ξυπνητηριού"
+        },
+        "skip_refresh": {
+          "description": "Παράλειψη ανανέωσης των συσκευών Google Home μετά τη διαγραφή ξυπνητηριού.",
+          "name": "Παράλειψη ανανέωσης"
+        },
+        "entity_id": {
+          "description": "Αντιστοιχεί σε μια συσκευή Google Home (sensor.xxxx_alarms).",
+          "name": "Οντότητα"
+        }
+      },
+      "name": "Διαγραφή ξυπνητηριού"
+    },
+    "delete_timer": {
+      "description": "Διαγραφή χρονομέτρου από συσκευή Google Home.",
+      "fields": {
+        "timer_id": {
+          "description": "ID χρονομέτρου (timer/xxx).",
+          "name": "ID χρονομέτρου"
+        },
+        "skip_refresh": {
+          "description": "Παράλειψη ανανέωσης των συσκευών Google Home μετά τη διαγραφή χρονομέτρου.",
+          "name": "Παράλειψη ανανέωσης"
+        },
+        "entity_id": {
+          "description": "Αντιστοιχεί σε μια συσκευή Google Home (sensor.xxxx_timers).",
+          "name": "Οντότητα"
+        }
+      },
+      "name": "Διαγραφή χρονομέτρου"
+    },
+    "delete_all_alarms": {
+      "description": "Διαγραφή όλων των ξυπνητηριών από συσκευές Google Home.",
+      "fields": {
+        "skip_refresh": {
+          "description": "Παράλειψη ανανέωσης των συσκευών Google Home μετά τη διαγραφή των ξυπνητηριών.",
+          "name": "Παράλειψη ανανέωσης"
+        }
+      },
+      "name": "Διαγραφή όλων των ξυπνητηριών"
+    },
+    "delete_all_timers": {
+      "description": "Διαγραφή όλων των χρονομέτρων από συσκευές Google Home.",
+      "fields": {
+        "skip_refresh": {
+          "description": "Παράλειψη ανανέωσης των συσκευών Google Home μετά τη διαγραφή των χρονομέτρων.",
+          "name": "Παράλειψη ανανέωσης"
+        }
+      },
+      "name": "Διαγραφή όλων των χρονομέτρων"
+    },
+    "reboot_device": {
+      "description": "Επανεκκίνηση συσκευής Google Home.",
+      "name": "Επανεκκίνηση συσκευής"
+    },
+    "refresh_devices": {
+      "description": "Ανανέωση της κατάστασης όλων των συσκευών Google Home.",
+      "name": "Ανανέωση συσκευών"
+    },
+    "set_alarm_volume": {
+      "name": "Set alarm volume",
+      "description": "Sets the alarm and timer volume (0-100%) on a Google Home device.",
+      "fields": {
+        "volume": {
+          "name": "Volume",
+          "description": "The target alarm volume percentage (0 to 100)."
+        }
+      }
+    },
+    "broadcast": {
+      "name": "Broadcast message",
+      "description": "Broadcasts a text message or announcement locally to a Google Home speaker.",
+      "fields": {
+        "message": {
+          "name": "Message",
+          "description": "The announcement message to broadcast."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "alarms_and_timers_not_fetched": {
+      "message": "Δεν ήταν δυνατή η ανάκτηση των τρεχόντων ξυπνητηριών και χρονομέτρων από τη συσκευή {device}, οπότε δεν διαγράφηκε τίποτα από αυτήν. Ελέγξτε ότι είναι συνδεδεμένη στο δίκτυο και δοκιμάστε ξανά αργότερα."
+    },
+    "alarms_and_timers_not_fetched_token_rejected_polling_off": {
+      "message": "Δεν ήταν δυνατή η ανάκτηση των τρεχόντων ξυπνητηριών και χρονομέτρων από τη συσκευή {device}, οπότε δεν διαγράφηκε τίποτα από αυτήν. Η συσκευή απέρριψε το token της. Η ανίχνευση για αλλαγές είναι απενεργοποιημένη, οπότε η ενσωμάτωση δεν ζητά ξανά νέο από το Google μόνη της: εκτελέστε την ενέργεια «Ανανέωση συσκευών» και δοκιμάστε ξανά."
+    },
+    "alarms_and_timers_not_fetched_from_devices": {
+      "message": "Δεν ήταν δυνατή η ανάκτηση των τρεχόντων ξυπνητηριών και χρονομέτρων από τις παρακάτω συσκευές, οπότε δεν διαγράφηκε τίποτα από αυτές: {devices}. Ελέγξτε ότι είναι συνδεδεμένες στο δίκτυο και δοκιμάστε ξανά αργότερα."
+    },
+    "alarms_and_timers_not_deleted": {
+      "message": "Η συσκευή {device} δεν επιβεβαίωσε τη διαγραφή των ξυπνητηριών ή των χρονομέτρων, οπότε ενδέχεται να παραμένουν ρυθμισμένα. Ελέγξτε ότι είναι συνδεδεμένη στο δίκτυο και δοκιμάστε ξανά αργότερα."
+    },
+    "alarms_and_timers_not_deleted_token_rejected_polling_off": {
+      "message": "Η συσκευή {device} δεν επιβεβαίωσε τη διαγραφή των ξυπνητηριών ή των χρονομέτρων, οπότε ενδέχεται να παραμένουν ρυθμισμένα. Η συσκευή απέρριψε το token της. Η ανίχνευση για αλλαγές είναι απενεργοποιημένη, οπότε η ενσωμάτωση δεν ζητά ξανά νέο από το Google μόνη της: εκτελέστε την ενέργεια «Ανανέωση συσκευών» και δοκιμάστε ξανά."
+    },
+    "alarms_and_timers_not_deleted_from_devices": {
+      "message": "Δεν ήταν δυνατή η διαγραφή ξυπνητηριών ή χρονομέτρων από τις παρακάτω συσκευές ή η επιβεβαίωση της διαγραφής τους: {devices}. Ελέγξτε ότι είναι συνδεδεμένες στο δίκτυο και δοκιμάστε ξανά αργότερα."
+    },
+    "alarms_and_timers_not_deleted_from_devices_token_rejected_polling_off": {
+      "message": "Δεν ήταν δυνατή η διαγραφή ξυπνητηριών ή χρονομέτρων από τις παρακάτω συσκευές ή η επιβεβαίωση της διαγραφής τους: {devices}. Τουλάχιστον μία από αυτές απέρριψε το token της. Η ανίχνευση για αλλαγές είναι απενεργοποιημένη, οπότε η ενσωμάτωση δεν ζητά ξανά νέο από το Google μόνη της: εκτελέστε την ενέργεια «Ανανέωση συσκευών», ελέγξτε ότι οι συσκευές είναι συνδεδεμένες στο δίκτυο και δοκιμάστε ξανά."
+    },
+    "invalid_alarm_id": {
+      "message": "Το «{alarm_id}» δεν είναι ID ξυπνητηριού. Αντιγράψτε το ID, που ξεκινά με alarm/, από το χαρακτηριστικό alarms του αισθητήρα ξυπνητηριών της συσκευής."
+    },
+    "invalid_timer_id": {
+      "message": "Το «{timer_id}» δεν είναι ID χρονομέτρου. Αντιγράψτε το ID, που ξεκινά με timer/, από το χαρακτηριστικό timers του αισθητήρα χρονομέτρων της συσκευής."
+    },
+    "alarm_not_found": {
+      "message": "Δεν βρέθηκε το ξυπνητήρι {alarm_id} στις συσκευές που επιλέξατε. Μπορεί να έχει ήδη χτυπήσει ή διαγραφεί."
+    },
+    "timer_not_found": {
+      "message": "Δεν βρέθηκε το χρονόμετρο {timer_id} στις συσκευές που επιλέξατε. Μπορεί να έχει ήδη λήξει ή διαγραφεί."
+    },
+    "device_offline": {
+      "message": "Δεν ήταν δυνατή η επικοινωνία με τη συσκευή {device}. Ελέγξτε ότι είναι ενεργοποιημένη και συνδεδεμένη στο δίκτυό σας και, στη συνέχεια, δοκιμάστε ξανά."
+    },
+    "device_no_reply": {
+      "message": "Η συσκευή {device} δεν επιβεβαίωσε ότι εκτέλεσε την ενέργεια: δεν απάντησε εγκαίρως ή η απάντησή της διακόπηκε. Ελέγξτε ότι είναι συνδεδεμένη στο δίκτυο και δοκιμάστε ξανά."
+    },
+    "device_token_rejected": {
+      "message": "Η συσκευή {device} απέρριψε το token της. Η ενσωμάτωση συνεχίζει να ζητά νέο από το Google, οπότε δοκιμάστε ξανά αργότερα."
+    },
+    "device_token_rejected_polling_off": {
+      "message": "Η συσκευή {device} απέρριψε το token της. Η ανίχνευση για αλλαγές είναι απενεργοποιημένη, οπότε η ενσωμάτωση δεν ζητά ξανά νέο από το Google μόνη της: εκτελέστε την ενέργεια «Ανανέωση συσκευών» και δοκιμάστε ξανά."
+    },
+    "device_not_ready": {
+      "message": "Η συσκευή {device} απάντησε «δεν βρέθηκε». Ίσως βρίσκεται ακόμη σε εκκίνηση, οπότε δοκιμάστε ξανά αργότερα, ή ίσως δεν υποστηρίζει αυτή την ενέργεια."
+    },
+    "device_request_failed": {
+      "message": "Δεν ήταν δυνατή η εκτέλεση της ενέργειας στη συσκευή {device}. Για λεπτομέρειες, ανατρέξτε στα αρχεία καταγραφής του Home Assistant."
+    },
+    "devices_not_rebooted": {
+      "message": "Οι παρακάτω συσκευές δεν επιβεβαίωσαν ότι θα επανεκκινηθούν: {devices}. Ελέγξτε ότι είναι συνδεδεμένες στο δίκτυο και δοκιμάστε ξανά αργότερα."
+    },
+    "sign_in_rejected": {
+      "message": "Το Google δεν αποδέχτηκε τη σύνδεση ({reason}). Συνδεθείτε ξανά."
+    }
+  },
+  "system_health": {
+    "info": {
+      "can_reach_sign_in": "Πρόσβαση στον server σύνδεσης της Google",
+      "can_reach_device_list": "Πρόσβαση στον server της λίστας συσκευών της Google",
+      "device_list": "Λίστα συσκευών της Google",
+      "retry_not_before": "Νέα προσπάθεια όχι πριν από",
+      "polling": "Ανίχνευση για αλλαγές",
+      "bluetooth_tracking": "Παρακολούθηση Bluetooth",
+      "devices_listed": "Συσκευές στη λίστα της Google",
+      "devices_not_answering": "Συσκευές που δεν αποκρίνονται"
     }
   }
 }

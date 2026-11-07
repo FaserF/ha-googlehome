@@ -1,0 +1,593 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Iniciar sesión en Google",
+        "description": "Esta integración funciona con tus altavoces y pantallas de Google, como Nest Mini, Nest Audio y Nest Hub. No añade los demás dispositivos de tu aplicación Google Home.\n\nElige cómo iniciar sesión en una cuenta de Google que sea miembro de tu casa. Si necesitas ayuda, consulta {docs_url} (en inglés).",
+        "data": {
+          "auth_method": "Authentication Method"
+        },
+        "menu_options": {
+          "browser": "Inicio de sesión en el navegador (recomendado)",
+          "master_token": "Token maestro"
+        },
+        "menu_option_descriptions": {
+          "browser": "Inicia sesión en Google en un navegador de ordenador y después pega una cookie.",
+          "master_token": "Pega un token maestro que ya tengas."
+        }
+      },
+      "token": {
+        "title": "Token Authentication",
+        "description": "### 🔑 30-Second Token Guide (Recommended):\n1. Open [{setup_url}]({setup_url}) in your browser and log in with your Google account.\n2. **Important**: The final page will remain on a loading/blank screen (this is normal and indicates the token was created!).\n3. Press **F12** (Developer Tools) -> **Application** (or Storage) -> **Cookies** ({cookies_url}).\n4. Copy the value of the **oauth_token** cookie (starts with oauth2_4/...).\n5. Enter your Google Email and paste the token below.\n\n*(If you already have a Master Token aas_et/..., you can also paste it directly below)*.",
+        "data": {
+          "username": "Google Account Email",
+          "master_token": "Token (oauth2_4/... or aas_et/...)"
+        }
+      },
+      "mode": {
+        "title": "Integration Mode & Device Filtering",
+        "description": "### ⚙️ Choose how Google Home should integrate with Home Assistant:\n- **Local & Cloud (Hybrid)**: Fast local control for alarms/timers + cloud discovery for all Google Home devices.\n- **Local Only**: Pure local network communication for speakers.\n- **Cloud Only**: Cloud HomeGraph without local speaker polling.",
+        "data": {
+          "operation_mode": "Operation Mode",
+          "third_party_entity_mode": "Third-Party Devices Representation",
+          "selected_homes": "Google Homes to synchronize",
+          "ignore_ha_synced_devices": "Ignore devices already synced from Home Assistant (prevents duplicate entities & automation loops)",
+          "mute_sdk_nightlight": "Mute speaker during nightlight control via Assistant SDK (when no media is playing)",
+          "excluded_services": "Linked services to exclude"
+        },
+        "data_description": {
+          "excluded_services": "Devices and routines from the selected services will not be imported. Leave empty to include all services."
+        }
+      },
+      "addon": {
+        "title": "Connect with Google Home Add-on",
+        "description": "Ensure the **Google Home Token Hub** Add-on is installed and running.",
+        "data": {
+          "addon_host": "Add-on Host",
+          "addon_port": "Add-on Port"
+        }
+      },
+      "addon_login": {
+        "title": "Add-on Login",
+        "description": "{discovery_intro}Enter your Google account email and password. The Add-on will automatically authenticate and acquire your Master Token in the background.",
+        "data": {
+          "username": "Google Account Email",
+          "password": "Password"
+        }
+      },
+      "addon_existing": {
+        "title": "Existing Master Token Found",
+        "description": "An active Master Token for **{email}** was detected in the Google Home Token Hub Add-on.\n\nWould you like to use this existing token or generate a new one?",
+        "data": {
+          "existing_action": "Action"
+        }
+      },
+      "addon_2fa": {
+        "title": "Google Authentication in Progress",
+        "description": "{two_factor_instruction}",
+        "data": {
+          "two_factor_code": "Verification Code (SMS / Authenticator App)"
+        }
+      },
+      "addon_action": {
+        "title": "Setup Complete - Add-on Status",
+        "description": "✅ **Master Token successfully acquired for {email}!**\n\nThe Google Home integration runs locally/cloud and does not require the Add-on to keep running.\n\nWhat would you like to do with the Add-on?",
+        "data": {
+          "addon_action": "Action for Add-on"
+        }
+      },
+      "reauth_addon": {
+        "title": "New Master Token Detected",
+        "description": "A new active Google Home Master Token for **{username}** was detected from the Google Home Token Hub Add-on.\n\nWould you like to automatically apply this token to restore integration functionality?",
+        "data": {
+          "reauth_action": "Action"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Reauthenticate Google Home",
+        "description": "Your Google Home master token for **{username}** has expired or is invalid.\n\nPlease generate a new token and enter it below:\n1. Open [{setup_url}]({setup_url}) and log in with your Google account.\n2. In Developer Tools -> Application -> Cookies ({cookies_url}), copy the **oauth_token** value (or provide an `aas_et/...` master token).\n3. Paste the token below.",
+        "data": {
+          "master_token": "Token (oauth2_4/... or aas_et/...)"
+        }
+      },
+      "browser": {
+        "title": "Inicio de sesión en el navegador",
+        "description": "1. En un ordenador, abre {embedded_setup_url} en una ventana de navegación privada e inicia sesión. Después de aceptar, puede que la página siga cargando; es normal.\n2. Abre las herramientas para desarrolladores del navegador y busca las cookies de `accounts.google.com`.\n3. Copia el valor de la cookie `oauth_token` y pégalo abajo enseguida. Puede caducar rápidamente y solo funciona una vez.\n\nInstrucciones paso a paso (en inglés): {browser_docs_url}\n\nPara elegir otra forma de iniciar sesión, cierra esta ventana y vuelve a añadir la integración.",
+        "data": {
+          "oauth_token": "Cookie oauth_token"
+        },
+        "data_description": {
+          "oauth_token": "Empieza por oauth2_4/"
+        }
+      },
+      "master_token": {
+        "title": "Token maestro",
+        "description": "Pega un token maestro que hayas obtenido antes, por ejemplo con otra herramienta.\n\nPara elegir otra forma de iniciar sesión, cierra esta ventana y vuelve a añadir la integración.",
+        "data": {
+          "master_token": "Token maestro de Google"
+        },
+        "data_description": {
+          "master_token": "Empieza por aas_et/"
+        }
+      },
+      "homes": {
+        "title": "Elegir casas",
+        "description": "Tu cuenta de Google es miembro de varias casas. Elige las casas cuyos altavoces y pantallas quieres añadir. Puedes cambiarlo más adelante en las opciones de la integración: selecciona **Configurar** en la página de la integración.",
+        "data": {
+          "homes": "Casas"
+        },
+        "data_description": {
+          "homes": "Marca al menos una casa. También se añaden los altavoces y pantallas de las casas a las que tu cuenta se una más adelante."
+        }
+      },
+      "reauth": {
+        "title": "Volver a iniciar sesión",
+        "description": "Google ya no acepta los datos de inicio de sesión guardados para {name}. Vuelve a iniciar sesión en la misma cuenta de Google: tus dispositivos, entidades y automatizaciones se mantienen como están. Hasta que lo hagas, las entidades de tus dispositivos pueden mostrar valores desactualizados o no estar disponibles.",
+        "menu_options": {
+          "browser": "Inicio de sesión en el navegador (recomendado)",
+          "master_token": "Token maestro"
+        },
+        "menu_option_descriptions": {
+          "browser": "Inicia sesión en Google en un navegador de ordenador y después pega una cookie.",
+          "master_token": "Pega un token maestro que ya tengas."
+        }
+      },
+      "reauth_browser": {
+        "title": "Inicio de sesión en el navegador",
+        "description": "1. En un ordenador, abre {embedded_setup_url} en una ventana de navegación privada e inicia sesión en la misma cuenta de Google. Después de aceptar, puede que la página siga cargando; es normal.\n2. Abre las herramientas para desarrolladores del navegador y busca las cookies de `accounts.google.com`.\n3. Copia el valor de la cookie `oauth_token` y pégalo abajo enseguida. Puede caducar rápidamente y solo funciona una vez.\n\nInstrucciones paso a paso (en inglés): {browser_docs_url}",
+        "data": {
+          "oauth_token": "Cookie oauth_token"
+        },
+        "data_description": {
+          "oauth_token": "Empieza por oauth2_4/"
+        }
+      },
+      "reauth_master_token": {
+        "title": "Token maestro",
+        "description": "Pega un token maestro de la misma cuenta de Google, por ejemplo uno que hayas obtenido con otra herramienta.",
+        "data": {
+          "master_token": "Token maestro de Google"
+        },
+        "data_description": {
+          "master_token": "Empieza por aas_et/"
+        }
+      }
+    },
+    "error": {
+      "invalid_email": "Please enter a valid Google email address (e.g. name@gmail.com).",
+      "invalid_token_format": "Invalid token format. Token must start with 'aas_et/' (Master Token) or 'oauth2_4/' (Web OAuth Token).",
+      "invalid_master_token": "The token provided is invalid or expired. Please generate a fresh token from {setup_url}.",
+      "missing_email_for_oauth": "Please enter your Google Account Email above.",
+      "missing_credentials": "Please enter your credentials.",
+      "addon_not_logged_in": "The Google Home Add-on is running, but no token has been entered yet.",
+      "cannot_connect_addon": "Could not connect to Google Home Add-on. Make sure it is installed and running.",
+      "invalid_auth": "Invalid email address or credentials. Please verify your data.",
+      "assistant_sdk_missing": "The official Google Assistant SDK integration is not installed or configured in Home Assistant. Please set up the Google Assistant SDK integration before enabling Assistant SDK control mode.",
+      "unknown": "An unexpected error occurred. Please check Home Assistant logs.",
+      "oauth-token-invalid": "Google no ha aceptado el inicio de sesión. Consigue una cookie nueva y pégala enseguida: puede caducar rápidamente y solo funciona una vez. Copia el valor completo, que empieza por oauth2_4/.",
+      "master-token-invalid": "Google no ha aceptado el token maestro. Comprueba que lo has copiado correctamente. Si antes funcionaba, por ejemplo hasta que cambiaste tu contraseña de Google, Google ya no lo acepta: usa en su lugar el inicio de sesión en el navegador.",
+      "google-rejected": "Google no ha aceptado el inicio de sesión. Para ver los detalles, consulta los registros de Home Assistant.",
+      "google-unreachable": "No se ha podido conectar con Google. Comprueba que Home Assistant esté conectado a Internet y vuelve a intentarlo.",
+      "google-busy": "Google está ocupado o está limitando los inicios de sesión. Espera unos minutos y vuelve a iniciar sesión.",
+      "oauth-token-format": "Esta no es la cookie oauth_token. Su valor empieza por oauth2_4/.",
+      "master-token-format": "Un token maestro empieza por aas_et/ y tiene {token_length} caracteres. Copia el token completo.",
+      "other-account": "Has iniciado sesión en otra cuenta de Google, por lo que no se ha cambiado nada. Inicia sesión con la cuenta que usa esta integración. Para usar esa otra cuenta, elimina la integración y vuelve a añadirla.",
+      "no-home-selected": "Elige al menos una casa."
+    },
+    "abort": {
+      "reauth_successful": "Re-authentication was successful. Your Google Home devices are now updated.",
+      "single_instance_allowed": "Only a single Google Home integration instance is allowed.",
+      "already_configured": "Google Home is already configured.",
+      "already_in_progress": "A Google Home setup is already in progress. Please complete or cancel it first.",
+      "cannot_connect": "Cannot connect to the Google Home Token Hub Add-on. Make sure the Add-on is running.",
+      "no_devices_found": "No Google Home devices found on the local network.",
+      "migrated_from_leikoilja": "Your existing leikoilja/ha-google-home configuration has been automatically migrated. All your devices continue to work. You can switch to Hybrid mode in the Options Flow to gain cloud device support.",
+      "no-home": "Google indica que esta cuenta no es miembro de ninguna casa, así que no hay altavoces ni pantallas que añadir. En la aplicación Google Home, invita a la cuenta a la casa en la que están tus dispositivos, acepta la invitación y vuelve a añadir la integración. Una cuenta de Google Workspace no se puede invitar, así que añade la integración con una cuenta de Gmail que sea miembro de la casa. Para más información, consulta {docs_url}."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Google Home Options",
+        "description": "Configure operation mode, Home Assistant device filtering, polling interval, and view/update your Master Token.",
+        "data": {
+          "operation_mode": "Operation Mode",
+          "third_party_entity_mode": "Third-Party Devices Representation",
+          "selected_homes": "Google Homes to synchronize",
+          "ignore_ha_synced_devices": "Ignore devices synced from Home Assistant",
+          "mute_sdk_nightlight": "Mute speaker during nightlight control via Assistant SDK (when no media is playing)",
+          "local_update_interval": "Local Speaker Polling Interval (seconds, min 5s, default 120s)",
+          "cloud_update_interval": "Cloud HomeGraph Polling Interval (seconds, min 60s, default 300s)",
+          "master_token": "Master Token (hidden - paste new aas_et/... or oauth2_4/... token to update)",
+          "excluded_services": "Linked services to exclude",
+          "known_hosts": "Hosts conocidos",
+          "update_interval": "Intervalo de actualización (segundos)",
+          "homes": "Casas"
+        },
+        "data_description": {
+          "excluded_services": "Devices and routines from the selected services will not be imported. Leave empty to include all services.",
+          "known_hosts": "Direcciones IP de altavoces y pantallas que la integración no puede encontrar por sí misma, por ejemplo porque están en otra red o VLAN.",
+          "update_interval": "Auméntalo si tus dispositivos a menudo no responden a tiempo. Valor por defecto: {default_interval} segundos.",
+          "homes": "Los altavoces y pantallas de las casas que desmarques no se añaden. Al desmarcar una casa, sus dispositivos y las entidades de estos se eliminan de Home Assistant, por lo que las automatizaciones, los scripts y los paneles de control que los usan dejan de funcionar. Vuelve a marcar la casa para añadirlos de nuevo con los nombres y las áreas que les diste."
+        },
+        "sections": {
+          "bluetooth": {
+            "name": "Bluetooth",
+            "data": {
+              "bluetooth_tracking": "Seguimiento por Bluetooth",
+              "bluetooth_excluded_speakers": "Altavoces no usados para el seguimiento por Bluetooth"
+            },
+            "data_description": {
+              "bluetooth_tracking": "Usa tus altavoces para saber si tu teléfono u otros dispositivos Bluetooth están en casa. Después de activarlo, selecciona «Rastrear un dispositivo Bluetooth» en la página de la integración para cada dispositivo que quieras rastrear. Mientras esté desactivado, la integración no envía ninguna solicitud Bluetooth a tus altavoces.",
+              "bluetooth_excluded_speakers": "Altavoces que no buscan dispositivos Bluetooth. Añade un altavoz que esté desenchufado o fuera de servicio."
+            }
+          }
+        }
+      }
+    },
+    "error": {
+      "known-host-not-ip": "Introduce solo direcciones IP, como 192.168.1.20.",
+      "no-home-selected": "Elige al menos una casa."
+    }
+  },
+  "entity": {
+    "event": {
+      "alarm_events": {
+        "name": "Eventos de alarmas",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "ringing": "Sonando",
+              "snoozed": "Pospuesta",
+              "stopped": "Detenida"
+            }
+          }
+        }
+      },
+      "timer_events": {
+        "name": "Eventos de temporizadores",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "ringing": "Sonando",
+              "stopped": "Detenido"
+            }
+          }
+        }
+      }
+    },
+    "button": {
+      "reboot": {
+        "name": "Reiniciar"
+      }
+    },
+    "number": {
+      "alarm_volume": {
+        "name": "Volumen de alarma"
+      }
+    },
+    "sensor": {
+      "alarms": {
+        "name": "Alarmas"
+      },
+      "device": {
+        "name": "Dispositivo"
+      },
+      "timers": {
+        "name": "Temporizadores"
+      },
+      "wifi_network": {
+        "name": "Red Wi-Fi"
+      }
+    },
+    "switch": {
+      "do_not_disturb": {
+        "name": "No molestar"
+      }
+    }
+  },
+  "selector": {
+    "auth_method": {
+      "options": {
+        "token": "Token (Master Token / Web OAuth Token) [Recommended]",
+        "addon": "Google Home Token Hub Add-on (Ingress Hub)"
+      }
+    },
+    "addon_action": {
+      "options": {
+        "stop": "Stop Add-on (Recommended - saves RAM/CPU, token is saved)",
+        "uninstall": "Uninstall Add-on (No longer needed)",
+        "keep_running": "Keep Add-on running"
+      }
+    },
+    "reauth_action": {
+      "options": {
+        "apply_addon_token": "Apply new Master Token from Add-on (Recommended)",
+        "enter_manually": "Enter token manually"
+      }
+    },
+    "existing_action": {
+      "options": {
+        "use_existing": "Use existing Master Token (Recommended)",
+        "generate_new": "Generate new Master Token / Login with different account"
+      }
+    },
+    "operation_mode": {
+      "options": {
+        "hybrid": "Local & Cloud (Recommended - Fast speaker timers + all Google Home devices)",
+        "local": "Local Only (100% LAN - timers, alarms, DND, volume)",
+        "cloud": "Cloud Only (Google Home Web / HomeGraph)"
+      }
+    },
+    "third_party_entity_mode": {
+      "options": {
+        "readonly_sensors": "Read-Only Sensors (Default - Live telemetry without duplicate control entities)",
+        "control_entities": "Control Entities without Execution (Light/Fan/Switch/Nightlight entities, direct cloud sync)",
+        "assistant_sdk_control": "Control Entities with Google Assistant SDK Execution (Universal text command forwarding via official Google Assistant SDK)"
+      }
+    },
+    "departure_delay": {
+      "options": {
+        "0": "0 segundos (tiempos normales)",
+        "30": "30 segundos",
+        "60": "60 segundos",
+        "90": "90 segundos",
+        "120": "120 segundos"
+      }
+    }
+  },
+  "config_subentries": {
+    "bluetooth_device": {
+      "entry_type": "Dispositivo Bluetooth",
+      "initiate_flow": {
+        "user": "Rastrear un dispositivo Bluetooth"
+      },
+      "step": {
+        "user": {
+          "title": "Rastrear un dispositivo Bluetooth",
+          "description": "Introduce la IRK de un teléfono o la dirección MAC de un dispositivo cuya dirección nunca cambia, como algunos relojes y etiquetas localizadoras. Los teléfonos cambian de dirección cada pocos minutos, así que rastréalos por su IRK. Para saber cómo encontrar la IRK, consulta {docs_url}.",
+          "data": {
+            "name": "Nombre",
+            "irk_or_mac": "IRK o dirección MAC",
+            "additional_departure_delay": "Retardo adicional de salida"
+          },
+          "data_description": {
+            "name": "Nombre del rastreador, por ejemplo Teléfono de Alex.",
+            "irk_or_mac": "La Identity Resolving Key (clave de resolución de identidad) de un teléfono, como {irk_hex_length} dígitos hexadecimales o en base64, o una dirección MAC como AA:BB:CC:DD:EE:FF.",
+            "additional_departure_delay": "Tiempo adicional después del período normal de presencia de {presence_window} segundos antes de pasar de «En casa» a «Fuera». Los tiempos normales no añaden ningún retardo. Un retardo mayor también retrasa la detección de una salida real. Si los escaneos no pueden confirmar la ausencia, el rastreador puede pasar a no disponible."
+          }
+        },
+        "reconfigure": {
+          "title": "Configuración del dispositivo Bluetooth",
+          "description": "Cambia el retardo adicional de salida de este rastreador.",
+          "data": {
+            "additional_departure_delay": "Retardo adicional de salida"
+          },
+          "data_description": {
+            "additional_departure_delay": "Tiempo adicional después del período normal de presencia de {presence_window} segundos antes de pasar de «En casa» a «Fuera». Los tiempos normales no añaden ningún retardo. Un retardo mayor también retrasa la detección de una salida real. Si los escaneos no pueden confirmar la ausencia, el rastreador puede pasar a no disponible."
+          }
+        }
+      },
+      "error": {
+        "name_empty": "Enter a name.",
+        "irk_or_mac": "Enter an IRK or a MAC address.",
+        "irk_invalid": "This isn't an IRK. Enter {irk_bytes} bytes as {irk_hex_length} hex digits or in base64.",
+        "mac_invalid": "This isn't a MAC address. Enter six pairs of hex digits separated by colons or hyphens, such as AA:BB:CC:DD:EE:FF.",
+        "already_tracked": "This device is already tracked.",
+        "departure_delay_invalid": "Choose one of the listed departure delays.",
+        "name-empty": "Introduce un nombre.",
+        "irk-or-mac": "Introduce una IRK o una dirección MAC.",
+        "irk-invalid": "Esto no es una IRK. Introduce {irk_bytes} bytes como {irk_hex_length} dígitos hexadecimales o en base64.",
+        "mac-invalid": "Esto no es una dirección MAC. Introduce seis pares de dígitos hexadecimales separados por dos puntos o guiones, por ejemplo AA:BB:CC:DD:EE:FF.",
+        "already-tracked": "Este dispositivo ya se está rastreando.",
+        "departure-delay-invalid": "Elige uno de los retardos de salida de la lista."
+      },
+      "abort": {
+        "bluetooth_tracking_off": "Bluetooth tracking is off. Turn it on in the integration's options first: select Configure on the integration's page.",
+        "device_removed": "This Bluetooth device was removed. Add it again to track it.",
+        "bluetooth-tracking-off": "El seguimiento por Bluetooth está desactivado. Actívalo primero en las opciones de la integración: selecciona «Configurar» en la página de la integración.",
+        "device-removed": "Este dispositivo Bluetooth se ha eliminado. Añádelo de nuevo para rastrearlo."
+      }
+    }
+  },
+  "issues": {
+    "polling_disabled": {
+      "title": "El sondeo de cambios está deshabilitado",
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "El sondeo de cambios está deshabilitado",
+            "description": "La opción **Habilitar el sondeo de cambios** está deshabilitada en las opciones del sistema de la integración, así que la integración no consulta tus dispositivos por sí misma. Las alarmas, los temporizadores y las demás entidades solo se actualizan cuando lo pides, por ejemplo con la acción **Actualizar dispositivos**. Para saber qué sigue funcionando, consulta {docs_url} (en inglés).\n\nSi vuelves a habilitar el sondeo, la integración se recarga y después consulta tus dispositivos según su intervalo de actualización. Si lo mantienes deshabilitado, esta reparación se oculta hasta que habilites el sondeo y lo vuelvas a deshabilitar.",
+            "menu_options": {
+              "turn_on": "Volver a habilitar el sondeo",
+              "keep_off": "Mantener el sondeo deshabilitado y ocultar esta reparación"
+            }
+          }
+        },
+        "abort": {
+          "polling_kept_off": "El sondeo sigue deshabilitado y esta reparación se ha ocultado."
+        }
+      }
+    },
+    "invalid_update_interval": {
+      "title": "El intervalo de actualización guardado es inferior a {min_interval} s",
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "El intervalo de actualización guardado es inferior a {min_interval} s",
+            "description": "El intervalo de actualización guardado en las opciones de la integración es de {interval} s, por debajo del mínimo de {min_interval} s. La integración usa en su lugar el valor por defecto y consulta tus dispositivos cada {default_interval} s.\n\nSi guardaste 0 para detener estas consultas periódicas, deshabilita el sondeo en su lugar. A diferencia de 0, deshabilitar el sondeo también detiene la búsqueda de dispositivos Bluetooth y la adición de los dispositivos nuevos que encuentra mDNS. Para más detalles, consulta {docs_url} (en inglés).\n\nPara usar otro intervalo, abre la [integración Google Home]({integration_url}), selecciona **Configurar**, introdúcelo y luego selecciona **Enviar**.",
+            "menu_options": {
+              "use_default": "Usar el valor por defecto de {default_interval} s",
+              "turn_off_polling": "Deshabilitar el sondeo en su lugar"
+            }
+          }
+        }
+      }
+    },
+    "homes_deselected": {
+      "title": "No hay ninguna casa de tu cuenta de Google seleccionada",
+      "description": "Tu cuenta de Google solo es miembro de casas que desmarcaste en las opciones de la integración, así que la integración no añade sus altavoces ni sus pantallas. Para añadir los dispositivos de una casa, abre la [integración Google Home]({integration_url}), selecciona **Configurar**, marca la casa en **Casas** y luego selecciona **Enviar**.\n\nSi quieres mantener estas casas desmarcadas, selecciona **Ignorar**."
+    },
+    "no_home": {
+      "title": "Google no indica ninguna casa para tu cuenta",
+      "description": "Google indica que la cuenta con la que la integración inició sesión no es miembro de ninguna casa, así que no hay altavoces ni pantallas que añadir. En la aplicación Google Home, invita a esta cuenta a la casa en la que están tus dispositivos y acepta la invitación. Después, recarga la [integración Google Home]({integration_url}): selecciona **⋮** > **Recargar**.\n\nSi mantienes la integración a propósito, por ejemplo mientras te mudas, selecciona **Ignorar**. Si ya no la necesitas, puedes eliminarla en la misma página."
+    }
+  },
+  "services": {
+    "delete_alarm": {
+      "description": "Eliminar una alarma de un dispositivo Google Home.",
+      "fields": {
+        "alarm_id": {
+          "description": "ID de una alarma (alarm/xxx).",
+          "name": "ID de alarma"
+        },
+        "skip_refresh": {
+          "description": "Omitir la actualización de los dispositivos Google Home después de eliminar una alarma.",
+          "name": "Omitir actualización"
+        },
+        "entity_id": {
+          "description": "Corresponde a un dispositivo Google Home (sensor.xxxx_alarms).",
+          "name": "Entidad"
+        }
+      },
+      "name": "Eliminar alarma"
+    },
+    "delete_timer": {
+      "description": "Eliminar un temporizador de un dispositivo Google Home.",
+      "fields": {
+        "timer_id": {
+          "description": "ID de un temporizador (timer/xxx).",
+          "name": "ID de temporizador"
+        },
+        "skip_refresh": {
+          "description": "Omitir la actualización de los dispositivos Google Home después de eliminar un temporizador.",
+          "name": "Omitir actualización"
+        },
+        "entity_id": {
+          "description": "Corresponde a un dispositivo Google Home (sensor.xxxx_timers).",
+          "name": "Entidad"
+        }
+      },
+      "name": "Eliminar temporizador"
+    },
+    "delete_all_alarms": {
+      "description": "Eliminar todas las alarmas de los dispositivos Google Home.",
+      "fields": {
+        "skip_refresh": {
+          "description": "Omitir la actualización de los dispositivos Google Home después de eliminar las alarmas.",
+          "name": "Omitir actualización"
+        }
+      },
+      "name": "Eliminar todas las alarmas"
+    },
+    "delete_all_timers": {
+      "description": "Eliminar todos los temporizadores de los dispositivos Google Home.",
+      "fields": {
+        "skip_refresh": {
+          "description": "Omitir la actualización de los dispositivos Google Home después de eliminar los temporizadores.",
+          "name": "Omitir actualización"
+        }
+      },
+      "name": "Eliminar todos los temporizadores"
+    },
+    "reboot_device": {
+      "description": "Reiniciar un dispositivo Google Home.",
+      "name": "Reiniciar dispositivo"
+    },
+    "refresh_devices": {
+      "description": "Actualizar el estado de todos los dispositivos Google Home.",
+      "name": "Actualizar dispositivos"
+    },
+    "set_alarm_volume": {
+      "name": "Set alarm volume",
+      "description": "Sets the alarm and timer volume (0-100%) on a Google Home device.",
+      "fields": {
+        "volume": {
+          "name": "Volume",
+          "description": "The target alarm volume percentage (0 to 100)."
+        }
+      }
+    },
+    "broadcast": {
+      "name": "Broadcast message",
+      "description": "Broadcasts a text message or announcement locally to a Google Home speaker.",
+      "fields": {
+        "message": {
+          "name": "Message",
+          "description": "The announcement message to broadcast."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "alarms_and_timers_not_fetched": {
+      "message": "No se han podido obtener las alarmas y los temporizadores actuales de {device}, por lo que no se ha eliminado nada de ese dispositivo. Comprueba que esté en línea y vuelve a intentarlo más tarde."
+    },
+    "alarms_and_timers_not_fetched_token_rejected_polling_off": {
+      "message": "No se han podido obtener las alarmas y los temporizadores actuales de {device}, por lo que no se ha eliminado nada de ese dispositivo. El dispositivo ha rechazado su token. El sondeo de cambios está deshabilitado, así que la integración no vuelve a pedir uno a Google por sí misma: ejecuta la acción «Actualizar dispositivos» y vuelve a intentarlo."
+    },
+    "alarms_and_timers_not_fetched_from_devices": {
+      "message": "No se han podido obtener las alarmas y los temporizadores actuales de estos dispositivos, por lo que no se ha eliminado nada de ellos: {devices}. Comprueba que estén en línea y vuelve a intentarlo más tarde."
+    },
+    "alarms_and_timers_not_deleted": {
+      "message": "{device} no ha confirmado la eliminación de las alarmas o los temporizadores, por lo que podrían seguir configurados. Comprueba que esté en línea y vuelve a intentarlo más tarde."
+    },
+    "alarms_and_timers_not_deleted_token_rejected_polling_off": {
+      "message": "{device} no ha confirmado la eliminación de las alarmas o los temporizadores, por lo que podrían seguir configurados. El dispositivo ha rechazado su token. El sondeo de cambios está deshabilitado, así que la integración no vuelve a pedir uno a Google por sí misma: ejecuta la acción «Actualizar dispositivos» y vuelve a intentarlo."
+    },
+    "alarms_and_timers_not_deleted_from_devices": {
+      "message": "No se han podido eliminar las alarmas o los temporizadores de estos dispositivos, o confirmar que se hayan eliminado: {devices}. Comprueba que estén en línea y vuelve a intentarlo más tarde."
+    },
+    "alarms_and_timers_not_deleted_from_devices_token_rejected_polling_off": {
+      "message": "No se han podido eliminar las alarmas o los temporizadores de estos dispositivos, o confirmar que se hayan eliminado: {devices}. Al menos uno de ellos ha rechazado su token. El sondeo de cambios está deshabilitado, así que la integración no vuelve a pedir uno a Google por sí misma: ejecuta la acción «Actualizar dispositivos», comprueba que los dispositivos estén en línea y vuelve a intentarlo."
+    },
+    "invalid_alarm_id": {
+      "message": "«{alarm_id}» no es un ID de alarma. Copia el ID, que empieza por alarm/, del atributo alarms del sensor de alarmas del dispositivo."
+    },
+    "invalid_timer_id": {
+      "message": "«{timer_id}» no es un ID de temporizador. Copia el ID, que empieza por timer/, del atributo timers del sensor de temporizadores del dispositivo."
+    },
+    "alarm_not_found": {
+      "message": "No se ha podido encontrar la alarma {alarm_id} en los dispositivos seleccionados. Puede que ya haya sonado o se haya eliminado."
+    },
+    "timer_not_found": {
+      "message": "No se ha podido encontrar el temporizador {timer_id} en los dispositivos seleccionados. Puede que ya haya finalizado o se haya eliminado."
+    },
+    "device_offline": {
+      "message": "No se ha podido conectar con {device}. Comprueba que esté encendido y conectado a tu red, y vuelve a intentarlo."
+    },
+    "device_no_reply": {
+      "message": "{device} no ha confirmado que lo haya hecho: no ha respondido a tiempo o su respuesta se ha cortado. Comprueba que esté en línea y vuelve a intentarlo."
+    },
+    "device_token_rejected": {
+      "message": "{device} ha rechazado su token. La integración sigue pidiendo uno nuevo a Google, así que vuelve a intentarlo más tarde."
+    },
+    "device_token_rejected_polling_off": {
+      "message": "{device} ha rechazado su token. El sondeo de cambios está deshabilitado, así que la integración no vuelve a pedir uno a Google por sí misma: ejecuta la acción «Actualizar dispositivos» y vuelve a intentarlo."
+    },
+    "device_not_ready": {
+      "message": "{device} ha respondido «no encontrado». Puede que aún se esté iniciando, así que vuelve a intentarlo más tarde, o que no admita esta acción."
+    },
+    "device_request_failed": {
+      "message": "No se ha podido realizar la acción en {device}. Para ver los detalles, consulta los registros de Home Assistant."
+    },
+    "devices_not_rebooted": {
+      "message": "Estos dispositivos no han confirmado que se vayan a reiniciar: {devices}. Comprueba que estén en línea y vuelve a intentarlo más tarde."
+    },
+    "sign_in_rejected": {
+      "message": "Google no ha aceptado el inicio de sesión ({reason}). Vuelve a iniciar sesión."
+    }
+  },
+  "system_health": {
+    "info": {
+      "can_reach_sign_in": "Acceso al servidor de inicio de sesión de Google",
+      "can_reach_device_list": "Acceso al servidor de la lista de dispositivos de Google",
+      "device_list": "Lista de dispositivos de Google",
+      "retry_not_before": "Reintento no antes de",
+      "polling": "Sondeo de cambios",
+      "bluetooth_tracking": "Seguimiento por Bluetooth",
+      "devices_listed": "Dispositivos en la lista de Google",
+      "devices_not_answering": "Dispositivos que no responden"
+    }
+  }
+}
