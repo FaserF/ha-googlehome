@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 
 import pytest
 
-from custom_components.google_home import (
+from custom_components.google_home.cleanup import (
     _async_cleanup_excluded_services,
     _async_cleanup_stale_devices_and_entities,
 )

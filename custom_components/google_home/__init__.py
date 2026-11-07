@@ -15,7 +15,10 @@ from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import GlocaltokensApiClient
-from .cleanup import _async_cleanup_stale_devices_and_entities
+from .cleanup import (
+    _async_cleanup_excluded_services,
+    _async_cleanup_stale_devices_and_entities,
+)
 from .const import (
     CONF_ANDROID_ID,
     CONF_BLUETOOTH_EXCLUDED,
@@ -439,6 +442,8 @@ def async_show_invalid_interval(hass: HomeAssistant, entry: ConfigEntry) -> None
 
 
 __all__ = [
+    "_async_cleanup_excluded_services",
+    "_async_cleanup_stale_devices_and_entities",
     "async_migrate_entry",
     "async_reload_entry",
     "async_remove_config_entry_device",
