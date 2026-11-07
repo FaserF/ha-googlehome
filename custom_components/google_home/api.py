@@ -715,6 +715,17 @@ class GlocaltokensApiClient:
                     ssid=str(raw_ssid) if raw_ssid is not None else None,
                     rssi=rssi_int,
                 )
+                raw_bssid = (
+                    wifi_data.get("bssid")
+                    or net_data.get("bssid")
+                    or eureka_data.get("bssid")
+                )
+                device.wifi_bssid = str(raw_bssid) if raw_bssid else None
+
+                uptime = eureka_data.get("uptime")
+                if uptime is None and isinstance(eureka_data.get("device_info"), dict):
+                    uptime = eureka_data["device_info"].get("uptime")
+                device.set_uptime(uptime)
 
                 device_info = eureka_data.get("device_info") or {}
                 cast_uuid = (

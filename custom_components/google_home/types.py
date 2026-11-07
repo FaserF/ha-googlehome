@@ -30,22 +30,32 @@ class GoogleHomeTimerDict(TypedDict):
     local_time_iso: str | None
     duration: str
     duration_seconds: int
+    remaining: str | None
     status: str
     label: str | None
 
 
-class AlarmsAttributes(TypedDict):
+class AlarmsAttributes(TypedDict, total=False):
     """Alarms sensor attributes."""
 
     next_alarm_status: str
     alarm_volume: float | None
     alarms: list[GoogleHomeAlarmDict]
+    booted_at: str | None
+    uptime_seconds: float | None
+    wifi_ssid: str | None
+    wifi_signal_strength_dbm: int | None
+    wifi_bssid: str | None
+    ip_address: str | None
+    mac_address: str | None
+    home: str | None
 
 
-class TimersAttributes(TypedDict):
+class TimersAttributes(TypedDict, total=False):
     """Timers sensor attributes."""
 
     next_timer_status: str
+    next_timer_remaining: str | None
     timers: list[GoogleHomeTimerDict]
 
 

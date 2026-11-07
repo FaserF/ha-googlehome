@@ -375,11 +375,30 @@ class GoogleHomeAlarmsSensor(GoogleHomeBaseEntity, SensorEntity):
     @property
     def extra_state_attributes(self) -> AlarmsAttributes:
         """Return the state attributes."""
-        return {
+        device = self.get_device()
+        attrs: AlarmsAttributes = {
             "next_alarm_status": self._get_next_alarm_status(),
             "alarm_volume": self._get_alarm_volume(),
             "alarms": self._get_alarms_data(),
         }
+        if device:
+            if device.booted_at:
+                attrs["booted_at"] = device.booted_at.isoformat()
+            if device.uptime_seconds is not None:
+                attrs["uptime_seconds"] = device.uptime_seconds
+            if device.get_wifi_ssid():
+                attrs["wifi_ssid"] = device.get_wifi_ssid()
+            if device.get_wifi_rssi() is not None:
+                attrs["wifi_signal_strength_dbm"] = device.get_wifi_rssi()
+            if device.wifi_bssid:
+                attrs["wifi_bssid"] = device.wifi_bssid
+            if device.ip_address:
+                attrs["ip_address"] = device.ip_address
+            if device.mac_address:
+                attrs["mac_address"] = device.mac_address
+            if device.structure_name:
+                attrs["home"] = device.structure_name
+        return attrs
 
     def _get_next_alarm_status(self) -> str:
         """Get next alarm status."""
@@ -505,10 +524,15 @@ class GoogleHomeTimersSensor(GoogleHomeBaseEntity, SensorEntity):
     @property
     def extra_state_attributes(self) -> TimersAttributes:
         """Return the state attributes."""
-        return {
+        device = self.get_device()
+        next_timer = device.get_next_timer() if device else None
+        attrs: TimersAttributes = {
             "next_timer_status": self._get_next_timer_status(),
             "timers": self._get_timers_data(),
         }
+        if next_timer and next_timer.remaining:
+            attrs["next_timer_remaining"] = next_timer.remaining
+        return attrs
 
     def _get_next_timer_status(self) -> str:
         """Get next timer status."""

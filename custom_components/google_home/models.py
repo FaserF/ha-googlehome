@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import sys
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from enum import Enum
 from typing import TYPE_CHECKING
 
@@ -68,6 +68,9 @@ class GoogleHomeDevice:
         self._night_mode = False
         self._wifi_rssi: int | None = None
         self._wifi_ssid: str | None = None
+        self.wifi_bssid: str | None = None
+        self.uptime_seconds: float | None = None
+        self.booted_at: datetime | None = None
         self._bluetooth_mac: str | None = None
         self._timers: list[GoogleHomeTimer] = []
         self._alarms: list[GoogleHomeAlarm] = []
@@ -180,6 +183,10 @@ class GoogleHomeDevice:
                 and str(raw_status).isdigit()
                 else 1
             )
+            raw_rem = timer.get("remaining_duration")
+            remaining_duration = (
+                raw_rem if isinstance(raw_rem, (int, float, str)) else None
+            )
             new_timers.append(
                 GoogleHomeTimer(
                     timer_id=str(timer["id"]),
@@ -187,6 +194,7 @@ class GoogleHomeDevice:
                     duration=duration_int,
                     status=status_int,
                     label=timer.get("label"),
+                    remaining_duration=remaining_duration,
                 )
             )
         self._timers = new_timers
@@ -289,6 +297,18 @@ class GoogleHomeDevice:
         """Return Bluetooth MAC address."""
         return self._bluetooth_mac
 
+    def set_uptime(self, uptime: float | int | None) -> None:
+        """Set device uptime and calculate estimated boot time."""
+        if uptime is not None:
+            try:
+                up_val = float(uptime)
+                if up_val >= 0:
+                    self.uptime_seconds = up_val
+                    self.booted_at = datetime.now(UTC) - timedelta(seconds=up_val)
+            except (ValueError, TypeError, OverflowError):
+                self.uptime_seconds = None
+                self.booted_at = None
+
 
 class GoogleHomeTimer:
     """Local representation of Google Home timer."""
@@ -303,6 +323,7 @@ class GoogleHomeTimer:
         duration: int,
         status: int,
         label: str | None,
+        remaining_duration: int | float | str | None = None,
     ) -> None:
         """Create Google Home Timer object."""
         self.timer_id = timer_id
@@ -320,6 +341,20 @@ class GoogleHomeTimer:
             except (ValueError, TypeError):
                 self.status = GoogleHomeTimerStatus.NONE
         self.label = label
+
+        # For a paused timer: time left formatted as string
+        self.remaining: str | None = None
+        if (
+            remaining_duration is not None
+            and self.status == GoogleHomeTimerStatus.PAUSED
+        ):
+            try:
+                rem_seconds = int(
+                    round(convert_from_ms_to_s(float(remaining_duration)))
+                )
+                self.remaining = str(timedelta(seconds=max(0, rem_seconds)))
+            except (ValueError, TypeError):
+                self.remaining = None
 
         if fire_time is None:
             self.fire_time = None
@@ -343,6 +378,7 @@ class GoogleHomeTimer:
             "local_time_iso": self.local_time_iso,
             "duration": self.duration,
             "duration_seconds": self.duration_seconds,
+            "remaining": self.remaining,
             "status": self.status.name.lower(),
             "label": self.label,
         }
