@@ -43,9 +43,8 @@ Choose the best mode during setup or change it anytime in the Options Flow:
 | **Cloud Device Live Telemetry & Status Sensors** | ❌ No | ✅ Yes (State, Brightness, Fan Speed %, Covers, etc.) | ✅ Yes |
 | **Cloud Device Control (Lights, Switches, Fans, etc.)** | ❌ No | 🗣️ Via [Assistant SDK](https://www.home-assistant.io/integrations/google_assistant_sdk/) | 🗣️ Via [Assistant SDK](https://www.home-assistant.io/integrations/google_assistant_sdk/) |
 | **Google Routines & Scenes (`scene`)** | ❌ No | ✅ Yes (Trigger any routine/scene) | ✅ Yes |
-| **Household Presence & Attendance Tracker** | ❌ No | ✅ Yes | ✅ Yes |
-| **Multi-Home Structure Filtering** | ❌ No | ✅ Yes | ✅ Yes |
-| **HA-Loop Prevention Filter** | ❌ No | ✅ Yes | ✅ Yes |
+| **Household Presence & Attendance Tracker** | ⚠️ Partly (Bluetooth Tracking only) | ✅ Yes | ✅ Yes |
+| **Multi-Home Structure Filtering** | ⚠️ Partly | ✅ Yes | ✅ Yes |
 
 </details>
 
@@ -232,7 +231,7 @@ Both integrations share the same `google_home` domain and the same underlying li
 | `vacuum` | ✅ Start/stop/dock, zone metadata | ❌ Not present |
 | `alarm_control_panel` | ✅ Nest Secure (arm home/away/disarm) | ❌ Not present |
 | `scene` | ✅ Trigger Google Home routines & automations | ❌ Not present |
-| `event` | ✅ Speaker Alarm & Timer state transitions (`ringing`, `snoozed`, `stopped`) | ✅ Alarm & Timer events |
+| `event` | ✅ Speaker Alarm & Timer state transitions (`ringing`, `snoozed`, `stopped`) | ✅ Speaker Alarm & Timer state transitions (`ringing`, `snoozed`, `stopped`) |
 | `device_tracker` | ✅ Household presence (HomeGraph AreaPresenceState) & Local Bluetooth presence tracker via speaker scanning (IRK / MAC) | ✅ Local Bluetooth presence tracker via speaker scanning (IRK / MAC) |
 
 ### 📡 Data Sources
