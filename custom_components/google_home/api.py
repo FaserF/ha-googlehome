@@ -94,10 +94,15 @@ class GlocaltokensApiClient:
         self._address_discovery_lock = asyncio.Lock()
         self._last_address_discovery: float | None = None
 
+        # Browser OAuth cookies must be exchanged before they become master tokens.
+        is_web_token = bool(
+            master_token and master_token.startswith(("oauth2_4/", "1//"))
+        )
         self._client = GLocalAuthenticationTokens(
             username=username,
             password=password,
-            master_token=master_token,
+            master_token=None if is_web_token else master_token,
+            oauth_token=master_token if is_web_token else None,
             android_id=android_id,
             verbose=False,
         )
