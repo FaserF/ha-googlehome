@@ -119,12 +119,17 @@
           "local_update_interval": "Lokales Lautsprecher-Abfrageintervall (Sekunden, min. 5s, default 120s)",
           "cloud_update_interval": "Cloud HomeGraph-Abfrageintervall (Sekunden, min. 60s, default 300s)",
           "master_token": "Master Token (versteckt - neuen aas_et/... oder oauth2_4/... Token einfügen zum Aktualisieren)",
-          "excluded_services": "Auszuschließende verknüpfte Dienste"
+          "excluded_services": "Auszuschließende verknüpfte Dienste",
+          "known_hosts": "Bekannte Hosts"
         },
         "data_description": {
-          "excluded_services": "Geräte und Routinen der ausgewählten Dienste werden nicht importiert. Leer lassen, um alle Dienste einzubeziehen."
+          "excluded_services": "Geräte und Routinen der ausgewählten Dienste werden nicht importiert. Leer lassen, um alle Dienste einzubeziehen.",
+          "known_hosts": "IP-Adressen von Lautsprechern und Displays, die die Integration nicht selbst findet, etwa weil sie in einem anderen Netzwerk oder VLAN sind."
         }
       }
+    },
+    "error": {
+      "known-host-not-ip": "Geben Sie nur IP-Adressen ein, wie z. B. 192.168.1.20."
     }
   },
   "entity": {

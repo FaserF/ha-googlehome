@@ -19,7 +19,7 @@
   "requirements": [
     "bluetooth-data-tools>=1.29.24",
     "glocaltokens==2.0.0",
-    "pychromecast>=14.1.0"
+    "pychromecast>=14.1.1"
   ],
   "version": "1.2.3-dev0",
   "zeroconf": [

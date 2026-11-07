@@ -79,6 +79,7 @@ class GlocaltokensApiClient:
         android_id: str | None = None,
         zeroconf_instance: Zeroconf | None = None,
         selected_homes: list[str] | None = None,
+        known_hosts: list[str] | None = None,
     ):
         """Initialize the API client."""
         self.hass = hass
@@ -89,6 +90,7 @@ class GlocaltokensApiClient:
         self.android_id = android_id
         self.zeroconf_instance = zeroconf_instance
         self.selected_homes = selected_homes
+        self.known_hosts: list[str] = known_hosts or []
         self.google_devices: list[GoogleHomeDevice] = []
         self._discovery_ids: dict[str, str] = {}
         self._address_discovery_lock = asyncio.Lock()
@@ -571,6 +573,44 @@ class GlocaltokensApiClient:
                         len(addresses),
                         len(matches),
                     )
+
+            # Check known hosts for devices still missing an IP address
+            unresolved = [d for d in self.google_devices if not d.ip_address]
+            if unresolved and self.known_hosts:
+                assigned = {d.ip_address for d in self.google_devices if d.ip_address}
+                candidates = [h for h in self.known_hosts if h not in assigned]
+                for host in candidates:
+                    try:
+                        url = self.create_url(host, API_ENDPOINT_DEVICE_INFO)
+                        async with self._session.get(
+                            url, timeout=aiohttp.ClientTimeout(total=4)
+                        ) as resp:
+                            if resp.status == 200:
+                                data = await resp.json()
+                                if isinstance(data, dict):
+                                    dev_info = data.get("device_info") or {}
+                                    cloud_id = dev_info.get(
+                                        "cloud_device_id"
+                                    ) or data.get("cloud_device_id")
+                                    name = data.get("name")
+                                    for udev in unresolved:
+                                        if (
+                                            cloud_id
+                                            and str(cloud_id).lower()
+                                            == udev.device_id.lower()
+                                        ) or (
+                                            name
+                                            and str(name).lower() == udev.name.lower()
+                                        ):
+                                            udev.ip_address = host
+                                            _LOGGER.debug(
+                                                "Found %s at known host %s",
+                                                udev.name,
+                                                host,
+                                            )
+                                            break
+                    except Exception as exc:
+                        _LOGGER.debug("Known host %s check error: %s", host, exc)
 
     def create_url(self, ip_address: str, endpoint: str) -> str:
         """Create URL for device HTTP request, properly escaping IPv6 if present."""

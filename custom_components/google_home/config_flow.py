@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 import logging
 from typing import Any
 
@@ -57,6 +58,7 @@ from .const import (
     CONF_IGNORE_HA_SYNCED_DEVICES,
     CONF_IRK,
     CONF_IRK_OR_MAC,
+    CONF_KNOWN_HOSTS,
     CONF_LOCAL_UPDATE_INTERVAL,
     CONF_MASTER_TOKEN,
     CONF_MUTE_SDK_NIGHTLIGHT,
@@ -129,7 +131,7 @@ async def _async_service_options(
     ]
 
 
-class GoogleHomeFlowHandler(AddonFlowMixin, ConfigFlow, domain=DOMAIN):
+class GoogleHomeFlowHandler(ConfigFlow, AddonFlowMixin, domain=DOMAIN):  # type: ignore[call-arg]
     """Handle a config flow for Google Home."""
 
     VERSION = 3
@@ -702,6 +704,15 @@ class GoogleHomeFlowHandler(AddonFlowMixin, ConfigFlow, domain=DOMAIN):
         return GoogleHomeOptionsFlowHandler()
 
 
+def _is_ip_address(host: str) -> bool:
+    """Return whether a known host is an IP address."""
+    try:
+        ipaddress.ip_address(host.strip())
+    except ValueError:
+        return False
+    return True
+
+
 class GoogleHomeOptionsFlowHandler(OptionsFlow):
     """Handle Google Home options."""
 
@@ -725,6 +736,19 @@ class GoogleHomeOptionsFlowHandler(OptionsFlow):
                     errors["base"] = "assistant_sdk_missing"
 
             new_token = user_input.get(CONF_MASTER_TOKEN, "").strip()
+
+            raw_known_hosts = user_input.get(CONF_KNOWN_HOSTS, [])
+            if isinstance(raw_known_hosts, list):
+                cleaned_hosts: list[str] = []
+                for host in raw_known_hosts:
+                    if isinstance(host, str):
+                        h = host.strip()
+                        if h and h not in cleaned_hosts:
+                            cleaned_hosts.append(h)
+                if not all(_is_ip_address(h) for h in cleaned_hosts):
+                    errors[CONF_KNOWN_HOSTS] = "known-host-not-ip"
+                else:
+                    user_input[CONF_KNOWN_HOSTS] = cleaned_hosts
 
             # If user entered an oauth2_4 web token, exchange it automatically
             if new_token and (
@@ -1001,6 +1025,25 @@ class GoogleHomeOptionsFlowHandler(OptionsFlow):
                     mode=SelectSelectorMode.LIST,
                 )
             )
+
+        current_known_hosts = self.config_entry.options.get(
+            CONF_KNOWN_HOSTS,
+            self.config_entry.data.get(CONF_KNOWN_HOSTS, []),
+        )
+        if not isinstance(current_known_hosts, list):
+            current_known_hosts = []
+
+        schema_dict[vol.Optional(CONF_KNOWN_HOSTS, default=current_known_hosts)] = (
+            SelectSelector(
+                SelectSelectorConfig(
+                    options=[
+                        SelectOptionDict(value=h, label=h) for h in current_known_hosts
+                    ],
+                    custom_value=True,
+                    multiple=True,
+                )
+            )
+        )
 
         return self.async_show_form(
             step_id="init",

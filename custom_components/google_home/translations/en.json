@@ -118,12 +118,17 @@
           "local_update_interval": "Local Speaker Polling Interval (seconds, min 5s, default 120s)",
           "cloud_update_interval": "Cloud HomeGraph Polling Interval (seconds, min 60s, default 300s)",
           "master_token": "Master Token (hidden - paste new aas_et/... or oauth2_4/... token to update)",
-          "excluded_services": "Linked services to exclude"
+          "excluded_services": "Linked services to exclude",
+          "known_hosts": "Known hosts"
         },
         "data_description": {
-          "excluded_services": "Devices and routines from the selected services will not be imported. Leave empty to include all services."
+          "excluded_services": "Devices and routines from the selected services will not be imported. Leave empty to include all services.",
+          "known_hosts": "IP addresses of speakers and displays that the integration can't find on its own, for example because they're on another network or VLAN."
         }
       }
+    },
+    "error": {
+      "known-host-not-ip": "Enter IP addresses only, such as 192.168.1.20."
     }
   },
   "entity": {

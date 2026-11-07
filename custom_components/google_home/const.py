@@ -14,6 +14,7 @@ MANUFACTURER: Final = "Google"
 ATTRIBUTION: Final = "Data provided by Google Home local API"
 CONF_UPDATE_INTERVAL: Final = "update_interval"
 DEFAULT_UPDATE_INTERVAL: Final = 120
+CONF_KNOWN_HOSTS: Final = "known_hosts"
 
 CONF_LOCAL_UPDATE_INTERVAL: Final = "local_update_interval"
 DEFAULT_LOCAL_UPDATE_INTERVAL: Final = 120  # Default 2 minutes

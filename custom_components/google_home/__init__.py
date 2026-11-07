@@ -24,6 +24,7 @@ from .const import (
     CONF_CLOUD_UPDATE_INTERVAL,
     CONF_EXCLUDED_SERVICES,
     CONF_IGNORE_HA_SYNCED_DEVICES,
+    CONF_KNOWN_HOSTS,
     CONF_LOCAL_UPDATE_INTERVAL,
     CONF_MASTER_TOKEN,
     CONF_OPERATION_MODE,
@@ -116,6 +117,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # 1. Setup Local Subsystem
     if mode in (MODE_HYBRID, MODE_LOCAL):
         zeroconf_instance = await zeroconf.async_get_instance(hass)
+        known_hosts = entry.options.get(
+            CONF_KNOWN_HOSTS,
+            entry.data.get(CONF_KNOWN_HOSTS, []),
+        )
         client = GlocaltokensApiClient(
             hass=hass,
             session=session,
@@ -125,6 +130,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             android_id=android_id,
             zeroconf_instance=zeroconf_instance,
             selected_homes=selected_homes,
+            known_hosts=known_hosts if isinstance(known_hosts, list) else None,
         )
         coordinator = GoogleHomeDataUpdateCoordinator(
             hass=hass,
