@@ -245,5 +245,48 @@
         "device_removed": "This Bluetooth device was removed. Add it again to track it."
       }
     }
+  },
+  "issues": {
+    "polling_disabled": {
+      "title": "Polling for changes is turned off",
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "Polling for changes is turned off",
+            "description": "**Enable polling for changes** is turned off in the integration's system options, so the integration doesn't check your devices on its own. Alarms, timers and other entities update only when you ask, for example with the **Refresh devices** action. For what still works, see {docs_url}.\n\nIf you turn polling back on, the integration reloads, then checks your devices at its update interval. If you keep it off, this repair is hidden until you turn polling on and then off again.",
+            "menu_options": {
+              "turn_on": "Turn polling back on",
+              "keep_off": "Keep polling off and hide this repair"
+            }
+          }
+        },
+        "abort": {
+          "polling_kept_off": "Polling stays off, and this repair is hidden."
+        }
+      }
+    },
+    "invalid_update_interval": {
+      "title": "The saved update interval is below {min_interval} s",
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "The saved update interval is below {min_interval} s",
+            "description": "The update interval saved in the integration's options is {interval} s, which is below the minimum of {min_interval} s. The integration uses the default instead and checks your devices every {default_interval} s.\n\nIf you saved 0 to stop these regular checks, turn off polling instead. Unlike 0, it also stops Bluetooth scans and the adding of new devices that mDNS finds. For details, see {docs_url}.\n\nTo use another interval, open the [Google Home integration]({integration_url}), select **Configure**, enter it, then select **Submit**.",
+            "menu_options": {
+              "use_default": "Use the default of {default_interval} s",
+              "turn_off_polling": "Turn off polling instead"
+            }
+          }
+        }
+      }
+    },
+    "homes_deselected": {
+      "title": "None of your Google account's homes is selected",
+      "description": "Your Google account is only a member of homes that you deselected in the integration's options, so the integration doesn't add the speakers and displays in them. To add a home's devices, open the [Google Home integration]({integration_url}), select **Configure**, select the home under **Homes**, then select **Submit**.\n\nIf you want to keep these homes deselected, select **Ignore**."
+    },
+    "no_home": {
+      "title": "Google reports no home for your account",
+      "description": "Google reports that the account the integration signed in with isn't a member of any home, so there are no speakers or displays to add. In the Google Home app, invite this account to the home that your devices are in, and accept the invitation. Then reload the [Google Home integration]({integration_url}): select **⋮** > **Reload**.\n\nIf you're keeping the integration on purpose, for example while you're between homes, select **Ignore**. If you no longer need it, you can delete it on the same page."
+    }
   }
 }

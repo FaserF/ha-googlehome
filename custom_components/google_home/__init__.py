@@ -11,6 +11,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import GlocaltokensApiClient
@@ -41,12 +42,16 @@ from .const import (
     DEFAULT_LOCAL_UPDATE_INTERVAL,
     DEFAULT_UPDATE_INTERVAL,
     DOMAIN,
+    ISSUE_INVALID_INTERVAL,
+    ISSUE_POLLING_DISABLED,
     MIN_LOCAL_UPDATE_INTERVAL,
+    MIN_UPDATE_INTERVAL,
     MODE_CLOUD,
     MODE_HYBRID,
     MODE_LOCAL,
     PLATFORMS,
     SUBENTRY_BLUETOOTH_DEVICE,
+    UPDATE_INTERVAL,
     clean_mac_address,
     get_structure_url,
 )
@@ -60,6 +65,9 @@ _LOGGER: logging.Logger = logging.getLogger(__package__)
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Google Home from a config entry."""
     hass.data.setdefault(DOMAIN, {})
+
+    async_show_polling_disabled(hass, entry)
+    async_show_invalid_interval(hass, entry)
 
     # Suppress noisy ERROR-level messages from the glocaltokens library when
     # the master token is invalid/expired - these are expected auth failures
@@ -957,3 +965,51 @@ async def async_migrate_entry(hass: HomeAssistant, config_entry: ConfigEntry) ->
         )
 
     return True
+
+
+def saved_interval(entry: ConfigEntry) -> int:
+    """Return the update interval in the options, in seconds."""
+    return cast(
+        int,
+        entry.options.get(
+            CONF_LOCAL_UPDATE_INTERVAL,
+            entry.options.get(CONF_UPDATE_INTERVAL, UPDATE_INTERVAL),
+        ),
+    )
+
+
+@callback
+def async_show_polling_disabled(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Show a repair while polling is turned off, which can turn it back on."""
+    if not entry.pref_disable_polling:
+        ir.async_delete_issue(hass, DOMAIN, ISSUE_POLLING_DISABLED)
+        return
+    ir.async_create_issue(
+        hass,
+        DOMAIN,
+        ISSUE_POLLING_DISABLED,
+        config_entry_id=entry.entry_id,
+        data={"entry_id": entry.entry_id},
+        is_fixable=True,
+        severity=ir.IssueSeverity.WARNING,
+        translation_key=ISSUE_POLLING_DISABLED,
+    )
+
+
+@callback
+def async_show_invalid_interval(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Show a repair while the saved update interval is below 1 second and polling is on."""
+    if saved_interval(entry) >= MIN_UPDATE_INTERVAL or entry.pref_disable_polling:
+        ir.async_delete_issue(hass, DOMAIN, ISSUE_INVALID_INTERVAL)
+        return
+    ir.async_create_issue(
+        hass,
+        DOMAIN,
+        ISSUE_INVALID_INTERVAL,
+        config_entry_id=entry.entry_id,
+        data={"entry_id": entry.entry_id},
+        is_fixable=True,
+        severity=ir.IssueSeverity.WARNING,
+        translation_key=ISSUE_INVALID_INTERVAL,
+        translation_placeholders={"min_interval": str(MIN_UPDATE_INTERVAL)},
+    )

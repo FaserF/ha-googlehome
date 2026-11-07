@@ -237,5 +237,48 @@
         "device_removed": "Dieses Bluetooth-Gerät wurde entfernt."
       }
     }
+  },
+  "issues": {
+    "polling_disabled": {
+      "title": "Abfrage von Änderungen ist deaktiviert",
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "Abfrage von Änderungen ist deaktiviert",
+            "description": "**Abfrage von Änderungen aktivieren** ist in den Systemoptionen der Integration deaktiviert, daher fragt die Integration deine Geräte nicht selbstständig ab. Wecker, Timer und andere Entitäten werden nur aktualisiert, wenn du es anforderst, zum Beispiel mit der Aktion **Geräte aktualisieren**. Was weiterhin funktioniert, erfährst du unter {docs_url}.\n\nWenn du die Abfrage wieder aktivierst, wird die Integration neu geladen und fragt deine Geräte danach im eingestellten Aktualisierungsintervall ab. Wenn du sie deaktiviert lässt, wird diese Reparatur ausgeblendet, bis du die Abfrage aktivierst und dann wieder deaktivierst.",
+            "menu_options": {
+              "turn_on": "Abfrage wieder aktivieren",
+              "keep_off": "Abfrage deaktiviert lassen und diese Reparatur ausblenden"
+            }
+          }
+        },
+        "abort": {
+          "polling_kept_off": "Die Abfrage bleibt deaktiviert und diese Reparatur ist ausgeblendet."
+        }
+      }
+    },
+    "invalid_update_interval": {
+      "title": "Das gespeicherte Aktualisierungsintervall ist kürzer als {min_interval} s",
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "Das gespeicherte Aktualisierungsintervall ist kürzer als {min_interval} s",
+            "description": "Das in den Optionen der Integration gespeicherte Aktualisierungsintervall beträgt {interval} s und liegt damit unter dem Minimum von {min_interval} s. Die Integration verwendet stattdessen den Standardwert und fragt deine Geräte alle {default_interval} s ab.\n\nWenn du 0 gespeichert hast, um diese regelmäßigen Abfragen zu stoppen, deaktiviere stattdessen die Abfrage von Änderungen. Anders als 0 stoppt das auch die Suche nach Bluetooth-Geräten und das Hinzufügen neuer Geräte, die mDNS findet. Details erfährst du unter {docs_url}.\n\nUm ein anderes Intervall zu verwenden, öffne die [Google Home-Integration]({integration_url}), wähle **Konfigurieren**, gib es ein und wähle dann **OK**.",
+            "menu_options": {
+              "use_default": "Standardwert von {default_interval} s verwenden",
+              "turn_off_polling": "Stattdessen Abfrage deaktivieren"
+            }
+          }
+        }
+      }
+    },
+    "homes_deselected": {
+      "title": "Keines der Zuhause deines Google-Kontos ist ausgewählt",
+      "description": "Dein Google-Konto ist nur Mitglied von Zuhause, die du in den Optionen der Integration abgewählt hast, daher fügt die Integration deren Lautsprecher und Displays nicht hinzu. Um die Geräte eines Zuhauses hinzuzufügen, öffne die [Google Home-Integration]({integration_url}), wähle **Konfigurieren**, wähle das Zuhause unter **Zuhause** aus und wähle dann **OK**.\n\nWenn du diese Zuhause abgewählt lassen möchtest, wähle **Ignorieren**."
+    },
+    "no_home": {
+      "title": "Google meldet kein Zuhause für dein Konto",
+      "description": "Google meldet, dass das Konto, mit dem sich die Integration angemeldet hat, kein Mitglied eines Zuhauses ist, daher gibt es keine Lautsprecher oder Displays zum Hinzufügen. Lade dieses Konto in der Google Home App in das Zuhause ein, in dem sich deine Geräte befinden, und nimm die Einladung an. Lade danach die [Google Home-Integration]({integration_url}) neu: Wähle **⋮** > **Neu laden**.\n\nWenn du die Integration absichtlich behältst, zum Beispiel während eines Umzugs, wähle **Ignorieren**. Wenn du sie nicht mehr brauchst, kannst du sie auf derselben Seite löschen."
+    }
   }
 }

@@ -14,6 +14,17 @@ MANUFACTURER: Final = "Google"
 ATTRIBUTION: Final = "Data provided by Google Home local API"
 CONF_UPDATE_INTERVAL: Final = "update_interval"
 DEFAULT_UPDATE_INTERVAL: Final = 120
+UPDATE_INTERVAL: Final = 15  # sec
+MIN_UPDATE_INTERVAL: Final = 1  # sec
+ISSUE_POLLING_DISABLED: Final = "polling_disabled"
+POLLING_DOCS_URL: Final = (
+    "https://ha-google-home.pages.dev/configuration/#turn-off-polling"
+)
+ISSUE_INVALID_INTERVAL: Final = "invalid_update_interval"
+INTERVAL_DOCS_URL: Final = (
+    "https://ha-google-home.pages.dev/configuration/#change-the-update-interval"
+)
+INTEGRATION_PAGE_URL: Final = f"/config/integrations/integration/{DOMAIN}"
 CONF_KNOWN_HOSTS: Final = "known_hosts"
 
 CONF_LOCAL_UPDATE_INTERVAL: Final = "local_update_interval"
