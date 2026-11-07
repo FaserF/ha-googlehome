@@ -9,17 +9,30 @@ from homeassistant.components.device_tracker import (
     SourceType,
     TrackerEntity,
 )
-from homeassistant.config_entries import ConfigEntry
+from homeassistant.components.device_tracker.entity import BaseScannerEntity
+from homeassistant.config_entries import ConfigEntry, ConfigSubentry
 from homeassistant.const import STATE_HOME, STATE_NOT_HOME
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.helpers.update_coordinator import (
+    CoordinatorEntity,
+    DataUpdateCoordinator,
+)
 
+from .bluetooth import TrackerState, TrackerUpdate
 from .cloud_coordinator import GoogleHomeCloudDataUpdateCoordinator
-from .const import DATA_CLOUD_COORDINATOR, DOMAIN, MANUFACTURER, get_structure_url
+from .const import (
+    DATA_CLOUD_COORDINATOR,
+    DOMAIN,
+    MANUFACTURER,
+    SUBENTRY_BLUETOOTH_DEVICE,
+    get_structure_url,
+)
 
 _LOGGER: logging.Logger = logging.getLogger(__package__)
+
+ATTR_SPEAKERS = "speakers"
 
 
 async def async_setup_entry(
@@ -27,12 +40,21 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> bool:
-    """Set up Google Home structure presence tracker entities."""
-    if (
-        DOMAIN not in hass.data
-        or entry.entry_id not in hass.data[DOMAIN]
-        or DATA_CLOUD_COORDINATOR not in hass.data[DOMAIN][entry.entry_id]
-    ):
+    """Set up Google Home device tracker entities (Cloud presence + Bluetooth trackers)."""
+    entry_data = hass.data.get(DOMAIN, {}).get(entry.entry_id, {})
+
+    # 1. Set up Bluetooth trackers for any configured bluetooth_device subentries
+    bluetooth_coordinator: DataUpdateCoordinator[dict[str, TrackerUpdate]] | None = (
+        entry_data.get("bluetooth_coordinator")
+    )
+    if bluetooth_coordinator and hasattr(entry, "get_subentries_of_type"):
+        for subentry in entry.get_subentries_of_type(SUBENTRY_BLUETOOTH_DEVICE):
+            async_add_entities(
+                [GoogleHomeBluetoothTracker(bluetooth_coordinator, subentry)],
+            )
+
+    # 2. Set up Google Home Cloud structure presence tracker entities
+    if DATA_CLOUD_COORDINATOR not in entry_data:
         return True
 
     coordinator: GoogleHomeCloudDataUpdateCoordinator = hass.data[DOMAIN][
@@ -224,3 +246,61 @@ class GoogleHomePresenceTracker(
             attrs["attendance_state"] = attendance
             attrs["all_members_present"] = "all_household_members" in attendance
         return attrs
+
+
+class GoogleHomeBluetoothTracker(
+    CoordinatorEntity[DataUpdateCoordinator[dict[str, TrackerUpdate]]],
+    BaseScannerEntity,
+):
+    """A tracked Bluetooth device: home while speakers hear it, or away."""
+
+    def __init__(
+        self,
+        coordinator: DataUpdateCoordinator[dict[str, TrackerUpdate]],
+        subentry: ConfigSubentry,
+    ) -> None:
+        """Create a tracker for a tracked Bluetooth device."""
+        super().__init__(coordinator)
+        self._subentry_id = subentry.subentry_id
+        self._subentry_title = subentry.title
+        self._attr_unique_id = subentry.subentry_id
+
+    @property
+    def source_type(self) -> SourceType:
+        """Return bluetooth."""
+        return SourceType.BLUETOOTH
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        """Return the tracked device, named as the user named it."""
+        return DeviceInfo(
+            identifiers={(DOMAIN, self._subentry_id)}, name=self._subentry_title
+        )
+
+    @property
+    def available(self) -> bool:
+        """Return whether the speakers can tell if the device is home."""
+        return (
+            super().available and self._tracker_update.state != TrackerState.UNAVAILABLE
+        )
+
+    @property
+    def is_connected(self) -> bool | None:
+        """Return whether the device is home, or None while it's unknown."""
+        state = self._tracker_update.state
+        if state == TrackerState.HOME:
+            return True
+        if state == TrackerState.NOT_HOME:
+            return False
+        return None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, dict[str, int]]:
+        """Return each speaker's median RSSI over the latest completed window."""
+        return {ATTR_SPEAKERS: self._tracker_update.speakers}
+
+    @property
+    def _tracker_update(self) -> TrackerUpdate:
+        """Return the latest update."""
+        data = self.coordinator.data or {}
+        return data.get(self._subentry_id, TrackerUpdate(TrackerState.UNKNOWN, {}))

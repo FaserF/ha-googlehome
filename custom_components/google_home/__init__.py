@@ -19,6 +19,8 @@ from .const import (
     AUTH_METHOD_TOKEN,
     CONF_ANDROID_ID,
     CONF_AUTH_METHOD,
+    CONF_BLUETOOTH_EXCLUDED,
+    CONF_BLUETOOTH_TRACKING,
     CONF_CLOUD_UPDATE_INTERVAL,
     CONF_EXCLUDED_SERVICES,
     CONF_IGNORE_HA_SYNCED_DEVICES,
@@ -43,6 +45,7 @@ from .const import (
     MODE_HYBRID,
     MODE_LOCAL,
     PLATFORMS,
+    SUBENTRY_BLUETOOTH_DEVICE,
     clean_mac_address,
     get_structure_url,
 )
@@ -273,6 +276,41 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         _LOGGER.exception(
             "Placeholder-MAC registry repair failed; continuing integration setup"
         )
+
+    # Initialize Bluetooth tracking if enabled and configured
+    tracking = bool(entry.options.get(CONF_BLUETOOTH_TRACKING, False))
+    subentries = (
+        entry.get_subentries_of_type(SUBENTRY_BLUETOOTH_DEVICE)
+        if hasattr(entry, "get_subentries_of_type")
+        else []
+    )
+    local_coord_candidate: GoogleHomeDataUpdateCoordinator | None = entry_data.get(
+        DATA_COORDINATOR
+    )
+    if tracking and subentries and local_coord_candidate:
+        try:
+            from .bluetooth import BluetoothAccountAdapter, BluetoothScanner
+            from .bluetooth_coordinator import BluetoothCoordinator
+            from .bluetooth_storage import async_history
+
+            excluded = set(entry.options.get(CONF_BLUETOOTH_EXCLUDED, []))
+            history = async_history(hass, entry)
+            adapter = BluetoothAccountAdapter(local_coord_candidate, entry)
+            scanner = BluetoothScanner(
+                session,
+                adapter,
+                subentries,
+                excluded,
+                history,
+            )
+            bluetooth_coord = BluetoothCoordinator(hass, entry, scanner, history)
+            entry_data["bluetooth_coordinator"] = bluetooth_coord
+            _LOGGER.debug(
+                "Bluetooth presence tracking initialized with %d devices",
+                len(subentries),
+            )
+        except Exception as exc:
+            _LOGGER.warning("Could not initialize Bluetooth tracking: %s", exc)
 
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -801,6 +839,12 @@ async def async_remove_config_entry_device(
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
+    entry_data = hass.data.get(DOMAIN, {}).get(entry.entry_id, {})
+    if "bluetooth_coordinator" in entry_data:
+        try:
+            entry_data["bluetooth_coordinator"].stop()
+        except Exception:
+            pass
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unload_ok:
         hass.data[DOMAIN].pop(entry.entry_id, None)

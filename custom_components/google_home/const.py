@@ -205,7 +205,30 @@ API_ENDPOINT_NIGHT_MODE: Final = "setup/assistant/alarms/volume"
 API_ENDPOINT_NIGHT_MODE_SETTINGS: Final = "setup/night_mode_params"
 API_ENDPOINT_DEVICE_INFO: Final = "setup/eureka_info?params=version,name,build_info,device_info,net,wifi,wlan,bluetooth,setup,settings,opt_in,audio,ota"
 API_ENDPOINT_BLUETOOTH_STATUS: Final = "setup/bluetooth/status"
+API_ENDPOINT_BLUETOOTH_SCAN: Final = "setup/bluetooth/scan"
+API_ENDPOINT_BLUETOOTH_RESULTS: Final = "setup/bluetooth/scan_results"
 API_ENDPOINT_REBOOT: Final = "setup/reboot"
+
+# Bluetooth presence tracking constants
+CONF_BLUETOOTH_TRACKING: Final = "bluetooth_tracking"
+CONF_BLUETOOTH_EXCLUDED: Final = "bluetooth_excluded_speakers"
+SUBENTRY_BLUETOOTH_DEVICE: Final = "bluetooth_device"
+CONF_IRK: Final = "irk"
+CONF_ADDITIONAL_DEPARTURE_DELAY: Final = "additional_departure_delay"
+DEPARTURE_DELAY_VALUES: Final = (0, 30, 60, 90, 120)
+CONF_IRK_OR_MAC: Final = "irk_or_mac"
+
+BLUETOOTH_SCAN_INTERVAL: Final = 30
+BLUETOOTH_MAX_RESULT_AGE: Final = 45
+BLUETOOTH_MAX_SCAN_GAP: Final = 15
+BLUETOOTH_TIMEOUT: Final = 4
+BLUETOOTH_PRESENCE_WINDOW: Final = 90
+BLUETOOTH_MIN_RSSI: Final = -80  # dBm
+BLUETOOTH_CONFIRMATION_LEASE: Final = 300
+BLUETOOTH_MATCHED_SOURCE_TIMEOUT: Final = 300
+BLUETOOTH_UNMATCHED_SOURCE_TIMEOUT: Final = 90
+BLUETOOTH_RSSI_WINDOW: Final = 300
+BLUETOOTH_RSSI_MIN_SCANS: Final = 2
 
 HEADER_CAST_LOCAL_AUTH: Final = "cast-local-authorization-token"
 HEADER_CONTENT_TYPE: Final = "content-type"

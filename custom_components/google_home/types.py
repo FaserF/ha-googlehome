@@ -21,6 +21,13 @@ class GoogleHomeAlarmDict(TypedDict):
     recurrence: str | None
 
 
+class BluetoothJsonDict(TypedDict):
+    """Typed dict for a Bluetooth device in a Google Home device's scan results."""
+
+    mac_address: str
+    rssi: int
+
+
 class GoogleHomeTimerDict(TypedDict):
     """Timer dictionary representation."""
 

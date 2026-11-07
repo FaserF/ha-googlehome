@@ -194,5 +194,43 @@
         "assistant_sdk_control": "Steuerungs-Entitäten mit Google Assistant SDK Ausführung (Universelle Sprachbefehl-Weiterleitung via offiziellem Google Assistant SDK)"
       }
     }
+  },
+  "config_subentries": {
+    "bluetooth_device": {
+      "entry_type": "Bluetooth-Gerät",
+      "initiate_flow": {
+        "user": "Bluetooth-Gerät verfolgen"
+      },
+      "step": {
+        "user": {
+          "title": "Bluetooth-Gerät verfolgen",
+          "description": "Gib den IRK eines Smartphones oder die feste MAC-Adresse eines Geräts ein (z. B. Smartwatch oder Beacon). Smartphones ändern ihre BLE-Adresse ständig und müssen per IRK getrackt werden.",
+          "data": {
+            "name": "Name",
+            "irk_or_mac": "IRK oder MAC-Adresse",
+            "additional_departure_delay": "Zusätzliche Abwesenheitsverzögerung"
+          }
+        },
+        "reconfigure": {
+          "title": "Bluetooth-Geräteeinstellungen",
+          "description": "Zusätzliche Abwesenheitsverzögerung für diesen Tracker anpassen.",
+          "data": {
+            "additional_departure_delay": "Zusätzliche Abwesenheitsverzögerung"
+          }
+        }
+      },
+      "error": {
+        "name_empty": "Bitte einen Namen eingeben.",
+        "irk_or_mac": "Bitte einen IRK oder eine MAC-Adresse eingeben.",
+        "irk_invalid": "Ungültiger IRK.",
+        "mac_invalid": "Ungültige MAC-Adresse.",
+        "already_tracked": "Dieses Gerät wird bereits verfolgt.",
+        "departure_delay_invalid": "Bitte eine der aufgelisteten Verzögerungen wählen."
+      },
+      "abort": {
+        "bluetooth_tracking_off": "Bluetooth-Tracking ist deaktiviert. Bitte zuerst in den Optionen aktivieren.",
+        "device_removed": "Dieses Bluetooth-Gerät wurde entfernt."
+      }
+    }
   }
 }

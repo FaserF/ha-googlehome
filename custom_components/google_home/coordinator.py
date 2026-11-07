@@ -8,8 +8,10 @@ from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 from aiohttp import ClientTimeout
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
@@ -240,3 +242,14 @@ class GoogleHomeDataUpdateCoordinator(DataUpdateCoordinator[list[GoogleHomeDevic
                 if device.device_id == device_id:
                     return device
         return self._device_cache.get(device_id)
+
+
+def async_device_disabled(
+    hass: HomeAssistant, config_entry: ConfigEntry, device_id: str
+) -> bool:
+    """Return whether a device is disabled in Home Assistant."""
+    device_registry = dr.async_get(hass)
+    device = device_registry.async_get_device(
+        identifiers={(DOMAIN, device_id)},
+    )
+    return device is not None and device.disabled_by is not None
