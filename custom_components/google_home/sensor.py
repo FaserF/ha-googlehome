@@ -39,6 +39,8 @@ from .const import (
     SERVICE_ATTR_TIMER_ID,
     SERVICE_BROADCAST,
     SERVICE_DELETE_ALARM,
+    SERVICE_DELETE_ALL_ALARMS,
+    SERVICE_DELETE_ALL_TIMERS,
     SERVICE_DELETE_TIMER,
     SERVICE_REBOOT,
     SERVICE_REFRESH,
@@ -272,12 +274,28 @@ async def async_setup_entry(
     )
 
     platform.async_register_entity_service(
+        SERVICE_DELETE_ALL_ALARMS,
+        {
+            vol.Optional(SERVICE_ATTR_SKIP_REFRESH, default=False): cv.boolean,
+        },
+        GoogleHomeAlarmsSensor.async_delete_all_alarms,
+    )
+
+    platform.async_register_entity_service(
         SERVICE_DELETE_TIMER,
         {
             vol.Required(SERVICE_ATTR_TIMER_ID): cv.string,
             vol.Optional(SERVICE_ATTR_SKIP_REFRESH, default=False): cv.boolean,
         },
         GoogleHomeTimersSensor.async_delete_timer,
+    )
+
+    platform.async_register_entity_service(
+        SERVICE_DELETE_ALL_TIMERS,
+        {
+            vol.Optional(SERVICE_ATTR_SKIP_REFRESH, default=False): cv.boolean,
+        },
+        GoogleHomeTimersSensor.async_delete_all_timers,
     )
 
     platform.async_register_entity_service(
@@ -409,6 +427,25 @@ class GoogleHomeAlarmsSensor(GoogleHomeBaseEntity, SensorEntity):
         if not call.data.get(SERVICE_ATTR_SKIP_REFRESH, False):
             await self.coordinator.async_request_refresh()
 
+    async def async_delete_all_alarms(self, call: ServiceCall) -> None:
+        """Service call to delete all alarms on device."""
+        device = self.get_device()
+        if device is None:
+            _LOGGER.error("Device %s is not found.", self.device_name)
+            return
+
+        alarms = device.get_sorted_alarms()
+        alarm_ids = [alarm.alarm_id for alarm in alarms if alarm.alarm_id]
+        if alarm_ids:
+            await self.client.delete_alarm_or_timer(
+                device=device, item_to_delete=alarm_ids
+            )
+            device.clear_alarms()
+            self.coordinator.async_update_listeners()
+
+        if not call.data.get(SERVICE_ATTR_SKIP_REFRESH, False):
+            await self.coordinator.async_request_refresh()
+
     async def async_set_alarm_volume(self, call: ServiceCall) -> None:
         """Service call to set alarm volume on device."""
         device = self.get_device()
@@ -511,6 +548,25 @@ class GoogleHomeTimersSensor(GoogleHomeBaseEntity, SensorEntity):
             return
 
         await self.client.delete_alarm_or_timer(device=device, item_to_delete=timer_id)
+        if not call.data.get(SERVICE_ATTR_SKIP_REFRESH, False):
+            await self.coordinator.async_request_refresh()
+
+    async def async_delete_all_timers(self, call: ServiceCall) -> None:
+        """Service call to delete all timers on device."""
+        device = self.get_device()
+        if device is None:
+            _LOGGER.error("Device %s is not found.", self.device_name)
+            return
+
+        timers = device.get_sorted_timers()
+        timer_ids = [timer.timer_id for timer in timers if timer.timer_id]
+        if timer_ids:
+            await self.client.delete_alarm_or_timer(
+                device=device, item_to_delete=timer_ids
+            )
+            device.clear_timers()
+            self.coordinator.async_update_listeners()
+
         if not call.data.get(SERVICE_ATTR_SKIP_REFRESH, False):
             await self.coordinator.async_request_refresh()
 

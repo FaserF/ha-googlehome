@@ -54,6 +54,38 @@ delete_timer:
       selector:
         boolean:
 
+delete_all_alarms:
+  name: Delete All Alarms
+  description: Deletes all active alarms from the Google Home device.
+  target:
+    entity:
+      integration: google_home
+      domain: sensor
+  fields:
+    skip_refresh:
+      name: Skip Refresh
+      description: Whether to skip immediate data coordinator refresh after deletion.
+      required: false
+      default: false
+      selector:
+        boolean:
+
+delete_all_timers:
+  name: Delete All Timers
+  description: Deletes all active timers from the Google Home device.
+  target:
+    entity:
+      integration: google_home
+      domain: sensor
+  fields:
+    skip_refresh:
+      name: Skip Refresh
+      description: Whether to skip immediate data coordinator refresh after deletion.
+      required: false
+      default: false
+      selector:
+        boolean:
+
 refresh_devices:
   name: Refresh Devices
   description: Manually triggers a coordinator update to refresh all Google Home devices.
