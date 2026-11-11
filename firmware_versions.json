@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-05T10:31:55.010992+00:00",
+  "updated_at": "2026-11-11T10:31:38.181185+00:00",
   "source": "https://support.google.com/googlehome/answer/7365257?hl=en",
   "production": {
     "Google Home Speaker (2026)": {
@@ -41,28 +41,28 @@
   },
   "preview": {
     "Google Home Speaker (2026)": {
-      "firmware_version": "3.78.538897",
-      "release_notes": "Bug fixes and improvements"
+      "firmware_version": "3.79.561352",
+      "release_notes": "Audio & media streaming and volume improvements Setup and connectivity improvements on WiFi issues Google assistant entry experience improvements Smart home control experience improvements Overall performance and stability improvements"
     },
     "Google Nest Audio": {
-      "firmware_version": "3.78.540761",
-      "release_notes": "Improves network traffic"
+      "firmware_version": "3.79.561352",
+      "release_notes": "Audio & media streaming and volume improvements Setup and connectivity improvements on WiFi issues Google assistant entry experience improvements Smart home control experience improvements Overall performance and stability improvements"
     },
     "Google Nest Mini": {
-      "firmware_version": "3.78.540761",
-      "release_notes": "Improves network traffic"
+      "firmware_version": "3.79.561352",
+      "release_notes": "Audio & media streaming and volume improvements Setup and connectivity improvements on WiFi issues Google assistant entry experience improvements Smart home control experience improvements Overall performance and stability improvements"
     },
     "Google Home Max": {
       "firmware_version": "1.56.275994",
       "release_notes": "Bug fixes and improvements"
     },
     "Google Home Mini": {
-      "firmware_version": "3.78.540761",
-      "release_notes": "Improves network traffic"
+      "firmware_version": "3.79.561352",
+      "release_notes": "Audio & media streaming and volume improvements Setup and connectivity improvements on WiFi issues Google assistant entry experience improvements Smart home control experience improvements Overall performance and stability improvements"
     },
     "Google Home": {
-      "firmware_version": "3.78.540761",
-      "release_notes": "Improves network traffic"
+      "firmware_version": "3.79.561352",
+      "release_notes": "Audio & media streaming and volume improvements Setup and connectivity improvements on WiFi issues Google assistant entry experience improvements Smart home control experience improvements Overall performance and stability improvements"
     },
     "Google Nest Hub (2nd gen)": {
       "firmware_version": "32.20260727.103.13702800",
