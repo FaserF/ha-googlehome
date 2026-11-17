@@ -42,7 +42,7 @@ async def local_client(hass, device_registry):
         unique_id="synthetic",
     )
     entry.add_to_hass(hass)
-    with patch("custom_components.google_home.api.GLocalAuthenticationTokens"):
+    with patch("custom_components.google_home.api.client.GLocalAuthenticationTokens"):
         client = GlocaltokensApiClient(hass, MagicMock(), zeroconf_instance=MagicMock())
     client.get_access_token = AsyncMock(return_value="synthetic")
     client.async_get_available_homes = AsyncMock(return_value={})
@@ -82,7 +82,7 @@ async def test_dnd_recovers_ip_with_no_cast_entity(local_client):
         return [CastAddress(HOST, CAST_ID, None)]
 
     with patch(
-        "custom_components.google_home.api.discover_cast_addresses",
+        "custom_components.google_home.api.discovery.discover_cast_addresses",
         new=discover,
     ):
         await switch.async_turn_on()
@@ -107,7 +107,7 @@ async def test_cached_missing_address_is_retried_on_later_poll(local_client):
     client, device, _, _ = local_client
     client._discovery_ids = {device.device_id: "homegraph-agent-id"}
     with patch(
-        "custom_components.google_home.api.discover_cast_addresses",
+        "custom_components.google_home.api.discovery.discover_cast_addresses",
         side_effect=[[], [CastAddress(HOST, CAST_ID, "homegraph-agent-id")]],
     ) as scan:
         assert await client.get_google_devices() == [device]
@@ -149,7 +149,7 @@ async def test_initial_scan_keeps_homegraph_discovery_identity(local_client):
         )
     )
     with patch(
-        "custom_components.google_home.api.discover_cast_addresses",
+        "custom_components.google_home.api.discovery.discover_cast_addresses",
         return_value=[CastAddress(HOST, CAST_ID, "homegraph-agent-id")],
     ):
         devices = await client.get_google_devices()
@@ -170,7 +170,7 @@ async def test_does_not_assign_another_display_address(local_client, kind):
     elif kind == "ambiguous":
         register(registry, entry, cast_ids=(CAST_ID, OTHER_ID))
     with patch(
-        "custom_components.google_home.api.discover_cast_addresses",
+        "custom_components.google_home.api.discovery.discover_cast_addresses",
         return_value=[CastAddress(HOST, OTHER_ID, "homegraph-agent-id")],
     ):
         with pytest.raises(DeviceConnectionError, match="after local discovery"):
@@ -185,7 +185,7 @@ async def test_multiple_addresses_for_identity_are_not_guessed(local_client):
     client, device, _, _ = local_client
     device.cast_uuid = CAST_ID
     with patch(
-        "custom_components.google_home.api.discover_cast_addresses",
+        "custom_components.google_home.api.discovery.discover_cast_addresses",
         return_value=[
             CastAddress(HOST, CAST_ID, None),
             CastAddress("192.0.2.11", CAST_ID, None),
@@ -200,7 +200,7 @@ async def test_concurrent_requests_share_scan(local_client):
     client, device, _, _ = local_client
     device.cast_uuid = CAST_ID
     with patch(
-        "custom_components.google_home.api.discover_cast_addresses",
+        "custom_components.google_home.api.discovery.discover_cast_addresses",
         return_value=[CastAddress(HOST, CAST_ID, None)],
     ) as scan:
         await asyncio.gather(*(client.get_google_devices() for _ in range(3)))
@@ -212,7 +212,7 @@ async def test_concurrent_requests_share_scan(local_client):
 async def test_failed_scan_keeps_cached_device(local_client):
     client, device, _, _ = local_client
     with patch(
-        "custom_components.google_home.api.discover_cast_addresses",
+        "custom_components.google_home.api.discovery.discover_cast_addresses",
         side_effect=OSError("Synthetic discovery failure"),
     ):
         assert await client.get_google_devices() == [device]
@@ -223,7 +223,9 @@ async def test_failed_scan_keeps_cached_device(local_client):
 async def test_known_address_never_scans(local_client):
     client, device, _, _ = local_client
     device.ip_address = HOST
-    with patch("custom_components.google_home.api.discover_cast_addresses") as scan:
+    with patch(
+        "custom_components.google_home.api.discovery.discover_cast_addresses"
+    ) as scan:
         assert await client.get_google_devices() == [device]
     scan.assert_not_called()
 
