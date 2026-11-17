@@ -9,7 +9,7 @@
   "rangeStrategy": "pin",
   "packageRules": [
     {
-      "matchPackageNames": ["pychromecast"],
+      "matchPackageNames": ["pychromecast", "bluetooth-data-tools"],
       "rangeStrategy": "replace"
     },
     {
