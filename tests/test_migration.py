@@ -32,7 +32,7 @@ async def test_migration_from_leikoilja_with_master_token():
     entry.unique_id = "old_unique_id"
     entry.data = {
         CONF_USERNAME: "test@gmail.com",
-        CONF_PASSWORD: "secret_password",
+        CONF_[REDACTED_SECRET_07773],
         CONF_MASTER_TOKEN: "aas_et/example_token",
         CONF_ANDROID_ID: "android_12345",
         CONF_UPDATE_INTERVAL: 180,
