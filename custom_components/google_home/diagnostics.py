@@ -23,12 +23,18 @@ REDACT_CONFIG = {
     CONF_USERNAME,
     CONF_MASTER_TOKEN,
     CONF_ANDROID_ID,
+    "refresh_token",
+    "access_token",
+    "token",
+    "cookie",
+    "email",
 }
 
 REDACT_DEVICE = {
     "auth_token",
     "ip_address",
     "device_id",
+    "mac_address",
 }
 
 
