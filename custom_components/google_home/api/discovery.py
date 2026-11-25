@@ -34,17 +34,19 @@ class DiscoveryMixin:
     _last_address_discovery: float | None
     _client: GLocalAuthenticationTokens
 
-    async def get_access_token(self) -> str:
-        """Declared for type checkers; implemented in AuthMixin."""
-        raise NotImplementedError
+    if TYPE_CHECKING:
 
-    async def async_get_available_homes(self) -> dict[str, str]:
-        """Declared for type checkers; implemented in AuthMixin."""
-        raise NotImplementedError
+        async def get_access_token(self) -> str:
+            """Declared for type checkers; implemented in AuthMixin."""
+            raise NotImplementedError
 
-    def create_url(self, ip_address: str, endpoint: str) -> str:
-        """Declared for type checkers; implemented in OperationsMixin."""
-        raise NotImplementedError
+        async def async_get_available_homes(self) -> dict[str, str]:
+            """Declared for type checkers; implemented in AuthMixin."""
+            raise NotImplementedError
+
+        def create_url(self, ip_address: str, endpoint: str) -> str:
+            """Declared for type checkers; implemented in OperationsMixin."""
+            raise NotImplementedError
 
     async def get_google_devices(
         self, force_reload: bool = False
