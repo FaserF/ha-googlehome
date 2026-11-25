@@ -10,7 +10,7 @@ from custom_components.google_home.const import CONF_MASTER_TOKEN, CONF_USERNAME
 
 
 @pytest.mark.parametrize(
-    "token", ["oauth2_4/synthetic", "1//synthetic", "aas_et/synthetic"]
+    "token", ["oauth2_4/synthetic", "1//synthetic", "aas_et/" + "s" * 200]
 )
 def test_client_routes_token_to_real_library(token):
     """Exercise glocaltokens' real constructor validation without contacting Google."""

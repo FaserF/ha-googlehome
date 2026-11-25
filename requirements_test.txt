@@ -1,2 +1,5 @@
 # Home Assistant fixtures include registry initialization and strict teardown checks.
 pytest-homeassistant-custom-component
+glocaltokens>=2.1.0
+bluetooth-data-tools>=1.29.24
+pychromecast>=14.1.1
