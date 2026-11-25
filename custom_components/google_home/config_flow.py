@@ -69,9 +69,9 @@ from .exceptions import (
 _LOGGER: logging.Logger = logging.getLogger(__package__)
 
 
-from .options_flow import GoogleHomeOptionsFlowHandler, _async_service_options
-from .reauth_flow import ReauthFlowMixin
-from .subentry_flow import BluetoothDeviceSubentryFlow
+from .options_flow import GoogleHomeOptionsFlowHandler, _async_service_options  # noqa: E402
+from .reauth_flow import ReauthFlowMixin  # noqa: E402
+from .subentry_flow import BluetoothDeviceSubentryFlow  # noqa: E402
 
 
 class GoogleHomeFlowHandler(ConfigFlow, AddonFlowMixin, ReauthFlowMixin, domain=DOMAIN):  # type: ignore[call-arg]

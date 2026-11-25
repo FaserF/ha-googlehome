@@ -588,7 +588,7 @@ class GoogleHomeTimersSensor(GoogleHomeBaseEntity, SensorEntity):
             await self.coordinator.async_request_refresh()
 
 
-from .sensor_cloud import (
+from .sensor_cloud import (  # noqa: E402
     GoogleHomeBriefsSensor,
     GoogleHomeClockNightlightSensor,
     GoogleHomeCloudBridgeSensor,
